@@ -167,4 +167,29 @@ export const ADMIN_HELP_REGISTRY: Record<string, AdminHelpSection> = {
       },
     ],
   },
+  "/admin/settings": {
+    title: "Business Settings & Store Configuration",
+    description: "Manage global business identity, GST tax policy, store operational status, order value thresholds, and SEO metadata.",
+    sections: [
+      {
+        heading: "Store Operational Status",
+        content: [
+          "• OPEN: Storefront accepts new print orders and allows smooth checkout.",
+          "• PAUSED: Storefront remains browseable for customers, but new checkout and order placements are blocked with an informative message.",
+        ],
+      },
+      {
+        heading: "GST Tax Strategy (Inclusive vs. Exclusive)",
+        content: [
+          "• Inclusive: Catalog prices show MRP inclusive of GST. Invoices break down the embedded tax automatically.",
+          "• Exclusive: Tax is computed as a transparent surcharge at checkout based on the configured basis points rate.",
+        ],
+      },
+      {
+        heading: "Optimistic Concurrency Protection",
+        variant: "tip",
+        content: "All setting updates are protected by database version locks. If multiple admins make changes simultaneously, updates require refreshing to prevent overwriting.",
+      },
+    ],
+  },
 };

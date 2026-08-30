@@ -111,7 +111,6 @@ export const ADMIN_NAVIGATION: AdminNavSection[] = [
         title: "Store Settings",
         href: "/admin/settings",
         icon: Sliders,
-        badge: "Phase 10L",
       },
     ],
   },
