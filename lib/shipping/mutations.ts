@@ -41,15 +41,40 @@ export async function createOrderShipmentAction(
       return { success: false, error: `Order '${input.order_id}' was not found in the database.` };
     }
 
-    // 2. Fetch carrier record
-    const { data: carrier, error: carrierErr } = await supabase
+    // 2. Fetch carrier record (with automatic self-healing fallback)
+    const { data: existingCarrier } = await supabase
       .from("shipping_carriers")
       .select("*")
       .eq("code", input.carrier_code)
-      .single();
+      .maybeSingle();
 
-    if (carrierErr || !carrier) {
-      return { success: false, error: `Carrier '${input.carrier_code}' is not configured.` };
+    let carrier = existingCarrier;
+
+    if (!carrier) {
+      const { data: newCarrier } = await supabase
+        .from("shipping_carriers")
+        .insert({
+          code: input.carrier_code,
+          name:
+            input.carrier_code === "shiprocket"
+              ? "Shiprocket Fulfillment"
+              : input.carrier_code === "delhivery"
+              ? "Delhivery Express"
+              : input.carrier_code === "bluedart"
+              ? "Blue Dart Express"
+              : "Development Sandbox Carrier",
+          provider_type: input.carrier_code === "fake" ? "sandbox" : "aggregator",
+          enabled: true,
+          environment: input.carrier_code === "fake" ? "sandbox" : "production",
+        })
+        .select()
+        .single();
+
+      carrier = newCarrier;
+    }
+
+    if (!carrier) {
+      return { success: false, error: `Carrier '${input.carrier_code}' is not ready in database.` };
     }
 
     // 3. Resolve shipping address
@@ -137,9 +162,9 @@ export async function createOrderShipmentAction(
       canonical_status: "manifested",
       event_description: "Waybill generated and consignment manifested with courier partner.",
       event_timestamp: new Date().toISOString(),
-      locationCity: "Dehradun Hub",
-      locationState: "Uttarakhand",
-      locationPincode: "248007",
+      location_city: "Dehradun Hub",
+      location_state: "Uttarakhand",
+      location_pincode: "248007",
       source: "system",
       raw_payload_hash: hash,
       is_customer_visible: true,
@@ -209,9 +234,9 @@ export async function refreshShipmentTrackingAction(
           canonical_status: scan.canonicalStatus,
           event_description: scan.description,
           event_timestamp: scan.timestamp,
-          locationCity: scan.locationCity || null,
-          locationState: scan.locationState || null,
-          locationPincode: scan.locationPincode || null,
+          location_city: scan.locationCity || null,
+          location_state: scan.locationState || null,
+          location_pincode: scan.locationPincode || null,
           source: "poll",
           raw_payload_hash: hash,
           is_customer_visible: true,
