@@ -49,27 +49,39 @@ export function AdminShippingClientView({
   const orderList = React.useMemo(() => {
     if (!isHydrated) return availableOrders;
     try {
-      const raw = localStorage.getItem("printo_orders_storage");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const localOrders = parsed.state?.orders || [];
-        const mapped = localOrders.map((o: { id: string; invoiceNumber?: string; customer?: { fullName?: string }; lines?: unknown[]; cost?: { total?: number } }) => ({
-          id: o.invoiceNumber || o.id,
-          order_number: o.invoiceNumber || o.id,
-          total: o.cost?.total || 0,
-          customer_name: o.customer?.fullName || "Customer",
-        }));
-
-        const existingNumbers = new Set(availableOrders.map((x) => x.order_number));
-        const merged = [...availableOrders];
-        for (const lo of mapped) {
-          if (!existingNumbers.has(lo.order_number)) {
-            merged.unshift(lo);
-            existingNumbers.add(lo.order_number);
+      const keys = ["printo-orders-storage", "printo_orders_storage"];
+      let localOrders: Array<{ id: string; invoiceNumber?: string; customer?: { fullName?: string }; lines?: unknown[]; cost?: { total?: number } }> = [];
+      
+      for (const k of keys) {
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed.state?.orders)) {
+              localOrders = [...localOrders, ...parsed.state.orders];
+            }
+          } catch {
+            // ignore
           }
         }
-        return merged;
       }
+
+      const mapped = localOrders.map((o) => ({
+        id: o.invoiceNumber || o.id,
+        order_number: o.invoiceNumber || o.id,
+        total: o.cost?.total || 0,
+        customer_name: o.customer?.fullName || "Customer",
+      }));
+
+      const existingNumbers = new Set(availableOrders.map((x) => x.order_number));
+      const merged = [...availableOrders];
+      for (const lo of mapped) {
+        if (!existingNumbers.has(lo.order_number)) {
+          merged.unshift(lo);
+          existingNumbers.add(lo.order_number);
+        }
+      }
+      return merged;
     } catch {
       // ignore
     }

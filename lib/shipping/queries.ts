@@ -118,33 +118,47 @@ export async function fetchAdminShipments(params?: {
 
   const { data: recentOrders } = await supabase
     .from("orders")
-    .select("id, order_number, total, shipping_address, customer_snapshot")
+    .select("id, order_number, total, customer_snapshot, delivery_snapshot, shipping_address")
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(100);
 
-  let availableOrders = (recentOrders || []).map((o: { id: string; order_number: string; total: number; shipping_address: unknown; customer_snapshot?: unknown }) => {
-    const sAddr = (o.shipping_address as Record<string, unknown>) || {};
+  let availableOrders = (recentOrders || []).map((o: {
+    id: string;
+    order_number: string;
+    total: number;
+    customer_snapshot?: unknown;
+    delivery_snapshot?: unknown;
+    shipping_address?: unknown;
+  }) => {
     const cSnap = (o.customer_snapshot as Record<string, unknown>) || {};
-    const customerName = String(sAddr.recipient_name || sAddr.full_name || cSnap.fullName || "Customer");
+    const dSnap = (o.delivery_snapshot as Record<string, unknown>) || {};
+    const sAddr = (o.shipping_address as Record<string, unknown>) || {};
+    const customerName = String(
+      cSnap.fullName ||
+      cSnap.name ||
+      dSnap.fullName ||
+      sAddr.recipient_name ||
+      sAddr.full_name ||
+      "Customer"
+    );
+
     return {
       id: o.id,
       order_number: o.order_number,
-      total: o.total,
+      total: Number(o.total) || 0,
       customer_name: customerName,
     };
   });
 
-  // Fallback defaults from existing orders if direct DB select is restricted
+  // Fallback defaults from seed demo orders if table is completely empty
   if (availableOrders.length === 0) {
     availableOrders = [
+      { id: "PRT-2026-5120", order_number: "PRT-2026-5120", total: 558.2, customer_name: "Anil" },
+      { id: "PRT-2026-7680", order_number: "PRT-2026-7680", total: 2872.8, customer_name: "Anil" },
       { id: "PRT-2026-2945", order_number: "PRT-2026-2945", total: 378, customer_name: "Anil" },
       { id: "PRT-2026-8778", order_number: "PRT-2026-8778", total: 797.8, customer_name: "Rishu" },
       { id: "PRT-2026-8344", order_number: "PRT-2026-8344", total: 1885.64, customer_name: "Anil" },
       { id: "PRT-2026-7701", order_number: "PRT-2026-7701", total: 903.82, customer_name: "Rishu" },
-      { id: "PRT-2026-8399", order_number: "PRT-2026-8399", total: 903.82, customer_name: "Rishu" },
-      { id: "PRT-2026-8743", order_number: "PRT-2026-8743", total: 1172.86, customer_name: "Rishu" },
-      { id: "PRT-2026-3528", order_number: "PRT-2026-3528", total: 667.82, customer_name: "Rishu" },
-      { id: "PRT-2026-1846", order_number: "PRT-2026-1846", total: 667.82, customer_name: "Rishu" },
     ];
   }
 
@@ -154,7 +168,6 @@ export async function fetchAdminShipments(params?: {
     .select(`
       *,
       carrier:shipping_carriers(*),
-      order:orders(order_number, total, shipping_address),
       packages:shipping_packages(*)
     `)
     .order("created_at", { ascending: false })
