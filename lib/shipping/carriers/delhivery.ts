@@ -67,7 +67,7 @@ export class DelhiveryCarrierAdapter implements CarrierAdapter {
           },
         ],
         pickup_location: {
-          name: "Print Studio Dehradun",
+          name: process.env.DELHIVERY_PICKUP_LOCATION || "SERVENTICA B2C",
           add: "Rajpur Road",
           city: "Dehradun",
           pin_code: "248001",
