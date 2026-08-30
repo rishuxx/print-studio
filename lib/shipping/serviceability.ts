@@ -31,10 +31,10 @@ export interface ServiceabilityCheckResult {
 export async function checkPincodeServiceabilityLive(
   pincode: string,
   weightGrams = 500,
-  city = "Dehradun",
-  state = "Uttarakhand"
+  city = "",
+  state = ""
 ): Promise<ServiceabilityCheckResult> {
-  const cleanPin = pincode.replace(/\D/g, "");
+  const cleanPin = pincode.replace(/\D/g, "").slice(0, 6);
   const now = new Date();
 
   const getEta = (days: number) => {
@@ -42,17 +42,20 @@ export async function checkPincodeServiceabilityLive(
     return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
   };
 
-  // 1. Check live Delhivery Pincode Serviceability API & Freight Rate Calculation
+  // 1. Live Delhivery Pincode Serviceability & Real Rate API Query
   const delhiveryToken = process.env.DELHIVERY_API_TOKEN;
   let delhiveryLiveServiceable = false;
   let delhiveryPrepaid = false;
   let delhiveryCod = false;
   let delhiveryRemarks = "";
+  let delhiveryDistrict = "";
+  let delhiveryState = "";
   let delhiveryRealPrice = 0;
+  let isOda = false;
 
   if (delhiveryToken && cleanPin.length === 6) {
     try {
-      // A. Check live pincode coverage
+      // Step A: Live Pincode Verification from Delhivery Gateway
       const res = await fetch(
         `https://track.delhivery.com/c/api/pin-codes/json/?filter_codes=${cleanPin}`,
         {
@@ -60,22 +63,28 @@ export async function checkPincodeServiceabilityLive(
           next: { revalidate: 3600 },
         }
       );
+
       if (res.ok) {
         const data = await res.json();
         const pinData = data?.delivery_codes?.[0]?.postal_code;
         if (pinData) {
           delhiveryPrepaid = pinData.pre_paid === "Y";
           delhiveryCod = pinData.cod === "Y";
-          delhiveryLiveServiceable = pinData.pre_paid === "Y" || pinData.is_oda === "N";
+          isOda = pinData.is_oda === "Y";
+          delhiveryDistrict = pinData.district || "";
+          delhiveryState = pinData.state_code || "";
+          
+          // Official Delhivery Logic: Serviceable if pre_paid is Y and not blacklisted
+          delhiveryLiveServiceable = (pinData.pre_paid === "Y" || pinData.cod === "Y") && !pinData.protect_blacklist;
           if (!delhiveryLiveServiceable) {
-            delhiveryRemarks = pinData.remarks || "ODA / Restricted Area";
+            delhiveryRemarks = pinData.remarks || "Pincode is marked non-serviceable by Delhivery.";
           }
         }
       }
 
-      // B. Fetch live authoritative rate from Delhivery Invoice/Rate Calculator API
+      // Step B: Live Authoritative Freight Calculation from Delhivery Rating Engine
       if (delhiveryLiveServiceable) {
-        const originPin = "248001"; // Print Studio Dehradun central hub
+        const originPin = "248001"; // Print Studio Dehradun Hub
         const rateUrl = `https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=S&ss=Delivered&d_pin=${cleanPin}&o_pin=${originPin}&cgm=${weightGrams}&pt=Pre-paid`;
         const rateRes = await fetch(rateUrl, {
           headers: { Authorization: `Token ${delhiveryToken}` },
@@ -90,74 +99,50 @@ export async function checkPincodeServiceabilityLive(
         }
       }
     } catch {
-      // API fallback
+      // Gateway fallback
     }
   }
-
-  // 2. Zone & Carrier Matrix
-  const isLocalDehradun = cleanPin.startsWith("248");
-  const isSpecialHillyRemote = cleanPin.startsWith("249") || cleanPin.startsWith("246") || cleanPin.startsWith("19") || cleanPin.startsWith("79");
-  const isNorthZone = ["11", "12", "13", "14", "15", "16", "20", "24", "25", "30"].some((p) =>
-    cleanPin.startsWith(p)
-  );
-
-  // If Delhivery API confirmed, use live data; otherwise apply strict geographic coverage rules
-  const isDelhiveryValid = delhiveryToken
-    ? delhiveryLiveServiceable
-    : isLocalDehradun || isNorthZone;
-
-  // Blue Dart only services Tier 1 / Tier 2 Air Hubs (Not remote mountainous like 249141)
-  const isBlueDartValid = (isLocalDehradun || isNorthZone) && !isSpecialHillyRemote;
-
-  // Shiprocket aggregator services wider pincodes via multi-carrier fallback
-  const isShiprocketValid = !cleanPin.startsWith("000") && cleanPin.length === 6;
-
-  const delhiveryDays = isLocalDehradun ? 1 : isSpecialHillyRemote ? 4 : isNorthZone ? 2 : 3;
-  const shiprocketDays = isLocalDehradun ? 1 : isSpecialHillyRemote ? 4 : 3;
-  const blueDartDays = 1;
 
   const options: CarrierServiceabilityOption[] = [
     {
       carrierCode: "delhivery",
       carrierName: "Delhivery Express (Live API)",
-      isServiceable: isDelhiveryValid,
-      unserviceableReason: isDelhiveryValid ? undefined : delhiveryRemarks || "Pincode is unserviceable / out of delivery area (ODA) by Delhivery.",
-      transitDays: delhiveryDays,
-      deliverySpeed: isLocalDehradun ? "Express (1-2 Days)" : "Standard (3-4 Days)",
-      estimatedDeliveryDate: getEta(delhiveryDays),
-      mode: isLocalDehradun ? "Surface" : "Air / Express",
+      isServiceable: delhiveryLiveServiceable,
+      unserviceableReason: delhiveryLiveServiceable ? undefined : (delhiveryRemarks || "Pincode is unserviceable by Delhivery."),
+      transitDays: isOda ? 4 : 3,
+      deliverySpeed: isOda ? "Standard (3-4 Days)" : "Express (1-2 Days)",
+      estimatedDeliveryDate: getEta(isOda ? 4 : 3),
+      mode: "Air / Express",
       codAvailable: delhiveryCod,
-      prepaidAvailable: delhiveryPrepaid || isDelhiveryValid,
-      recommendedBadge: isDelhiveryValid ? "Live Delhivery API" : undefined,
-      rateEstimateInr: isDelhiveryValid ? (delhiveryRealPrice || Math.round(38 + (weightGrams / 500) * 15)) : 0,
+      prepaidAvailable: delhiveryPrepaid,
+      recommendedBadge: delhiveryLiveServiceable ? (isOda ? "Available (Buffer ODA)" : "Best Direct Coverage") : undefined,
+      rateEstimateInr: delhiveryLiveServiceable ? (delhiveryRealPrice || 45) : 0,
     },
     {
       carrierCode: "shiprocket",
       carrierName: "Shiprocket Fulfillment (Aggregator)",
-      isServiceable: isShiprocketValid,
-      unserviceableReason: isShiprocketValid ? undefined : "Pincode not serviceable by Shiprocket surface partners.",
-      transitDays: shiprocketDays,
-      deliverySpeed: isSpecialHillyRemote ? "Standard (3-4 Days)" : "Standard (3-4 Days)",
-      estimatedDeliveryDate: getEta(shiprocketDays),
+      isServiceable: cleanPin.length === 6 && !cleanPin.startsWith("000"),
+      transitDays: 3,
+      deliverySpeed: "Standard (3-4 Days)",
+      estimatedDeliveryDate: getEta(3),
       mode: "Surface",
       codAvailable: true,
       prepaidAvailable: true,
-      recommendedBadge: isShiprocketValid && !isDelhiveryValid ? "Recommended Backup Partner" : undefined,
-      rateEstimateInr: isShiprocketValid ? Math.round(58 + (weightGrams / 500) * 20) : 0,
+      recommendedBadge: !delhiveryLiveServiceable ? "Recommended Backup Partner" : undefined,
+      rateEstimateInr: Math.round(58 + (weightGrams / 500) * 20),
     },
     {
       carrierCode: "bluedart",
       carrierName: "Blue Dart Apex (Air Priority)",
-      isServiceable: isBlueDartValid,
-      unserviceableReason: isBlueDartValid ? undefined : "Air express route unavailable for remote/rural pincode.",
-      transitDays: blueDartDays,
+      isServiceable: cleanPin.length === 6 && !cleanPin.startsWith("000"),
+      transitDays: 2,
       deliverySpeed: "Express (1-2 Days)",
-      estimatedDeliveryDate: getEta(blueDartDays),
+      estimatedDeliveryDate: getEta(2),
       mode: "Air / Express",
       codAvailable: false,
-      prepaidAvailable: isBlueDartValid,
-      recommendedBadge: isBlueDartValid ? "Fastest Air Courier" : undefined,
-      rateEstimateInr: isBlueDartValid ? Math.round(95 + (weightGrams / 500) * 40) : 0,
+      prepaidAvailable: true,
+      recommendedBadge: "Air Priority",
+      rateEstimateInr: Math.round(95 + (weightGrams / 500) * 40),
     },
     {
       carrierCode: "fake",
@@ -178,8 +163,8 @@ export async function checkPincodeServiceabilityLive(
 
   return {
     pincode: cleanPin,
-    city,
-    state,
+    city: delhiveryDistrict || city || "India",
+    state: delhiveryState || state || "India",
     originHub: "Dehradun Central Fulfillment Center (248001)",
     hasAnyServiceableCarrier: hasAnyServiceable,
     options,
@@ -189,10 +174,11 @@ export async function checkPincodeServiceabilityLive(
 export function checkPincodeServiceability(
   pincode: string,
   weightGrams = 500,
-  city = "Bangalore",
-  state = "Karnataka"
+  city = "",
+  state = ""
 ): ServiceabilityCheckResult {
-  const cleanPin = pincode.replace(/\D/g, "");
+  const cleanPin = pincode.replace(/\D/g, "").slice(0, 6);
+  const isValidPin = cleanPin.length === 6 && !cleanPin.startsWith("000");
   const now = new Date();
 
   const getEta = (days: number) => {
@@ -200,58 +186,43 @@ export function checkPincodeServiceability(
     return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
   };
 
-  const isLocalDehradun = cleanPin.startsWith("248");
-  const isSpecialHillyRemote = cleanPin.startsWith("249") || cleanPin.startsWith("246") || cleanPin.startsWith("19") || cleanPin.startsWith("79");
-  
-  // All valid 6-digit Indian PIN codes are serviceable by Delhivery Direct Express across Tier 1, Tier 2 & Tier 3 cities (e.g. 560xxx Bangalore, 110xxx Delhi, 400xxx Mumbai, etc.)
-  const isDelhiveryValid = cleanPin.length === 6 && !cleanPin.startsWith("000") && !isSpecialHillyRemote;
-  const isBlueDartValid = cleanPin.length === 6 && !cleanPin.startsWith("000") && !isSpecialHillyRemote;
-  const isShiprocketValid = cleanPin.length === 6 && !cleanPin.startsWith("000");
-
-  const delhiveryDays = isLocalDehradun ? 1 : isSpecialHillyRemote ? 4 : 3;
-  const shiprocketDays = isSpecialHillyRemote ? 4 : 3;
-
   const options: CarrierServiceabilityOption[] = [
     {
       carrierCode: "delhivery",
       carrierName: "Delhivery Express (Live API)",
-      isServiceable: isDelhiveryValid,
-      unserviceableReason: isDelhiveryValid ? undefined : "Out of Delivery Area (ODA) for this PIN.",
-      transitDays: delhiveryDays,
-      deliverySpeed: isLocalDehradun ? "Express (1-2 Days)" : "Standard (3-4 Days)",
-      estimatedDeliveryDate: getEta(delhiveryDays),
-      mode: isLocalDehradun ? "Surface" : "Air / Express",
-      codAvailable: isDelhiveryValid,
-      prepaidAvailable: isDelhiveryValid,
-      recommendedBadge: isDelhiveryValid ? "Best Direct Coverage" : undefined,
-      rateEstimateInr: isDelhiveryValid ? Math.round(45 + (weightGrams / 500) * 20) : 0,
+      isServiceable: isValidPin,
+      transitDays: 3,
+      deliverySpeed: "Express (1-2 Days)",
+      estimatedDeliveryDate: getEta(3),
+      mode: "Air / Express",
+      codAvailable: true,
+      prepaidAvailable: true,
+      recommendedBadge: "Direct API Carrier",
+      rateEstimateInr: Math.round(38 + (weightGrams / 500) * 15),
     },
     {
       carrierCode: "shiprocket",
       carrierName: "Shiprocket Fulfillment (Aggregator)",
-      isServiceable: isShiprocketValid,
-      unserviceableReason: isShiprocketValid ? undefined : "Pincode not serviceable.",
-      transitDays: shiprocketDays,
+      isServiceable: isValidPin,
+      transitDays: 3,
       deliverySpeed: "Standard (3-4 Days)",
-      estimatedDeliveryDate: getEta(shiprocketDays),
+      estimatedDeliveryDate: getEta(3),
       mode: "Surface",
       codAvailable: true,
       prepaidAvailable: true,
-      recommendedBadge: !isDelhiveryValid ? "Active Coverage" : undefined,
-      rateEstimateInr: isShiprocketValid ? Math.round(58 + (weightGrams / 500) * 20) : 0,
+      rateEstimateInr: Math.round(58 + (weightGrams / 500) * 20),
     },
     {
       carrierCode: "bluedart",
       carrierName: "Blue Dart Apex (Air Priority)",
-      isServiceable: isBlueDartValid,
-      unserviceableReason: isBlueDartValid ? undefined : "Air express unavailable for this rural PIN.",
+      isServiceable: isValidPin,
       transitDays: 2,
       deliverySpeed: "Express (1-2 Days)",
       estimatedDeliveryDate: getEta(2),
       mode: "Air / Express",
       codAvailable: false,
-      prepaidAvailable: isBlueDartValid,
-      rateEstimateInr: isBlueDartValid ? Math.round(95 + (weightGrams / 500) * 40) : 0,
+      prepaidAvailable: true,
+      rateEstimateInr: Math.round(95 + (weightGrams / 500) * 40),
     },
     {
       carrierCode: "fake",
@@ -263,17 +234,17 @@ export function checkPincodeServiceability(
       mode: "Surface",
       codAvailable: true,
       prepaidAvailable: true,
-      recommendedBadge: "Zero Cost Local Test",
+      recommendedBadge: "Test Sandbox Mode",
       rateEstimateInr: 0,
     },
   ];
 
   return {
     pincode: cleanPin,
-    city,
-    state,
+    city: city || "India",
+    state: state || "India",
     originHub: "Dehradun Central Fulfillment Center (248001)",
-    hasAnyServiceableCarrier: options.some((o) => o.carrierCode !== "fake" && o.isServiceable),
+    hasAnyServiceableCarrier: isValidPin,
     options,
   };
 }
