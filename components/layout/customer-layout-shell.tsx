@@ -125,29 +125,29 @@ export function CustomerLayoutShell({ children }: CustomerLayoutShellProps) {
       {isMaintenance && isAdmin && (
         <aside
           aria-label="Maintenance mode active preview notice"
-          className="sticky top-0 z-[120] bg-rose-600 text-white px-4 py-2.5 text-xs font-bold flex flex-wrap items-center justify-between gap-3 shadow-lg border-b border-rose-700 animate-in slide-in-from-top duration-300"
+          className="sticky top-0 z-[120] bg-amber-50 border-b border-amber-200/90 text-amber-950 px-4 py-2 text-xs font-semibold flex flex-wrap items-center justify-between gap-3 shadow-xs animate-in slide-in-from-top duration-300"
         >
           <div className="flex items-center gap-2">
-            <ShieldAlert className="size-4.5 text-amber-300 animate-pulse shrink-0" />
+            <ShieldAlert className="size-4 text-amber-600 shrink-0" />
             <span>
-              ⚠️ <strong>STOREFRONT MAINTENANCE IS ACTIVE:</strong> Public customers are currently blocked by the maintenance screen. You are viewing with Admin Bypass.
+              <strong className="text-amber-900">Maintenance Mode Active:</strong> Public visitors see the maintenance screen. You are viewing with Administrator Bypass.
             </span>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSimulateCustomerView(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 text-xs text-white hover:bg-white/25 transition-colors border border-white/20"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-[0.6875rem] font-bold text-amber-900 hover:bg-amber-100/60 transition-colors shadow-2xs"
             >
-              <EyeOff className="size-3.5" />
+              <EyeOff className="size-3 text-amber-700" />
               <span>Simulate Customer View</span>
             </button>
             <Link
               href="/admin/settings"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-white text-rose-700 px-3 py-1 text-xs font-bold hover:bg-white/90 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 text-white px-2.5 py-1 text-[0.6875rem] font-bold hover:bg-amber-700 transition-colors shadow-2xs"
             >
-              <Settings className="size-3.5" />
-              <span>Manage in Settings</span>
+              <Settings className="size-3" />
+              <span>Open Settings</span>
             </Link>
           </div>
         </aside>
