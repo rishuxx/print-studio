@@ -377,57 +377,149 @@ export function AdminCustomerDetailClientView({ customer: initialCustomer }: Adm
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-border bg-paper/50 font-mono uppercase text-[0.6875rem] text-muted-foreground">
-                  <th className="py-2.5 px-3 font-bold text-ink">Order No.</th>
+                  <th className="py-2.5 px-3 font-bold text-ink">Event / Order Summary</th>
+                  <th className="py-2.5 px-3 font-bold text-ink">Type</th>
                   <th className="py-2.5 px-3 font-bold text-ink">Date</th>
-                  <th className="py-2.5 px-3 font-bold text-ink">Status</th>
-                  <th className="py-2.5 px-3 font-bold text-ink">Payment</th>
-                  <th className="py-2.5 px-3 font-bold text-ink text-right">Total Payable</th>
                   <th className="py-2.5 px-3 font-bold text-ink text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                <tr className="hover:bg-paper/30">
-                  <td className="py-3 px-3 font-mono font-bold text-violet">ORD-20260830-101</td>
-                  <td className="py-3 px-3 text-muted-foreground">30 Aug 2026</td>
-                  <td className="py-3 px-3">
-                    <span className="px-2 py-0.5 rounded text-[0.625rem] font-bold bg-blue-50 text-blue-700 border border-blue-200 uppercase font-mono">
-                      in_production
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="px-2 py-0.5 rounded text-[0.625rem] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase font-mono">
-                      paid
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 text-right font-mono font-extrabold text-ink">₹1,499.00</td>
-                  <td className="py-3 px-3 text-right">
-                    <Link href="/admin/orders" className="text-violet font-bold hover:underline">
-                      View Order &rarr;
-                    </Link>
-                  </td>
-                </tr>
-                <tr className="hover:bg-paper/30">
-                  <td className="py-3 px-3 font-mono font-bold text-violet">ORD-20260825-084</td>
-                  <td className="py-3 px-3 text-muted-foreground">25 Aug 2026</td>
-                  <td className="py-3 px-3">
-                    <span className="px-2 py-0.5 rounded text-[0.625rem] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase font-mono">
-                      delivered
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="px-2 py-0.5 rounded text-[0.625rem] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase font-mono">
-                      paid
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 text-right font-mono font-extrabold text-ink">₹3,351.00</td>
-                  <td className="py-3 px-3 text-right">
-                    <Link href="/admin/orders" className="text-violet font-bold hover:underline">
-                      View Order &rarr;
-                    </Link>
-                  </td>
-                </tr>
+                {customer.activity_events && customer.activity_events.filter(e => e.event_type === "order_created").length > 0 ? (
+                  customer.activity_events.filter(e => e.event_type === "order_created").map((act) => (
+                    <tr key={act.id} className="hover:bg-paper/30">
+                      <td className="py-3 px-3 font-mono font-bold text-ink">{act.summary}</td>
+                      <td className="py-3 px-3">
+                        <span className="px-2 py-0.5 rounded text-[0.625rem] font-bold bg-blue-50 text-blue-700 border border-blue-200 uppercase font-mono">
+                          {act.event_source}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-muted-foreground font-mono">
+                        {new Date(act.created_at).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <Link href="/admin/orders" className="text-violet font-bold hover:underline">
+                          View Orders &rarr;
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-muted-foreground bg-paper/30 rounded-xl">
+                      No print orders recorded for this customer yet.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: PAYMENTS & INVOICES */}
+      {activeTab === "payments" && (
+        <div className="bg-white rounded-2xl border border-border p-6 shadow-xs space-y-4 text-xs">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <h3 className="font-display text-sm font-bold text-ink">Payments & Tax Invoices</h3>
+            <span className="text-muted-foreground font-mono">Total Paid: {formatCurrency(customer.paid_value_minor)}</span>
+          </div>
+
+          <div className="p-4 rounded-xl bg-paper/40 border border-border flex items-center justify-between">
+            <div>
+              <div className="font-bold text-ink">Lifetime Verified Transactions</div>
+              <div className="text-muted-foreground text-[0.6875rem]">Total gross spend reconciled with Razorpay gateway</div>
+            </div>
+            <div className="font-display text-lg font-black text-emerald-700">{formatCurrency(customer.paid_value_minor)}</div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 4: SAVED ADDRESSES */}
+      {activeTab === "addresses" && (
+        <div className="bg-white rounded-2xl border border-border p-6 shadow-xs space-y-6 text-xs">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <div>
+              <h3 className="font-display text-sm font-bold text-ink">Customer Address Book</h3>
+              <p className="text-xs text-muted-foreground">Addresses saved during checkout or from customer account settings.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {customer.addresses && customer.addresses.length > 0 ? (
+              customer.addresses.map((addr) => (
+                <div key={addr.id} className="p-4 rounded-2xl border border-border bg-paper/40 space-y-2 relative">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-ink text-sm">{addr.recipient_name}</span>
+                    {addr.is_default_shipping && (
+                      <span className="px-2 py-0.5 rounded text-[0.625rem] bg-emerald-50 text-emerald-700 font-mono font-bold border border-emerald-200">
+                        Default Address
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-muted-foreground">
+                    {addr.address_line_1}
+                    {addr.address_line_2 && `, ${addr.address_line_2}`}
+                  </p>
+                  <div className="font-mono font-bold text-ink">
+                    {addr.city}, {addr.state} - {addr.postal_code}
+                  </div>
+                  <div className="text-muted-foreground font-mono">Phone: {addr.phone}</div>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-2 p-8 text-center text-muted-foreground bg-paper/30 rounded-xl border border-dashed border-border">
+                No delivery addresses saved for this customer.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: ACTIVITY TIMELINE */}
+      {activeTab === "activity" && (
+        <div className="bg-white rounded-2xl border border-border p-6 shadow-xs space-y-6 text-xs">
+          <div className="border-b border-border pb-3">
+            <h3 className="font-display text-sm font-bold text-ink">Real-Time Account Activity Feed</h3>
+            <p className="text-xs text-muted-foreground">
+              Authentic chronological audit events from authentication, profile updates, and order placements.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {customer.activity_events && customer.activity_events.length > 0 ? (
+              customer.activity_events.map((act) => (
+                <div key={act.id} className="p-3.5 rounded-xl border border-border bg-paper/30 flex items-start gap-3">
+                  <div className="size-2 rounded-full bg-violet mt-1.5 shrink-0" />
+                  <div className="flex-1 space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-ink">{act.summary}</span>
+                      <span className="text-[0.6875rem] text-muted-foreground font-mono">
+                        {new Date(act.created_at).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    <div className="text-[0.6875rem] text-muted-foreground font-mono">
+                      Source: {act.event_source} • Actor: {act.actor_type}
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-8 text-center text-muted-foreground bg-paper/30 rounded-xl">
+                No recent activity recorded.
+              </div>
+            )}
           </div>
         </div>
       )}
