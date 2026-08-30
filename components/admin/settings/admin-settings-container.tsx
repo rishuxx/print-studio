@@ -9,6 +9,7 @@ import { TaxGstTab } from "./tax-gst-tab";
 import { InvoiceTab } from "./invoice-tab";
 import { OrderProductionTab } from "./order-production-tab";
 import { ShippingTab } from "./shipping-tab";
+import { CustomerAccountsTab } from "./customer-accounts-tab";
 import { NotificationsTab } from "./notifications-tab";
 import { StorefrontHoursTab } from "./storefront-hours-tab";
 import { DangerZoneTab } from "./danger-zone-tab";
@@ -99,6 +100,13 @@ export function AdminSettingsContainer({ initialConfig }: AdminSettingsContainer
             <ShippingTab
               initialShipping={config.shipping}
               onSaved={(updated) => setConfig((prev) => ({ ...prev, shipping: updated }))}
+            />
+          )}
+
+          {activeTab === "customers" && (
+            <CustomerAccountsTab
+              initialCustomers={config.customers}
+              onSaved={(updated) => setConfig((prev) => ({ ...prev, customers: updated }))}
             />
           )}
 
