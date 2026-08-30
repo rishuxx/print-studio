@@ -1,17 +1,18 @@
 import { requireAdminAuth } from "@/lib/supabase/admin-guard";
-import { getAuthoritativeBusinessSettings } from "@/lib/settings/queries";
-import { AdminSettingsClientView } from "@/components/admin/settings/admin-settings-client-view";
+import { getFullBusinessConfiguration } from "@/lib/business-settings/queries";
+import { AdminSettingsContainer } from "@/components/admin/settings/admin-settings-container";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Business Settings & Store Configuration · Admin Console",
+  title: "Business Settings & System Configuration · Admin Console",
+  description: "Configure store identity, GST policies, tax invoice templates, shipping defaults, and notifications.",
 };
 
 export default async function AdminSettingsPage() {
   await requireAdminAuth("/admin/settings");
-  const settings = await getAuthoritativeBusinessSettings();
+  const config = await getFullBusinessConfiguration();
 
-  return <AdminSettingsClientView initialSettings={settings} />;
+  return <AdminSettingsContainer initialConfig={config} />;
 }
