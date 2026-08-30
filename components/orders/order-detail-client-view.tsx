@@ -32,6 +32,8 @@ interface OrderDetailClientViewProps {
   initialTab: "tracking" | "invoice";
   dbOrder: DbOrder | null;
   shipments?: ShippingShipment[];
+  cancellation?: Record<string, unknown> | null;
+  refunds?: Array<Record<string, unknown>>;
 }
 
 export function OrderDetailClientView({
@@ -39,6 +41,8 @@ export function OrderDetailClientView({
   initialTab,
   dbOrder,
   shipments = [],
+  cancellation,
+  refunds = [],
 }: OrderDetailClientViewProps) {
   const router = useRouter();
   const isHydrated = useSyncExternalStoreHydration();
@@ -59,118 +63,174 @@ export function OrderDetailClientView({
         </div>
         <h1 className="font-display text-2xl font-bold text-ink">Order Reference Not Found</h1>
         <p className="text-xs text-muted-foreground">
-          No order found with ID &ldquo;{orderId}&rdquo; or you do not have permission to view this order.
+          No order matching &ldquo;{orderId}&rdquo; was found.
         </p>
         <Link
           href="/orders"
           className="inline-flex items-center gap-2 rounded-xl bg-violet px-6 py-2.5 text-xs font-bold text-white shadow-lift hover:bg-violet-lift transition-all"
         >
           <ArrowLeft className="size-4" />
-          <span>View All Orders</span>
+          <span>Return to My Orders</span>
         </Link>
       </div>
     );
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // SCENARIO 1: POSTGRESQL AUTHORITATIVE ORDER
-  // ───────────────────────────────────────────────────────────────────────────
-  if (dbOrder) {
-    const customer = (dbOrder.customer_snapshot as {
-      fullName?: string;
-      companyName?: string;
-      email?: string;
-      phone?: string;
-    }) || {};
+  const customer = (dbOrder.customer_snapshot as {
+    fullName?: string;
+    companyName?: string;
+    email?: string;
+    phone?: string;
+  }) || {};
 
-    const delivery = (dbOrder.delivery_snapshot as {
-      addressLine1?: string;
-      city?: string;
-      state?: string;
-      pincode?: string;
-    }) || {};
+  const delivery = (dbOrder.delivery_snapshot as {
+    addressLine1?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+  }) || {};
 
-    const items = dbOrder.order_items || [];
-    const events = dbOrder.order_events || [];
+  const items = dbOrder.order_items || [];
+  const events = dbOrder.order_events || [];
+  const isCancelled = dbOrder.status === "cancelled";
+  const primaryRefund = refunds[0];
 
-    const orderFormattedDate = new Date(dbOrder.created_at).toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const orderFormattedDate = new Date(dbOrder.created_at).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
-    const handlePrintInvoice = () => {
-      window.print();
-    };
+  const handlePrintInvoice = () => {
+    window.print();
+  };
 
-    return (
-      <div className="space-y-8">
-        {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6 no-print">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-ink">
-                Order #{dbOrder.order_number}
-              </h1>
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-[0.625rem] font-bold font-mono uppercase ${
-                  ORDER_STATUS_METADATA[dbOrder.status as OrderStatus]?.badgeClass || "bg-violet/10 text-violet"
-                }`}
-              >
-                {ORDER_STATUS_METADATA[dbOrder.status as OrderStatus]?.label || dbOrder.status.replace(/_/g, " ")}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Placed on {orderFormattedDate} · Payment via {dbOrder.payment_method || "Online"} ({dbOrder.payment_reference || "VERIFIED"})
-            </p>
-          </div>
-
+  return (
+    <div className="space-y-8">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6 no-print">
+        <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveTab("tracking")}
-              className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
-                activeTab === "tracking"
-                  ? "bg-ink text-white shadow-sm"
-                  : "bg-paper border border-border text-muted-foreground hover:text-ink"
+            <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-ink">
+              Order #{dbOrder.order_number}
+            </h1>
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-[0.625rem] font-bold font-mono uppercase ${
+                ORDER_STATUS_METADATA[dbOrder.status as OrderStatus]?.badgeClass || "bg-violet/10 text-violet"
               }`}
             >
-              <Printer className="size-3.5" />
-              <span>Production Status</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("invoice")}
-              className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
-                activeTab === "invoice"
-                  ? "bg-ink text-white shadow-sm"
-                  : "bg-paper border border-border text-muted-foreground hover:text-ink"
-              }`}
-            >
-              <FileText className="size-3.5" />
-              <span>Tax Invoice</span>
-            </button>
+              {ORDER_STATUS_METADATA[dbOrder.status as OrderStatus]?.label || dbOrder.status.replace(/_/g, " ")}
+            </span>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Placed on {orderFormattedDate} · Payment via {dbOrder.payment_method || "Online"} ({dbOrder.payment_reference || "VERIFIED"})
+          </p>
         </div>
 
-        {/* TAB 1: TRACKING */}
-        {activeTab === "tracking" && (
-          <div className="space-y-6 no-print">
-            {/* Live Carrier Shipments & Waybills */}
-            {shipments && shipments.length > 0 && (
-              <CustomerShipmentCard shipments={shipments} />
-            )}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab("tracking")}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+              activeTab === "tracking"
+                ? "bg-ink text-white shadow-sm"
+                : "bg-paper border border-border text-muted-foreground hover:text-ink"
+            }`}
+          >
+            <Printer className="size-3.5" />
+            <span>Production Status</span>
+          </button>
 
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-              <div className="lg:col-span-7 space-y-6">
-                <div className="rounded-2xl border border-border bg-white p-6 shadow-sm space-y-6">
-                  <div className="flex items-center justify-between border-b border-border pb-3">
-                    <h2 className="font-bold text-sm text-ink uppercase font-mono tracking-wider">
-                      Production & Dispatch Timeline
-                    </h2>
+          <button
+            type="button"
+            onClick={() => setActiveTab("invoice")}
+            className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+              activeTab === "invoice"
+                ? "bg-ink text-white shadow-sm"
+                : "bg-paper border border-border text-muted-foreground hover:text-ink"
+            }`}
+          >
+            <FileText className="size-3.5" />
+            <span>Tax Invoice</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Customer Cancellation & Financial Refund Banner */}
+      {isCancelled && (
+        <div className="rounded-2xl border border-red-200 bg-red-50/40 p-5 sm:p-6 space-y-4 no-print">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-red-200/60 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-red-600 text-white font-bold">
+                <XCircle className="size-5" />
+              </div>
+              <div>
+                <h2 className="font-display text-base font-bold text-red-950">
+                  Order Cancelled
+                </h2>
+                <p className="text-xs text-red-800">
+                  {cancellation?.customer_message as string || "This order was cancelled prior to press run."}
+                </p>
+              </div>
+            </div>
+            {primaryRefund && (
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                  REFUND {((primaryRefund.provider_status as string) || "PROCESSED").toUpperCase()}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Refund Breakdown Details */}
+          {primaryRefund ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+              <div className="p-3 rounded-xl bg-white border border-red-200 space-y-1">
+                <div className="text-[0.625rem] uppercase font-mono text-muted-foreground">Refunded Amount</div>
+                <div className="font-display text-base font-bold text-ink font-mono">
+                  ₹{(Number(primaryRefund.amount_minor || 0) / 100).toFixed(2)}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white border border-red-200 space-y-1">
+                <div className="text-[0.625rem] uppercase font-mono text-muted-foreground">Destination</div>
+                <div className="font-bold text-ink">Original Payment Method</div>
+                <div className="text-[0.6875rem] text-muted-foreground">UPI / Card / NetBanking</div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-white border border-red-200 space-y-1">
+                <div className="text-[0.625rem] uppercase font-mono text-muted-foreground">Gateway Tracking Ref</div>
+                <div className="font-mono font-bold text-violet truncate">
+                  {(primaryRefund.provider_refund_id as string) || (primaryRefund.acquirer_reference as string) || "Razorpay Gateway"}
+                </div>
+                <div className="text-[0.6875rem] text-muted-foreground">Authoritative Acquirer Reference</div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-red-800">
+              No financial refund was required as payment was not captured for this order.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 1: TRACKING */}
+      {activeTab === "tracking" && (
+        <div className="space-y-6 no-print">
+          {/* Live Carrier Shipments & Waybills */}
+          {shipments && shipments.length > 0 && (
+            <CustomerShipmentCard shipments={shipments} />
+          )}
+
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+            <div className="lg:col-span-7 space-y-6">
+              <div className="rounded-2xl border border-border bg-white p-6 shadow-sm space-y-6">
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <h2 className="font-bold text-sm text-ink uppercase font-mono tracking-wider">
+                    Production & Dispatch Timeline
+                  </h2>
                   <span className="text-xs text-muted-foreground">
                     Estimated Dispatch: 2–3 Working Days
                   </span>
@@ -475,9 +535,6 @@ export function OrderDetailClientView({
         )}
       </div>
     );
-  }
-
-  return null;
 }
 
 function useSyncExternalStoreHydration() {

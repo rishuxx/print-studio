@@ -53,9 +53,20 @@ export default async function OrderDetailsPage({ params, searchParams }: OrderPa
 
   // Load real shipments for this order if present
   let shipments: import("@/lib/shipping/types").ShippingShipment[] = [];
+  let cancellationData: Record<string, unknown> | null = null;
+  let refundsData: Array<Record<string, unknown>> = [];
+
   if (dbOrder?.id) {
     const { fetchOrderShipments } = await import("@/lib/shipping/queries");
-    shipments = await fetchOrderShipments(dbOrder.id);
+    const [shipmentRes, cancRes, refundsRes] = await Promise.all([
+      fetchOrderShipments(dbOrder.id),
+      supabase.from("order_cancellations").select("*").eq("order_id", dbOrder.id).maybeSingle(),
+      supabase.from("payment_refunds").select("*").eq("order_id", dbOrder.id).order("created_at", { ascending: false }),
+    ]);
+
+    shipments = shipmentRes;
+    cancellationData = cancRes.data || null;
+    refundsData = refundsRes.data || [];
   }
 
   return (
@@ -75,6 +86,8 @@ export default async function OrderDetailsPage({ params, searchParams }: OrderPa
         initialTab={tab === "invoice" ? "invoice" : "tracking"}
         dbOrder={dbOrder}
         shipments={shipments}
+        cancellation={cancellationData}
+        refunds={refundsData}
       />
     </div>
   );

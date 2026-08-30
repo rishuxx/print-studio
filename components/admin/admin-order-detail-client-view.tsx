@@ -19,13 +19,12 @@ import {
   FileText,
   Clock,
   Sparkles,
-  AlertTriangle,
-  X,
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { DirectDispatchCard } from "@/components/admin/shipping/direct-dispatch-card";
+import { AdminCancelOrderModal } from "@/components/admin/admin-cancel-order-modal";
 
 import type { ShippingShipment } from "@/lib/shipping/types";
 
@@ -48,8 +47,6 @@ export function AdminOrderDetailClientView({
   const [selectedNextStatus, setSelectedNextStatus] = React.useState<OrderStatus | "">("");
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [showCancelModal, setShowCancelModal] = React.useState(false);
-  const [cancelReason, setCancelReason] = React.useState("");
-  const [isCancelling, setIsCancelling] = React.useState(false);
 
   const currentStatus = dbOrder.status as OrderStatus;
   const currentMeta = ORDER_STATUS_METADATA[currentStatus];
@@ -128,30 +125,6 @@ export function AdminOrderDetailClientView({
       });
     } finally {
       setIsTransitioning(false);
-    }
-  };
-
-  const handleExecuteCancel = async () => {
-    if (!canCancel) {
-      toast.error("This order cannot be cancelled in its current production stage.");
-      return;
-    }
-
-    setIsCancelling(true);
-    try {
-      const res = await updateOrderStatus(dbOrder.id, "cancelled", currentStatus);
-      if (res.success) {
-        toast.success(`Order #${dbOrder.order_number} cancelled successfully.`);
-        setShowCancelModal(false);
-        setCancelReason("");
-        router.refresh();
-      } else {
-        toast.error("Cancellation rejected", { description: res.error });
-      }
-    } catch {
-      toast.error("Error communicating with database.");
-    } finally {
-      setIsCancelling(false);
     }
   };
 
@@ -531,71 +504,19 @@ export function AdminOrderDetailClientView({
         </div>
       </div>
 
-      {/* Dangerous Action: Order Cancellation Modal */}
-      {showCancelModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 text-xs">
-          <div className="w-full max-w-md bg-white rounded-2xl p-6 space-y-4 shadow-2xl border border-red-200">
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <div className="flex items-center gap-2 text-red-700 font-bold text-sm">
-                <AlertTriangle className="size-5" />
-                <span>Confirm Order Cancellation</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCancelModal(false)}
-                className="text-muted-foreground hover:text-ink"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2 text-muted-foreground">
-              <p>
-                Are you sure you want to cancel <strong>Order #{dbOrder.order_number}</strong>?
-              </p>
-              <div className="rounded-xl bg-amber-50 p-3 text-amber-800 border border-amber-200 space-y-1">
-                <div className="font-bold">Consequences:</div>
-                <ul className="list-disc pl-4 space-y-0.5 text-[0.6875rem]">
-                  <li>Press runs and pre-press plates will be terminated.</li>
-                  <li>A permanent cancellation audit event will be recorded in PostgreSQL.</li>
-                  <li>The customer will be notified in their order history.</li>
-                </ul>
-              </div>
-
-              <div className="space-y-1 pt-2">
-                <label className="font-bold text-ink text-[0.6875rem] uppercase font-mono">
-                  Administrative Reason (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="e.g. Customer requested cancellation / artwork unresolvable"
-                  className="w-full rounded-xl border border-border px-3 py-2 text-xs text-ink focus:border-violet focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-              <button
-                type="button"
-                onClick={() => setShowCancelModal(false)}
-                className="rounded-xl border border-border px-4 py-2 font-semibold text-muted-foreground hover:bg-paper"
-              >
-                Keep Order Active
-              </button>
-              <button
-                type="button"
-                disabled={isCancelling}
-                onClick={handleExecuteCancel}
-                className="rounded-xl bg-red-600 px-5 py-2 font-bold text-white shadow-lift hover:bg-red-700 transition-all disabled:opacity-50"
-              >
-                {isCancelling ? "Cancelling Order..." : "Confirm Cancellation"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Production-Grade Order Cancellation & Refund Orchestration Modal */}
+      <AdminCancelOrderModal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        orderId={dbOrder.id}
+        orderNumber={dbOrder.order_number}
+        customerName={customer.fullName}
+        customerEmail={customer.email}
+        currentStatus={currentStatus}
+        paymentStatus={dbOrder.payment_status || "unpaid"}
+        grossTotal={Number(dbOrder.total || 0)}
+        paymentReference={dbOrder.payment_reference || undefined}
+      />
     </div>
   );
 }
