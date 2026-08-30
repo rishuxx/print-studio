@@ -35,7 +35,7 @@ export default async function PublicTrackingPage({ params }: PublicTrackingPageP
   const dest = shipment.destination_snapshot || {};
 
   return (
-    <div className="shell py-10 max-w-4xl mx-auto space-y-6">
+    <div className="min-h-[70vh] py-10 px-4 max-w-4xl mx-auto space-y-6 relative z-10">
       <div className="flex items-center justify-between">
         <Link
           href="/"
