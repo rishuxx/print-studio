@@ -39,9 +39,47 @@ export function AdminShippingClientView({
   const [carrierFilter, setCarrierFilter] = React.useState("all");
   const [refreshingId, setRefreshingId] = React.useState<string | null>(null);
 
+  // Dynamic merged orders from server + client orderStore
+  const isHydrated = React.useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+
+  const orderList = React.useMemo(() => {
+    if (!isHydrated) return availableOrders;
+    try {
+      const raw = localStorage.getItem("printo_orders_storage");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const localOrders = parsed.state?.orders || [];
+        const mapped = localOrders.map((o: { id: string; invoiceNumber?: string; customer?: { fullName?: string }; lines?: unknown[]; cost?: { total?: number } }) => ({
+          id: o.invoiceNumber || o.id,
+          order_number: o.invoiceNumber || o.id,
+          total: o.cost?.total || 0,
+          customer_name: o.customer?.fullName || "Customer",
+        }));
+
+        const existingNumbers = new Set(availableOrders.map((x) => x.order_number));
+        const merged = [...availableOrders];
+        for (const lo of mapped) {
+          if (!existingNumbers.has(lo.order_number)) {
+            merged.unshift(lo);
+            existingNumbers.add(lo.order_number);
+          }
+        }
+        return merged;
+      }
+    } catch {
+      // ignore
+    }
+    return availableOrders;
+  }, [availableOrders, isHydrated]);
+
   // New Shipment Creation Dialog State
   const [showCreateModal, setShowCreateModal] = React.useState(false);
-  const [newOrderId, setNewOrderId] = React.useState(availableOrders[0]?.order_number || "");
+  const [newOrderId, setNewOrderId] = React.useState("");
+  const [customOrderIdInput, setCustomOrderIdInput] = React.useState("");
   const [newCarrierCode, setNewCarrierCode] = React.useState<"shiprocket" | "delhivery" | "bluedart" | "fake">("fake");
   const [newWeightGrams, setNewWeightGrams] = React.useState(500);
   const [isCreating, setIsCreating] = React.useState(false);
@@ -321,36 +359,44 @@ export function AdminShippingClientView({
             </div>
 
             <form onSubmit={handleCreateShipment} className="space-y-3">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="font-bold text-ink flex items-center justify-between">
                   <span>Select Order</span>
                   <span className="text-[0.6875rem] text-muted-foreground font-normal">
-                    Or type Order # (e.g. PRT-2026-2945)
+                    Quick Choose
                   </span>
                 </label>
-                {availableOrders.length > 0 ? (
-                  <select
-                    value={newOrderId}
-                    onChange={(e) => setNewOrderId(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-border font-mono text-xs bg-white font-bold"
-                  >
-                    <option value="">-- Choose Order to Dispatch --</option>
-                    {availableOrders.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.order_number} · {o.customer_name} (₹{o.total})
-                      </option>
-                    ))}
-                  </select>
-                ) : (
+                <select
+                  value={newOrderId}
+                  onChange={(e) => {
+                    setNewOrderId(e.target.value);
+                    if (e.target.value) setCustomOrderIdInput("");
+                  }}
+                  className="w-full p-2.5 rounded-xl border border-border font-mono text-xs bg-white font-bold"
+                >
+                  <option value="">-- Choose Order to Dispatch --</option>
+                  {orderList.map((o) => (
+                    <option key={o.id} value={o.order_number || o.id}>
+                      {o.order_number} · {o.customer_name} (₹{o.total})
+                    </option>
+                  ))}
+                </select>
+
+                <div className="pt-1">
+                  <label className="text-[0.6875rem] text-muted-foreground font-semibold block mb-1">
+                    Or type / paste any Order Number manually:
+                  </label>
                   <input
                     type="text"
-                    value={newOrderId}
-                    onChange={(e) => setNewOrderId(e.target.value)}
-                    placeholder="e.g. PRT-2026-2945 or Order UUID"
-                    className="w-full p-2.5 rounded-xl border border-border font-mono text-xs"
-                    required
+                    value={customOrderIdInput}
+                    onChange={(e) => {
+                      setCustomOrderIdInput(e.target.value);
+                      setNewOrderId(e.target.value);
+                    }}
+                    placeholder="e.g. PRT-2026-7680"
+                    className="w-full p-2 rounded-xl border border-border font-mono text-xs bg-paper/20"
                   />
-                )}
+                </div>
               </div>
 
               <div className="space-y-1">
