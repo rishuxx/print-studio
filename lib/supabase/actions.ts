@@ -513,11 +513,20 @@ export async function createArtworkSignedUrl(
 
   const isAdmin = profile?.role === "admin";
 
-  const { data: order } = await supabase
+  const cleanId = orderId ? orderId.trim() : "";
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
+
+  let query = supabase
     .from("orders")
-    .select("id, user_id, order_number")
-    .or(`id.eq.${orderId},order_number.eq.${orderId}`)
-    .maybeSingle();
+    .select("id, user_id, order_number");
+
+  if (isUuid) {
+    query = query.or(`id.eq.${cleanId},order_number.eq.${cleanId}`);
+  } else {
+    query = query.eq("order_number", cleanId);
+  }
+
+  const { data: order } = await query.maybeSingle();
 
   if (!order) {
     return { success: false, error: "Order record not found." };

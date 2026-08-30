@@ -13,12 +13,20 @@ import type { CancelOrderParams, CancelOrderResult } from "./types";
  */
 export async function canCancelOrder(orderId: string) {
   const supabase = await createClient();
+  const cleanId = orderId ? orderId.trim() : "";
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
 
-  const { data: order, error } = await supabase
+  let query = supabase
     .from("orders")
-    .select("*, payments(*)")
-    .or(`id.eq.${orderId},order_number.eq.${orderId}`)
-    .maybeSingle();
+    .select("*, payments(*)");
+
+  if (isUuid) {
+    query = query.or(`id.eq.${cleanId},order_number.eq.${cleanId}`);
+  } else {
+    query = query.eq("order_number", cleanId);
+  }
+
+  const { data: order, error } = await query.maybeSingle();
 
   if (error || !order) {
     return {
