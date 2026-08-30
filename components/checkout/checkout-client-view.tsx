@@ -32,6 +32,8 @@ import {
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 type AddressRow = Database["public"]["Tables"]["addresses"]["Row"];
 
+import { checkPincodeServiceability } from "@/lib/shipping/serviceability";
+
 interface CustomerForm {
   fullName: string;
   companyName: string;
@@ -201,6 +203,17 @@ export function CheckoutClientView({
 
     if (lines.length === 0) {
       toast.error("Your cart is empty");
+      return;
+    }
+
+    // Verify Pincode serviceability
+    const sResult = checkPincodeServiceability(form.pincode, 500, form.city, form.state);
+    const validCarriers = sResult.options.filter((o) => o.carrierCode !== "fake" && o.isServiceable);
+
+    if (validCarriers.length === 0) {
+      toast.error(`Pincode ${form.pincode} is not serviceable`, {
+        description: "None of our courier partners currently deliver to this destination. Please provide an alternate PIN code.",
+      });
       return;
     }
 
@@ -406,8 +419,12 @@ export function CheckoutClientView({
               <input
                 type="text"
                 value={form.pincode}
-                onChange={(e) => handleInputChange("pincode", e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                  handleInputChange("pincode", val);
+                }}
                 placeholder="560001"
+                maxLength={6}
                 className={`w-full rounded-xl border px-3.5 py-2.5 text-xs font-mono text-ink focus:outline-none ${
                   errors.pincode ? "border-red-500 bg-red-50/20" : "border-border focus:border-violet"
                 }`}
@@ -415,6 +432,40 @@ export function CheckoutClientView({
               {errors.pincode && <p className="text-[0.6875rem] text-red-500">{errors.pincode}</p>}
             </div>
           </div>
+
+          {/* Live Pincode Serviceability Indicator */}
+          {form.pincode.length === 6 && (
+            <div className="pt-1">
+              {(() => {
+                const s = checkPincodeServiceability(form.pincode, 500, form.city, form.state);
+                const serviceableCount = s.options.filter((o) => o.carrierCode !== "fake" && o.isServiceable).length;
+
+                if (serviceableCount === 0) {
+                  return (
+                    <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[0.6875rem] flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="flex size-2 rounded-full bg-red-500 animate-pulse" />
+                        <span className="font-bold">PIN {form.pincode} is currently unserviceable by our direct courier network.</span>
+                      </div>
+                      <span className="font-mono font-bold text-red-700">NO COURIER COVERAGE</span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[0.6875rem] flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="size-3.5 text-emerald-600" />
+                      <span>
+                        <strong>Serviceable PIN ({form.pincode}):</strong> {serviceableCount} courier partner{serviceableCount > 1 ? "s" : ""} available with express dispatch.
+                      </span>
+                    </div>
+                    <span className="font-mono font-bold text-emerald-700">DELIVERY AVAILABLE</span>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label className="font-bold text-ink">Special Print Instructions (Optional)</label>

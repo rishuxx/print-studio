@@ -115,15 +115,43 @@ export async function createOrderShipmentAction(
       return { success: false, error: `Carrier '${input.carrier_code}' is not ready in database.` };
     }
 
-    // 3. Resolve shipping address
+    // 3. Resolve shipping address & delivery destination
+    const dSnap = (order.delivery_snapshot as Record<string, unknown>) || {};
     const shippingAddr = (order.shipping_address as Record<string, unknown>) || {};
-    const recipientName = String(shippingAddr.recipient_name || shippingAddr.full_name || "Valued Customer");
-    const recipientPhone = String(shippingAddr.phone || "9999999999");
-    const addressLine1 = String(shippingAddr.address_line_1 || shippingAddr.line1 || "Customer Address");
+    const cSnap = (order.customer_snapshot as Record<string, unknown>) || {};
+
+    const recipientName = String(
+      shippingAddr.recipient_name ||
+      shippingAddr.full_name ||
+      cSnap.fullName ||
+      dSnap.fullName ||
+      "Valued Customer"
+    );
+    const recipientPhone = String(shippingAddr.phone || cSnap.phone || "9999999999");
+    const addressLine1 = String(
+      shippingAddr.address_line_1 ||
+      shippingAddr.line1 ||
+      dSnap.addressLine1 ||
+      "Customer Address"
+    );
     const addressLine2 = String(shippingAddr.address_line_2 || shippingAddr.line2 || "");
-    const city = String(shippingAddr.city || "Dehradun");
-    const state = String(shippingAddr.state || "Uttarakhand");
-    const pincode = String(shippingAddr.postal_code || shippingAddr.pincode || "248007");
+    const city = String(shippingAddr.city || dSnap.city || "Dehradun");
+    const state = String(shippingAddr.state || dSnap.state || "Uttarakhand");
+    const pincode = String(shippingAddr.postal_code || shippingAddr.pincode || dSnap.pincode || "248007");
+
+    // Enforce serviceability check before calling carrier
+    if (input.carrier_code !== "fake") {
+      const { checkPincodeServiceability } = await import("./serviceability");
+      const serviceability = checkPincodeServiceability(pincode, input.weight_grams || 500, city, state);
+      const chosenOption = serviceability.options.find((o) => o.carrierCode === input.carrier_code);
+
+      if (chosenOption && !chosenOption.isServiceable) {
+        return {
+          success: false,
+          error: `Carrier '${carrier.name}' cannot service PIN ${pincode} (${chosenOption.unserviceableReason || "Out of delivery area"}). Please choose an alternate partner.`,
+        };
+      }
+    }
 
     // 4. Invoke carrier adapter
     const adapter = getCarrierAdapter(input.carrier_code);

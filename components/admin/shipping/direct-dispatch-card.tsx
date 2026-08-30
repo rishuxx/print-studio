@@ -124,15 +124,18 @@ export function DirectDispatchCard({
               carrierName?.toLowerCase().includes(opt.carrierCode) ||
               (opt.carrierCode === "delhivery" && carrierName?.toLowerCase().includes("delhivery"))
             );
+            const isBlocked = !opt.isServiceable && !existingAwb;
 
             return (
               <div
                 key={opt.carrierCode}
                 onClick={() => {
-                  if (!existingAwb) setSelectedCarrier(opt.carrierCode);
+                  if (!existingAwb && opt.isServiceable) setSelectedCarrier(opt.carrierCode);
                 }}
                 className={`p-4 rounded-xl border transition-all relative space-y-2 ${
-                  existingAwb
+                  isBlocked
+                    ? "border-red-200 bg-red-50/40 opacity-75 cursor-not-allowed"
+                    : existingAwb
                     ? isAlreadyAssignedCarrier
                       ? "border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20"
                       : "border-border/60 bg-paper/20 opacity-60 cursor-not-allowed"
@@ -144,25 +147,35 @@ export function DirectDispatchCard({
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-ink text-xs">{opt.carrierName}</span>
-                      {opt.recommendedBadge && (
+                      <span className={`font-bold text-xs ${isBlocked ? "text-red-950" : "text-ink"}`}>{opt.carrierName}</span>
+                      {isBlocked ? (
+                        <span className="px-2 py-0.5 rounded text-[0.625rem] font-mono font-bold bg-red-100 text-red-700 border border-red-200">
+                          UNSERVICEABLE
+                        </span>
+                      ) : opt.recommendedBadge ? (
                         <span className="px-2 py-0.5 rounded text-[0.625rem] font-mono font-bold bg-violet/10 text-violet">
                           {opt.recommendedBadge}
                         </span>
-                      )}
+                      ) : null}
                     </div>
-                    <span className="text-[0.6875rem] text-muted-foreground block mt-0.5">
-                      Mode: <strong className="text-ink">{opt.mode}</strong> · Speed: <strong className="text-ink">{opt.deliverySpeed}</strong>
-                    </span>
+                    {isBlocked ? (
+                      <span className="text-[0.6875rem] text-red-600 font-medium block mt-0.5">
+                        {opt.unserviceableReason || "Non-serviceable delivery zone"}
+                      </span>
+                    ) : (
+                      <span className="text-[0.6875rem] text-muted-foreground block mt-0.5">
+                        Mode: <strong className="text-ink">{opt.mode}</strong> · Speed: <strong className="text-ink">{opt.deliverySpeed}</strong>
+                      </span>
+                    )}
                   </div>
 
                   <input
                     type="radio"
                     name="carrier_selection"
-                    checked={existingAwb ? Boolean(isAlreadyAssignedCarrier) : isSelected}
-                    disabled={Boolean(existingAwb)}
+                    checked={existingAwb ? Boolean(isAlreadyAssignedCarrier) : isSelected && opt.isServiceable}
+                    disabled={Boolean(existingAwb) || isBlocked}
                     onChange={() => {
-                      if (!existingAwb) setSelectedCarrier(opt.carrierCode);
+                      if (!existingAwb && opt.isServiceable) setSelectedCarrier(opt.carrierCode);
                     }}
                     className="accent-violet size-4 mt-0.5"
                   />
@@ -170,10 +183,14 @@ export function DirectDispatchCard({
 
                 <div className="flex items-center justify-between pt-2 border-t border-border/60 text-[0.6875rem]">
                   <span className="text-muted-foreground">
-                    Estimated Delivery: <strong className="text-ink">{opt.estimatedDeliveryDate}</strong>
+                    {isBlocked ? (
+                      <span className="text-red-500 font-medium">Cannot manifest for PIN {pincode}</span>
+                    ) : (
+                      <>Estimated Delivery: <strong className="text-ink">{opt.estimatedDeliveryDate}</strong></>
+                    )}
                   </span>
-                  <span className="font-mono font-bold text-violet">
-                    {opt.rateEstimateInr === 0 ? "FREE (Sandbox)" : `Est. ₹${opt.rateEstimateInr}`}
+                  <span className={`font-mono font-bold ${isBlocked ? "text-muted-foreground line-through" : "text-violet"}`}>
+                    {isBlocked ? "Unavailable" : opt.rateEstimateInr === 0 ? "FREE (Sandbox)" : `Est. ₹${opt.rateEstimateInr}`}
                   </span>
                 </div>
               </div>
