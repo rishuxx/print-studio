@@ -10,6 +10,7 @@ import { siteConfig } from "@/lib/site-config";
 import { ProductMockup } from "@/components/shared/product-mockup";
 import {
   ShieldCheck,
+  UserCheck,
   Truck,
   ArrowRight,
   Lock,
@@ -273,6 +274,14 @@ export function CheckoutClientView({
       return;
     }
 
+    if (!user) {
+      toast.error("Account Sign In Required", {
+        description: "Please sign in or create an account to proceed with your order.",
+      });
+      router.push("/login?redirect=/checkout");
+      return;
+    }
+
     // Persist draft checkout into local state store
     setDraftCheckout(
       {
@@ -297,6 +306,37 @@ export function CheckoutClientView({
     <form onSubmit={handleProceedToPayment} className="grid grid-cols-1 gap-8 lg:grid-cols-12">
       {/* ── Left Column: Saved Addresses & Customer Details ─────────── */}
       <div className="lg:col-span-7 space-y-6">
+        {/* Unauthenticated Customer Banner (Mandatory Authentication) */}
+        {!user && (
+          <div className="rounded-2xl border border-violet/30 bg-violet-wash/40 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="flex size-9 items-center justify-center rounded-xl bg-violet/10 text-violet shrink-0 mt-0.5">
+                <UserCheck className="size-5" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-ink">Customer Account Required for Checkout</h3>
+                <p className="text-[0.6875rem] text-muted-foreground">
+                  Please sign in or create an account to save your delivery destinations, review digital proofs, and receive invoices.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                href="/login?redirect=/checkout"
+                className="rounded-xl border border-violet bg-white px-3.5 py-2 text-xs font-bold text-violet hover:bg-violet/5 transition-all"
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/register?redirect=/checkout"
+                className="rounded-xl bg-violet px-3.5 py-2 text-xs font-bold text-white hover:bg-violet-lift shadow-xs transition-all"
+              >
+                Register
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Saved Addresses Selector (for logged in customers) */}
         {user && savedAddresses.length > 0 && (
           <div className="rounded-2xl border border-border bg-white p-6 shadow-sm space-y-4 text-xs">

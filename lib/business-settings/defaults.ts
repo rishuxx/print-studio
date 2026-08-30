@@ -13,6 +13,7 @@ import {
   BusinessHourRecord,
   FullBusinessConfiguration,
   PublicStorefrontConfig,
+  SafePublicStoreSettings,
 } from "./types";
 
 /**
@@ -318,3 +319,59 @@ export const DEFAULT_PUBLIC_STORE_CONFIG: PublicStorefrontConfig = {
   },
   hours: DEFAULT_BUSINESS_HOURS,
 };
+
+export function getSafePublicBusinessConfig(config: FullBusinessConfiguration): SafePublicStoreSettings {
+  return {
+    store_name: config.business.store_name,
+    legal_business_name: config.business.legal_business_name,
+    tagline: config.business.tagline,
+    description: config.business.description,
+    logo_url: config.business.logo_url,
+    favicon_url: config.business.favicon_url,
+    currency_code: config.business.currency_code,
+    currency_symbol: config.business.currency_symbol,
+    timezone: config.business.timezone,
+    locale: config.business.locale,
+    is_store_open: config.business.is_store_open,
+    maintenance_mode: config.business.maintenance_mode,
+    announcement: {
+      enabled: config.storefront.announcement_enabled,
+      text: config.storefront.announcement_text,
+    },
+    contact: {
+      email: config.address.support_email || config.business.support_email || "ayushiaggrawal13@gmail.com",
+      phone: config.address.support_phone || config.business.support_phone || "+91 6388693472",
+      whatsapp: config.address.whatsapp_number || "916388693472",
+      supportHours: config.address.support_hours || "Mon–Sat: 10:00 AM – 7:00 PM",
+    },
+    address: {
+      line1: config.address.address_line_1,
+      line2: config.address.address_line_2,
+      city: config.address.city,
+      state: config.address.state,
+      pincode: config.address.postal_code,
+      country: config.address.country_code === "IN" ? "India" : config.address.country_code,
+    },
+    tax: {
+      gstEnabled: config.tax.gst_enabled,
+      gstin: config.tax.gstin,
+      gstRatePercent: config.tax.gst_rate_basis_points / 100,
+      taxMode: (config.tax.invoice_tax_mode.toLowerCase() === "exclusive" ? "exclusive" : "inclusive"),
+    },
+    shipping: {
+      enabled: config.shipping.shipping_enabled,
+      defaultFeeMinor: config.shipping.default_shipping_fee_minor,
+      freeShippingThresholdMinor: config.shipping.free_shipping_threshold_minor,
+      estimatedDaysMin: config.shipping.estimated_delivery_min_days,
+      estimatedDaysMax: config.shipping.estimated_delivery_max_days,
+      deliveryEstimateText: `${config.shipping.estimated_delivery_min_days}–${config.shipping.estimated_delivery_max_days} business days across India`,
+    },
+    production: {
+      minDays: config.production.default_production_days_min,
+      maxDays: config.production.default_production_days_max,
+      sameDayAvailable: true,
+      sameDayCutoffTime: config.production.same_day_cutoff_time,
+    },
+    hours: config.hours,
+  };
+}

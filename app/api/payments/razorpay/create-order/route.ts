@@ -49,15 +49,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (recalc.totalPaise < 100) {
+    const minOrderPaise = settings.minimum_order_value_minor ?? 10000;
+    const maxOrderPaise = settings.maximum_order_value_minor ?? 50000000;
+
+    if (recalc.totalPaise < minOrderPaise) {
       return NextResponse.json(
-        { success: false, error: "Minimum payable amount is ₹1.00." },
+        {
+          success: false,
+          code: "ORDER_BELOW_MINIMUM",
+          error: `Minimum order value is ₹${(minOrderPaise / 100).toFixed(2)}. Please add more items to your cart.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    if (recalc.totalPaise > maxOrderPaise) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "ORDER_ABOVE_MAXIMUM",
+          error: `Order total exceeds maximum allowable limit of ₹${(maxOrderPaise / 100).toFixed(2)}.`,
+        },
         { status: 400 }
       );
     }
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+
+    // Mandatory Authentication Check: Guest Checkout is DISABLED
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "AUTHENTICATION_REQUIRED",
+          error: "Authentication required. Please sign in or create an account to proceed with checkout.",
+        },
+        { status: 401 }
+      );
+    }
 
     // 3. Generate unique business identifiers
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);

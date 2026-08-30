@@ -305,6 +305,60 @@ export interface PublicStorefrontConfig {
   hours: BusinessHourRecord[];
 }
 
+export interface SafePublicStoreSettings {
+  store_name: string;
+  legal_business_name: string | null;
+  tagline: string | null;
+  description: string | null;
+  logo_url: string | null;
+  favicon_url: string | null;
+  currency_code: string;
+  currency_symbol: string;
+  timezone: string;
+  locale: string;
+  is_store_open: boolean;
+  maintenance_mode: boolean;
+  announcement: {
+    enabled: boolean;
+    text: string | null;
+  };
+  contact: {
+    email: string | null;
+    phone: string | null;
+    whatsapp: string | null;
+    supportHours: string | null;
+  };
+  address: {
+    line1: string;
+    line2: string | null;
+    city: string;
+    state: string;
+    pincode: string;
+    country: string;
+  };
+  tax: {
+    gstEnabled: boolean;
+    gstin: string | null;
+    gstRatePercent: number;
+    taxMode: "inclusive" | "exclusive";
+  };
+  shipping: {
+    enabled: boolean;
+    defaultFeeMinor: number;
+    freeShippingThresholdMinor: number;
+    estimatedDaysMin: number;
+    estimatedDaysMax: number;
+    deliveryEstimateText: string;
+  };
+  production: {
+    minDays: number;
+    maxDays: number;
+    sameDayAvailable: boolean;
+    sameDayCutoffTime: string;
+  };
+  hours: BusinessHourRecord[];
+}
+
 export type SettingsUpdateResult<T> =
   | { success: true; data: T; version: number }
   | { success: false; error: string; code: SettingsErrorCode };
