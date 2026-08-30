@@ -189,8 +189,8 @@ export async function checkPincodeServiceabilityLive(
 export function checkPincodeServiceability(
   pincode: string,
   weightGrams = 500,
-  city = "Dehradun",
-  state = "Uttarakhand"
+  city = "Bangalore",
+  state = "Karnataka"
 ): ServiceabilityCheckResult {
   const cleanPin = pincode.replace(/\D/g, "");
   const now = new Date();
@@ -202,16 +202,13 @@ export function checkPincodeServiceability(
 
   const isLocalDehradun = cleanPin.startsWith("248");
   const isSpecialHillyRemote = cleanPin.startsWith("249") || cleanPin.startsWith("246") || cleanPin.startsWith("19") || cleanPin.startsWith("79");
-  const isNorthZone = ["11", "12", "13", "14", "15", "16", "20", "24", "25", "30"].some((p) =>
-    cleanPin.startsWith(p)
-  );
-
-  // Uttarkashi 249141 is hilly/remote: Delhivery & Blue Dart are non-serviceable without special ODA pass
-  const isDelhiveryValid = isLocalDehradun || (isNorthZone && !isSpecialHillyRemote);
-  const isBlueDartValid = (isLocalDehradun || isNorthZone) && !isSpecialHillyRemote;
+  
+  // All valid 6-digit Indian PIN codes are serviceable by Delhivery Direct Express across Tier 1, Tier 2 & Tier 3 cities (e.g. 560xxx Bangalore, 110xxx Delhi, 400xxx Mumbai, etc.)
+  const isDelhiveryValid = cleanPin.length === 6 && !cleanPin.startsWith("000") && !isSpecialHillyRemote;
+  const isBlueDartValid = cleanPin.length === 6 && !cleanPin.startsWith("000") && !isSpecialHillyRemote;
   const isShiprocketValid = cleanPin.length === 6 && !cleanPin.startsWith("000");
 
-  const delhiveryDays = isLocalDehradun ? 1 : 3;
+  const delhiveryDays = isLocalDehradun ? 1 : isSpecialHillyRemote ? 4 : 3;
   const shiprocketDays = isSpecialHillyRemote ? 4 : 3;
 
   const options: CarrierServiceabilityOption[] = [
@@ -221,7 +218,7 @@ export function checkPincodeServiceability(
       isServiceable: isDelhiveryValid,
       unserviceableReason: isDelhiveryValid ? undefined : "Out of Delivery Area (ODA) for this PIN.",
       transitDays: delhiveryDays,
-      deliverySpeed: "Standard (3-4 Days)",
+      deliverySpeed: isLocalDehradun ? "Express (1-2 Days)" : "Standard (3-4 Days)",
       estimatedDeliveryDate: getEta(delhiveryDays),
       mode: isLocalDehradun ? "Surface" : "Air / Express",
       codAvailable: isDelhiveryValid,
