@@ -33,7 +33,7 @@ export function DirectDispatchCard({
   const [liveServiceability, setLiveServiceability] = React.useState<ReturnType<typeof checkPincodeServiceability> | null>(null);
   const [isLoadingRates, setIsLoadingRates] = React.useState(false);
 
-  // Compute immediate client baseline fallback
+  // Compute immediate client baseline fallback (All 6-digit valid Indian pins are baseline serviceable)
   const baseline = React.useMemo(() => {
     return checkPincodeServiceability(pincode || "248007", weightGrams, city, state);
   }, [pincode, weightGrams, city, state]);
