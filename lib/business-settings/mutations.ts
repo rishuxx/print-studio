@@ -78,60 +78,95 @@ export async function updateStoreIdentityAction(
     const existing = await supabase.from("business_settings").select("*").limit(1).maybeSingle();
     const newVersion = version + 1;
 
-    // Update canonical business_settings with exact schema columns
-    const { data, error } = await supabase
-      .from("business_settings")
-      .update({
-        business_name: updateFields.store_name,
-        business_short_name: updateFields.display_name || updateFields.store_name,
-        legal_business_name: updateFields.legal_business_name || "Print Studio Private Limited",
-        tagline: updateFields.tagline || null,
-        description: updateFields.description || null,
-        logo_url: updateFields.logo_url || null,
-        email: updateFields.support_email || "hello@example.com",
-        phone: updateFields.support_phone || "+91 XXXXX XXXXX",
-        support_email: updateFields.support_email || "hello@example.com",
-        support_phone: updateFields.support_phone || "+91 XXXXX XXXXX",
-        canonical_site_url: updateFields.website_url || "http://localhost:3000",
-        site_title: `${updateFields.store_name} · High-Quality Custom Online Printing & Branding`,
-        site_description: updateFields.description || null,
-        version: newVersion,
-        updated_by: admin.userId,
-        updated_at: new Date().toISOString(),
-      })
-      .select("*")
-      .single();
+    let savedData: Record<string, unknown> | null = null;
 
-    if (error || !data) {
-      return { success: false, error: error?.message || "Failed to update business settings", code: "DATABASE_ERROR" };
+    if (existing.data?.id) {
+      const { data, error } = await supabase
+        .from("business_settings")
+        .update({
+          business_name: updateFields.store_name,
+          business_short_name: updateFields.display_name || updateFields.store_name,
+          legal_business_name: updateFields.legal_business_name || "Print Studio Private Limited",
+          tagline: updateFields.tagline || null,
+          description: updateFields.description || null,
+          logo_url: updateFields.logo_url || null,
+          email: updateFields.support_email || "hello@example.com",
+          phone: updateFields.support_phone || "+91 XXXXX XXXXX",
+          support_email: updateFields.support_email || "hello@example.com",
+          support_phone: updateFields.support_phone || "+91 XXXXX XXXXX",
+          canonical_site_url: updateFields.website_url || "http://localhost:3000",
+          site_title: `${updateFields.store_name} · High-Quality Custom Online Printing & Branding`,
+          site_description: updateFields.description || null,
+          version: newVersion,
+          updated_by: admin.userId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing.data.id)
+        .select("*")
+        .maybeSingle();
+
+      if (error || !data) {
+        return { success: false, error: error?.message || "Failed to update business settings", code: "DATABASE_ERROR" };
+      }
+      savedData = data;
+    } else {
+      const { data, error } = await supabase
+        .from("business_settings")
+        .insert({
+          business_name: updateFields.store_name,
+          business_short_name: updateFields.display_name || updateFields.store_name,
+          legal_business_name: updateFields.legal_business_name || "Print Studio Private Limited",
+          tagline: updateFields.tagline || null,
+          description: updateFields.description || null,
+          logo_url: updateFields.logo_url || null,
+          email: updateFields.support_email || "hello@example.com",
+          phone: updateFields.support_phone || "+91 XXXXX XXXXX",
+          support_email: updateFields.support_email || "hello@example.com",
+          support_phone: updateFields.support_phone || "+91 XXXXX XXXXX",
+          canonical_site_url: updateFields.website_url || "http://localhost:3000",
+          site_title: `${updateFields.store_name} · High-Quality Custom Online Printing & Branding`,
+          site_description: updateFields.description || null,
+          version: 1,
+          updated_by: admin.userId,
+          updated_at: new Date().toISOString(),
+        })
+        .select("*")
+        .maybeSingle();
+
+      if (error || !data) {
+        return { success: false, error: error?.message || "Failed to initialize business settings", code: "DATABASE_ERROR" };
+      }
+      savedData = data;
     }
 
-    await recordAuditLog(admin.userId, admin.email, "BUSINESS_SETTINGS", data.id, "UPDATE", existing.data, data);
+    if (savedData?.id) {
+      await recordAuditLog(admin.userId, admin.email, "BUSINESS_SETTINGS", savedData.id as string, "UPDATE", existing.data, savedData);
+    }
     invalidateSettingsCache();
 
     return {
       success: true,
       data: {
-        id: data.id,
-        store_name: data.business_name || updateFields.store_name,
-        legal_business_name: data.legal_business_name || null,
-        display_name: data.business_short_name || null,
-        tagline: data.tagline || null,
-        description: data.description || null,
-        logo_url: data.logo_url || null,
-        favicon_url: data.favicon_url || null,
-        support_email: data.support_email || data.email || null,
-        support_phone: data.support_phone || data.phone || null,
-        website_url: data.canonical_site_url || updateFields.website_url || null,
+        id: (savedData?.id as string) || "00000000-0000-0000-0000-000000000001",
+        store_name: (savedData?.business_name as string) || updateFields.store_name,
+        legal_business_name: (savedData?.legal_business_name as string) || null,
+        display_name: (savedData?.business_short_name as string) || null,
+        tagline: (savedData?.tagline as string) || null,
+        description: (savedData?.description as string) || null,
+        logo_url: (savedData?.logo_url as string) || null,
+        favicon_url: (savedData?.favicon_url as string) || null,
+        support_email: (savedData?.support_email as string) || (savedData?.email as string) || null,
+        support_phone: (savedData?.support_phone as string) || (savedData?.phone as string) || null,
+        website_url: (savedData?.canonical_site_url as string) || updateFields.website_url || null,
         currency_code: "INR",
         currency_symbol: "₹",
         timezone: "Asia/Kolkata",
         locale: "en-IN",
-        is_store_open: data.store_status !== "PAUSED",
-        maintenance_mode: data.store_status === "PAUSED",
+        is_store_open: savedData?.store_status !== "PAUSED",
+        maintenance_mode: savedData?.store_status === "PAUSED",
         version: newVersion,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
+        created_at: (savedData?.created_at as string) || new Date().toISOString(),
+        updated_at: (savedData?.updated_at as string) || new Date().toISOString(),
       },
       version: newVersion,
     };
