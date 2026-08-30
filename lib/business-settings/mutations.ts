@@ -176,7 +176,7 @@ export async function updateStoreIdentityAction(
   }
 }
 
-// 2. Update Primary Business Address
+// 2. Update Primary Business Address & Multi-Channel Contacts
 export async function updateBusinessAddressAction(
   rawInput: unknown
 ): Promise<SettingsUpdateResult<BusinessAddressRecord>> {
@@ -191,26 +191,43 @@ export async function updateBusinessAddressAction(
     const supabase = await createClient();
     const newVersion = version + 1;
 
-    // Update canonical business_settings address columns
-    await supabase
-      .from("business_settings")
-      .update({
-        address_line_1: updateFields.address_line_1,
-        address_line_2: updateFields.address_line_2 || null,
-        city: updateFields.city,
-        state: updateFields.state,
-        postal_code: updateFields.postal_code,
-        country: updateFields.country_code === "IN" ? "India" : updateFields.country_code,
-        version: newVersion,
-        updated_by: admin.userId,
-        updated_at: new Date().toISOString(),
-      })
-      .neq("id", "00000000-0000-0000-0000-000000000000");
+    // Fetch existing business_settings record
+    const existing = await supabase.from("business_settings").select("*").limit(1).maybeSingle();
+
+    // Update canonical business_settings address & contact columns
+    let query = supabase.from("business_settings").update({
+      address_line_1: updateFields.address_line_1,
+      address_line_2: updateFields.address_line_2 || null,
+      city: updateFields.city,
+      state: updateFields.state,
+      postal_code: updateFields.postal_code,
+      country: updateFields.country_code === "IN" ? "India" : updateFields.country_code,
+      support_phone: updateFields.support_phone || null,
+      phone: updateFields.support_phone || "+91 XXXXX XXXXX",
+      support_email: updateFields.support_email || null,
+      email: updateFields.support_email || "hello@example.com",
+      whatsapp_number: updateFields.whatsapp_number || null,
+      support_hours: updateFields.support_hours || "Mon–Sat: 10:00 AM – 7:00 PM",
+      version: newVersion,
+      updated_by: admin.userId,
+      updated_at: new Date().toISOString(),
+    });
+
+    if (existing.data?.id) {
+      query = query.eq("id", existing.data.id);
+    } else {
+      query = query.neq("id", "00000000-0000-0000-0000-000000000000");
+    }
+
+    const { error } = await query;
+    if (error) {
+      return { success: false, error: error.message, code: "DATABASE_ERROR" };
+    }
 
     invalidateSettingsCache();
 
     const finalAddress: BusinessAddressRecord = {
-      id: "00000000-0000-0000-0000-000000000002",
+      id: existing.data?.id || "00000000-0000-0000-0000-000000000002",
       label: updateFields.label,
       address_line_1: updateFields.address_line_1,
       address_line_2: updateFields.address_line_2 || null,
@@ -220,6 +237,10 @@ export async function updateBusinessAddressAction(
       postal_code: updateFields.postal_code,
       country_code: updateFields.country_code,
       is_primary: updateFields.is_primary,
+      support_phone: updateFields.support_phone || null,
+      support_email: updateFields.support_email || null,
+      whatsapp_number: updateFields.whatsapp_number || null,
+      support_hours: updateFields.support_hours || null,
       version: newVersion,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

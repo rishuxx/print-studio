@@ -50,8 +50,8 @@ describe("Phase 10H: Business Settings Validation & Business Rules", () => {
     });
   });
 
-  describe("Business Address & PIN Code", () => {
-    it("accepts valid 6-digit Indian PIN code", () => {
+  describe("Business Address & Multi-Channel Contacts", () => {
+    it("accepts valid 6-digit Indian PIN code and custom support contact endpoints", () => {
       const valid = {
         label: "Headquarters",
         address_line_1: "Balaji Complex, Prem Nagar",
@@ -60,6 +60,10 @@ describe("Phase 10H: Business Settings Validation & Business Rules", () => {
         postal_code: "248007",
         country_code: "IN",
         is_primary: true,
+        support_phone: "+91 6388693472",
+        support_email: "ayushiaggrawal13@gmail.com",
+        whatsapp_number: "916388693472",
+        support_hours: "Mon–Sat: 10:00 AM – 7:00 PM",
         version: 1,
       };
       const result = businessAddressSchema.safeParse(valid);

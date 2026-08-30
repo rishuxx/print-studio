@@ -39,6 +39,10 @@ export interface BusinessAddressRecord {
   postal_code: string;
   country_code: string;
   is_primary: boolean;
+  support_phone?: string | null;
+  support_email?: string | null;
+  whatsapp_number?: string | null;
+  support_hours?: string | null;
   version: number;
   updated_by?: string | null;
   created_at: string;

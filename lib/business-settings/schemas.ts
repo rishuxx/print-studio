@@ -38,6 +38,10 @@ export const businessAddressSchema = z.object({
   postal_code: z.string().trim().regex(/^\d{6}$/, "Must be a valid 6-digit Indian PIN code"),
   country_code: z.string().trim().min(2).max(8).default("IN"),
   is_primary: z.boolean().default(true),
+  support_phone: z.string().trim().max(30).nullable().optional(),
+  support_email: z.string().trim().email("Invalid email address").max(100).nullable().optional().or(z.literal("")),
+  whatsapp_number: z.string().trim().max(30).nullable().optional(),
+  support_hours: z.string().trim().max(100).nullable().optional(),
   version: z.number().int().positive(),
 });
 

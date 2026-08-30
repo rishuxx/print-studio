@@ -99,18 +99,21 @@ export async function getFullBusinessConfiguration(): Promise<FullBusinessConfig
       updated_at: (rawBs?.updated_at as string) || new Date().toISOString(),
     };
 
-    const address: BusinessAddressRecord = addressRes.data
-      ? (addressRes.data as BusinessAddressRecord)
-      : {
-          ...DEFAULT_BUSINESS_ADDRESS,
-          address_line_1: (rawBs?.address_line_1 as string) || DEFAULT_BUSINESS_ADDRESS.address_line_1,
-          address_line_2: (rawBs?.address_line_2 as string) || DEFAULT_BUSINESS_ADDRESS.address_line_2,
-          city: (rawBs?.city as string) || DEFAULT_BUSINESS_ADDRESS.city,
-          state: (rawBs?.state as string) || DEFAULT_BUSINESS_ADDRESS.state,
-          postal_code: (rawBs?.postal_code as string) || DEFAULT_BUSINESS_ADDRESS.postal_code,
-          country_code: (rawBs?.country as string) === "India" ? "IN" : (rawBs?.country_code as string) || "IN",
-          version: typeof rawBs?.version === "number" ? rawBs.version : 1,
-        };
+    const address: BusinessAddressRecord = {
+      ...DEFAULT_BUSINESS_ADDRESS,
+      ...(addressRes.data ? (addressRes.data as BusinessAddressRecord) : {}),
+      address_line_1: (addressRes.data?.address_line_1 as string) || (rawBs?.address_line_1 as string) || DEFAULT_BUSINESS_ADDRESS.address_line_1,
+      address_line_2: (addressRes.data?.address_line_2 as string) || (rawBs?.address_line_2 as string) || DEFAULT_BUSINESS_ADDRESS.address_line_2,
+      city: (addressRes.data?.city as string) || (rawBs?.city as string) || DEFAULT_BUSINESS_ADDRESS.city,
+      state: (addressRes.data?.state as string) || (rawBs?.state as string) || DEFAULT_BUSINESS_ADDRESS.state,
+      postal_code: (addressRes.data?.postal_code as string) || (rawBs?.postal_code as string) || DEFAULT_BUSINESS_ADDRESS.postal_code,
+      country_code: (rawBs?.country as string) === "India" ? "IN" : (addressRes.data?.country_code as string) || "IN",
+      support_phone: (rawBs?.support_phone as string) || (rawBs?.phone as string) || DEFAULT_BUSINESS_ADDRESS.support_phone,
+      support_email: (rawBs?.support_email as string) || (rawBs?.email as string) || DEFAULT_BUSINESS_ADDRESS.support_email,
+      whatsapp_number: (rawBs?.whatsapp_number as string) || DEFAULT_BUSINESS_ADDRESS.whatsapp_number,
+      support_hours: (rawBs?.support_hours as string) || DEFAULT_BUSINESS_ADDRESS.support_hours,
+      version: typeof rawBs?.version === "number" ? rawBs.version : 1,
+    };
 
     const tax: TaxSettingsRecord = taxRes.data
       ? (taxRes.data as TaxSettingsRecord)
