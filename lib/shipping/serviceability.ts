@@ -71,8 +71,53 @@ export async function checkPincodeServiceabilityLive(
           delhiveryPrepaid = pinData.pre_paid === "Y";
           delhiveryCod = pinData.cod === "Y";
           isOda = pinData.is_oda === "Y";
-          delhiveryDistrict = pinData.district || "";
-          delhiveryState = pinData.state_code || "";
+          const stateCodeMap: Record<string, string> = {
+            WB: "West Bengal",
+            KA: "Karnataka",
+            MH: "Maharashtra",
+            DL: "Delhi",
+            UK: "Uttarakhand",
+            UT: "Uttarakhand",
+            UP: "Uttar Pradesh",
+            TN: "Tamil Nadu",
+            TS: "Telangana",
+            TG: "Telangana",
+            AP: "Andhra Pradesh",
+            KL: "Kerala",
+            GJ: "Gujarat",
+            RJ: "Rajasthan",
+            HR: "Haryana",
+            PB: "Punjab",
+            MP: "Madhya Pradesh",
+            BR: "Bihar",
+            OR: "Odisha",
+            OD: "Odisha",
+            AS: "Assam",
+            JH: "Jharkhand",
+            CG: "Chhattisgarh",
+            CT: "Chhattisgarh",
+            HP: "Himachal Pradesh",
+            JK: "Jammu and Kashmir",
+            GA: "Goa",
+            TR: "Tripura",
+            ML: "Meghalaya",
+            MN: "Manipur",
+            NL: "Nagaland",
+            MZ: "Mizoram",
+            SK: "Sikkim",
+            AR: "Arunachal Pradesh",
+            CH: "Chandigarh",
+            PY: "Puducherry",
+            DN: "Dadra and Nagar Haveli",
+            DD: "Daman and Diu",
+            LD: "Lakshadweep",
+            AN: "Andaman and Nicobar Islands",
+            LA: "Ladakh",
+          };
+
+          const rawState = pinData.state_code || "";
+          delhiveryState = stateCodeMap[rawState.toUpperCase()] || rawState;
+          delhiveryDistrict = pinData.district || pinData.city || "";
           
           // Official Delhivery Logic: Serviceable if pre_paid is Y and not blacklisted
           delhiveryLiveServiceable = (pinData.pre_paid === "Y" || pinData.cod === "Y") && !pinData.protect_blacklist;

@@ -146,7 +146,7 @@ export function CheckoutClientView({
   const lookupCityAndState = async (pin: string) => {
     setIsLookingUpPin(true);
     try {
-      // 1. Query Postal API for authoritative district & state
+      // 1. Direct Postal API Query
       const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
       if (res.ok) {
         const data = await res.json();
@@ -157,12 +157,13 @@ export function CheckoutClientView({
             city: po.District,
             state: po.State,
           }));
+          setErrors((prev) => ({ ...prev, city: undefined, state: undefined, pincode: undefined }));
           toast.success(`Location detected: ${po.District}, ${po.State}`);
           return;
         }
       }
 
-      // 2. Secondary fallback via Delhivery Pincode gateway
+      // 2. Delhivery Pincode Gateway Resolution
       const sRes = await fetch("/api/shipping/serviceability", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -171,13 +172,17 @@ export function CheckoutClientView({
       if (sRes.ok) {
         const sData = await sRes.json();
         if (sData.success && sData.result) {
-          if (sData.result.city && sData.result.city !== "India") {
+          const resolvedCity = sData.result.city && sData.result.city !== "India" ? sData.result.city : undefined;
+          const resolvedState = sData.result.state && sData.result.state !== "India" ? sData.result.state : undefined;
+
+          if (resolvedCity || resolvedState) {
             setForm((prev) => ({
               ...prev,
-              city: sData.result.city,
-              state: sData.result.state !== "India" ? sData.result.state : prev.state,
+              ...(resolvedCity ? { city: resolvedCity } : {}),
+              ...(resolvedState ? { state: resolvedState } : {}),
             }));
-            toast.success(`Location detected: ${sData.result.city}`);
+            setErrors((prev) => ({ ...prev, city: undefined, state: undefined, pincode: undefined }));
+            toast.success(`Location detected: ${resolvedCity || ""}${resolvedCity && resolvedState ? ", " : ""}${resolvedState || ""}`);
           }
         }
       }
