@@ -14,6 +14,7 @@ interface DirectDispatchCardProps {
   city: string;
   state: string;
   existingAwb?: string;
+  carrierName?: string;
 }
 
 export function DirectDispatchCard({
@@ -23,6 +24,7 @@ export function DirectDispatchCard({
   city,
   state,
   existingAwb,
+  carrierName,
 }: DirectDispatchCardProps) {
   const router = useRouter();
   const [selectedCarrier, setSelectedCarrier] = React.useState<"delhivery" | "shiprocket" | "bluedart" | "fake">("delhivery");
@@ -35,6 +37,11 @@ export function DirectDispatchCard({
   }, [pincode, weightGrams, city, state]);
 
   const handleAssignDispatch = async (carrierCode: "delhivery" | "shiprocket" | "bluedart" | "fake") => {
+    if (existingAwb) {
+      toast.info("Logistics partner is permanently locked for this order.");
+      return;
+    }
+
     setIsAssigning(true);
     try {
       const res = await createOrderShipmentAction({
@@ -59,49 +66,79 @@ export function DirectDispatchCard({
   };
 
   return (
-    <div className="rounded-2xl border-2 border-violet/30 bg-white p-5 sm:p-6 shadow-sm space-y-5">
+    <div className={`rounded-2xl border-2 p-5 sm:p-6 shadow-sm space-y-5 ${
+      existingAwb ? "border-emerald-300 bg-emerald-50/20" : "border-violet/30 bg-white"
+    }`}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-violet text-white shadow-xs">
+          <div className={`flex size-10 items-center justify-center rounded-xl text-white shadow-xs ${
+            existingAwb ? "bg-emerald-600" : "bg-violet"
+          }`}>
             <Truck className="size-5" />
           </div>
           <div>
-            <h3 className="font-display text-base font-bold text-ink">
-              Direct Logistics Partner Assignment & Serviceability
-            </h3>
-            <p className="text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <h3 className="font-display text-base font-bold text-ink">
+                Logistics Partner & Serviceability
+              </h3>
+              {existingAwb && (
+                <span className="px-2 py-0.5 rounded text-[0.6875rem] font-mono font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                  ASSIGNED & LOCKED
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
               Destination: <strong className="text-ink">{city}, {state} ({pincode || "248007"})</strong> · Checked against live carrier routing rules.
             </p>
           </div>
         </div>
 
         {existingAwb && (
-          <div className="flex items-center gap-2 bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-xl text-xs font-mono font-bold">
-            <CheckCircle2 className="size-3.5 text-emerald-600" />
-            <span>AWB #{existingAwb}</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-emerald-100/80 text-emerald-950 border border-emerald-300 px-3 py-1.5 rounded-xl text-xs font-mono font-bold">
+              <CheckCircle2 className="size-3.5 text-emerald-700" />
+              <span>{carrierName || "Courier"}: AWB #{existingAwb}</span>
+            </div>
           </div>
         )}
       </div>
 
       {/* Available Carrier Partners for this Pincode */}
       <div className="space-y-3">
-        <span className="text-[0.6875rem] font-bold uppercase font-mono text-muted-foreground block tracking-wider">
-          Available Carriers for PIN {pincode || "248007"}
-        </span>
+        <div className="flex items-center justify-between">
+          <span className="text-[0.6875rem] font-bold uppercase font-mono text-muted-foreground block tracking-wider">
+            Available Carriers for PIN {pincode || "248007"}
+          </span>
+          {existingAwb && (
+            <span className="text-[0.6875rem] text-muted-foreground italic">
+              Carrier partner locked upon manifest generation.
+            </span>
+          )}
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {serviceability.options.map((opt) => {
             const isSelected = selectedCarrier === opt.carrierCode;
+            const isAlreadyAssignedCarrier = existingAwb && (
+              carrierName?.toLowerCase().includes(opt.carrierCode) ||
+              (opt.carrierCode === "delhivery" && carrierName?.toLowerCase().includes("delhivery"))
+            );
 
             return (
               <div
                 key={opt.carrierCode}
-                onClick={() => setSelectedCarrier(opt.carrierCode)}
-                className={`p-4 rounded-xl border transition-all cursor-pointer relative space-y-2 ${
-                  isSelected
-                    ? "border-violet bg-violet/5 ring-2 ring-violet/20 shadow-xs"
-                    : "border-border bg-paper/30 hover:border-violet/40 hover:bg-paper/60"
+                onClick={() => {
+                  if (!existingAwb) setSelectedCarrier(opt.carrierCode);
+                }}
+                className={`p-4 rounded-xl border transition-all relative space-y-2 ${
+                  existingAwb
+                    ? isAlreadyAssignedCarrier
+                      ? "border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-500/20"
+                      : "border-border/60 bg-paper/20 opacity-60 cursor-not-allowed"
+                    : isSelected
+                    ? "border-violet bg-violet/5 ring-2 ring-violet/20 shadow-xs cursor-pointer"
+                    : "border-border bg-paper/30 hover:border-violet/40 hover:bg-paper/60 cursor-pointer"
                 }`}
               >
                 <div className="flex items-start justify-between">
@@ -122,8 +159,11 @@ export function DirectDispatchCard({
                   <input
                     type="radio"
                     name="carrier_selection"
-                    checked={isSelected}
-                    onChange={() => setSelectedCarrier(opt.carrierCode)}
+                    checked={existingAwb ? Boolean(isAlreadyAssignedCarrier) : isSelected}
+                    disabled={Boolean(existingAwb)}
+                    onChange={() => {
+                      if (!existingAwb) setSelectedCarrier(opt.carrierCode);
+                    }}
                     className="accent-violet size-4 mt-0.5"
                   />
                 </div>
@@ -142,41 +182,52 @@ export function DirectDispatchCard({
         </div>
       </div>
 
-      {/* Action Strip */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-border">
-        <div className="flex items-center gap-2 text-xs">
-          <label className="font-bold text-ink font-mono text-[0.6875rem] uppercase">
-            Parcel Weight (Grams):
-          </label>
-          <input
-            type="number"
-            value={weightGrams}
-            onChange={(e) => setWeightGrams(Number(e.target.value))}
-            min={50}
-            max={50000}
-            className="w-24 px-2.5 py-1.5 rounded-lg border border-border font-mono text-xs text-ink"
-          />
-        </div>
+      {/* Action Strip (Hidden when already assigned) */}
+      {!existingAwb ? (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-border">
+          <div className="flex items-center gap-2 text-xs">
+            <label className="font-bold text-ink font-mono text-[0.6875rem] uppercase">
+              Parcel Weight (Grams):
+            </label>
+            <input
+              type="number"
+              value={weightGrams}
+              onChange={(e) => setWeightGrams(Number(e.target.value))}
+              min={50}
+              max={50000}
+              className="w-24 px-2.5 py-1.5 rounded-lg border border-border font-mono text-xs text-ink"
+            />
+          </div>
 
-        <button
-          type="button"
-          disabled={isAssigning}
-          onClick={() => handleAssignDispatch(selectedCarrier)}
-          className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-violet text-white text-xs font-bold shadow-lift hover:bg-violet-lift transition-all disabled:opacity-50"
-        >
-          {isAssigning ? (
-            <>
-              <RefreshCw className="size-3.5 animate-spin" />
-              <span>Manifesting with {selectedCarrier.toUpperCase()}...</span>
-            </>
-          ) : (
-            <>
-              <span>Assign & Dispatch via {selectedCarrier.toUpperCase()}</span>
-              <ArrowRight className="size-3.5" />
-            </>
-          )}
-        </button>
-      </div>
+          <button
+            type="button"
+            disabled={isAssigning}
+            onClick={() => handleAssignDispatch(selectedCarrier)}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-violet text-white text-xs font-bold shadow-lift hover:bg-violet-lift transition-all disabled:opacity-50"
+          >
+            {isAssigning ? (
+              <>
+                <RefreshCw className="size-3.5 animate-spin" />
+                <span>Manifesting with {selectedCarrier.toUpperCase()}...</span>
+              </>
+            ) : (
+              <>
+                <span>Assign & Dispatch via {selectedCarrier.toUpperCase()}</span>
+                <ArrowRight className="size-3.5" />
+              </>
+            )}
+          </button>
+        </div>
+      ) : (
+        <div className="p-3 rounded-xl bg-emerald-100/50 border border-emerald-200 text-xs text-emerald-900 flex items-center justify-between">
+          <span className="font-medium">
+            Consignment has been manifested. Courier tracking is active and updates automatically.
+          </span>
+          <span className="font-mono font-bold text-emerald-800 text-[0.6875rem]">
+            STATE: DISPATCHED
+          </span>
+        </div>
+      )}
     </div>
   );
 }

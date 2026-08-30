@@ -54,9 +54,13 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
     );
   }
 
+  // Fetch assigned shipments for this order
+  const { fetchOrderShipments } = await import("@/lib/shipping/queries");
+  const shipments = await fetchOrderShipments(dbOrder.id);
+
   return (
     <div className="space-y-6">
-      <AdminOrderDetailClientView dbOrder={dbOrder} />
+      <AdminOrderDetailClientView dbOrder={dbOrder} existingShipments={shipments} />
     </div>
   );
 }

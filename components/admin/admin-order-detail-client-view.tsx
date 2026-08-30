@@ -27,6 +27,8 @@ import { toast } from "sonner";
 
 import { DirectDispatchCard } from "@/components/admin/shipping/direct-dispatch-card";
 
+import type { ShippingShipment } from "@/lib/shipping/types";
+
 type DbOrderFull = Database["public"]["Tables"]["orders"]["Row"] & {
   order_items?: Database["public"]["Tables"]["order_items"]["Row"][];
   order_events?: Database["public"]["Tables"]["order_events"]["Row"][];
@@ -34,9 +36,13 @@ type DbOrderFull = Database["public"]["Tables"]["orders"]["Row"] & {
 
 interface AdminOrderDetailClientViewProps {
   dbOrder: DbOrderFull;
+  existingShipments?: ShippingShipment[];
 }
 
-export function AdminOrderDetailClientView({ dbOrder }: AdminOrderDetailClientViewProps) {
+export function AdminOrderDetailClientView({
+  dbOrder,
+  existingShipments = [],
+}: AdminOrderDetailClientViewProps) {
   const router = useRouter();
   const [isTransitioning, setIsTransitioning] = React.useState(false);
   const [selectedNextStatus, setSelectedNextStatus] = React.useState<OrderStatus | "">("");
@@ -227,6 +233,8 @@ export function AdminOrderDetailClientView({ dbOrder }: AdminOrderDetailClientVi
             pincode={delivery.pincode || "248007"}
             city={delivery.city || "Dehradun"}
             state={delivery.state || "Uttarakhand"}
+            existingAwb={existingShipments[0]?.awb_number}
+            carrierName={existingShipments[0]?.carrier?.name}
           />
 
           {/* Status Machine Action Card */}

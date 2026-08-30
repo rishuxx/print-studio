@@ -65,6 +65,20 @@ export async function createOrderShipmentAction(
       return { success: false, error: `Could not initialize order '${input.order_id}' in database.` };
     }
 
+    // Check if order already has an assigned shipment (Immutable once assigned)
+    const { data: existingShipment } = await supabase
+      .from("shipping_shipments")
+      .select("id, awb_number, carrier:shipping_carriers(name)")
+      .eq("order_id", order.id)
+      .maybeSingle();
+
+    if (existingShipment) {
+      return {
+        success: false,
+        error: `Logistics partner is already permanently assigned (AWB #${existingShipment.awb_number}). Reassignment is locked for carrier dispatch integrity.`,
+      };
+    }
+
     // 2. Fetch carrier record (with automatic self-healing fallback)
     const { data: existingCarrier } = await supabase
       .from("shipping_carriers")
