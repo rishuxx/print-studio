@@ -51,6 +51,13 @@ export default async function OrderDetailsPage({ params, searchParams }: OrderPa
 
   const { data: dbOrder } = await query.maybeSingle();
 
+  // Load real shipments for this order if present
+  let shipments: import("@/lib/shipping/types").ShippingShipment[] = [];
+  if (dbOrder?.id) {
+    const { fetchOrderShipments } = await import("@/lib/shipping/queries");
+    shipments = await fetchOrderShipments(dbOrder.id);
+  }
+
   return (
     <div className="shell py-8 space-y-8 max-w-6xl mx-auto">
       <div className="no-print">
@@ -67,6 +74,7 @@ export default async function OrderDetailsPage({ params, searchParams }: OrderPa
         orderId={orderId}
         initialTab={tab === "invoice" ? "invoice" : "tracking"}
         dbOrder={dbOrder}
+        shipments={shipments}
       />
     </div>
   );

@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   Sliders,
   FolderTree,
+  Truck,
   LucideIcon,
 } from "lucide-react";
 
@@ -72,6 +73,11 @@ export const ADMIN_NAVIGATION: AdminNavSection[] = [
         title: "Customers",
         href: "/admin/customers",
         icon: Users,
+      },
+      {
+        title: "Shipments & Tracking",
+        href: "/admin/shipping",
+        icon: Truck,
       },
     ],
   },

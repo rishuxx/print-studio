@@ -19,6 +19,9 @@ import { siteConfig } from "@/lib/site-config";
 import { toast } from "sonner";
 import type { Database, OrderStatus } from "@/lib/supabase/database.types";
 
+import { CustomerShipmentCard } from "@/lib/../components/shipping/customer-shipment-card";
+import type { ShippingShipment } from "@/lib/shipping/types";
+
 type DbOrder = Database["public"]["Tables"]["orders"]["Row"] & {
   order_items?: Database["public"]["Tables"]["order_items"]["Row"][];
   order_events?: Database["public"]["Tables"]["order_events"]["Row"][];
@@ -28,12 +31,14 @@ interface OrderDetailClientViewProps {
   orderId: string;
   initialTab: "tracking" | "invoice";
   dbOrder: DbOrder | null;
+  shipments?: ShippingShipment[];
 }
 
 export function OrderDetailClientView({
   orderId,
   initialTab,
   dbOrder,
+  shipments = [],
 }: OrderDetailClientViewProps) {
   const router = useRouter();
   const isHydrated = useSyncExternalStoreHydration();
@@ -153,13 +158,19 @@ export function OrderDetailClientView({
 
         {/* TAB 1: TRACKING */}
         {activeTab === "tracking" && (
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 no-print">
-            <div className="lg:col-span-7 space-y-6">
-              <div className="rounded-2xl border border-border bg-white p-6 shadow-sm space-y-6">
-                <div className="flex items-center justify-between border-b border-border pb-3">
-                  <h2 className="font-bold text-sm text-ink uppercase font-mono tracking-wider">
-                    Production & Dispatch Timeline
-                  </h2>
+          <div className="space-y-6 no-print">
+            {/* Live Carrier Shipments & Waybills */}
+            {shipments && shipments.length > 0 && (
+              <CustomerShipmentCard shipments={shipments} />
+            )}
+
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+              <div className="lg:col-span-7 space-y-6">
+                <div className="rounded-2xl border border-border bg-white p-6 shadow-sm space-y-6">
+                  <div className="flex items-center justify-between border-b border-border pb-3">
+                    <h2 className="font-bold text-sm text-ink uppercase font-mono tracking-wider">
+                      Production & Dispatch Timeline
+                    </h2>
                   <span className="text-xs text-muted-foreground">
                     Estimated Dispatch: 2–3 Working Days
                   </span>
@@ -344,7 +355,8 @@ export function OrderDetailClientView({
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
         {/* TAB 2: INVOICE */}
         {activeTab === "invoice" && (
