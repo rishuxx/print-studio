@@ -3,18 +3,22 @@
 import * as React from "react";
 import { MessageCircle } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
+import { useStoreSettings } from "@/lib/settings/settings-context";
 
 export function WhatsAppFab() {
-  if (!siteConfig.contact.whatsapp) return null;
+  const settings = useStoreSettings();
+  if (!settings.whatsapp_floating_enabled) return null;
+
+  const phone = (settings.whatsapp_number || settings.phone || siteConfig.contact.whatsapp || "910000000000").replace(/[^0-9]/g, "");
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
       <a
-        href={`${siteConfig.contact.whatsappHref}?text=${encodeURIComponent(siteConfig.contact.whatsappMessage)}`}
+        href={`https://wa.me/${phone}?text=${encodeURIComponent(siteConfig.contact.whatsappMessage)}`}
         target="_blank"
         rel="noopener noreferrer"
         className="group relative flex size-13 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lift transition-all duration-300 hover:scale-110 hover:shadow-pop"
-        aria-label="Chat on WhatsApp with Doon Print Studio support"
+        aria-label="Chat on WhatsApp with customer support"
       >
         <MessageCircle className="size-7 fill-white text-transparent" />
         

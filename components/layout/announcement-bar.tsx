@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, X, Phone, Tag, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Sparkles, Tag, ArrowRight, Phone } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 import { createClient } from "@/lib/supabase/client";
+import { useStoreSettings } from "@/lib/settings/settings-context";
 
 interface ActiveSaleBanner {
   id: string;
@@ -16,6 +17,7 @@ interface ActiveSaleBanner {
 }
 
 export function AnnouncementBar() {
+  const settings = useStoreSettings();
   const [index, setIndex] = React.useState(0);
   const [dismissed, setDismissed] = React.useState(false);
   const [activePromos, setActivePromos] = React.useState<ActiveSaleBanner[]>([]);
@@ -38,31 +40,48 @@ export function AnnouncementBar() {
           setActivePromos(data as ActiveSaleBanner[]);
         }
       } catch {
-        // Fallback gracefully to siteConfig announcements
+        // Fallback gracefully
       }
     }
     loadActivePromotions();
   }, []);
 
-  // Merge dynamic live promotions with default site announcements
+  // Merge dynamic live promotions with store settings announcement and default site announcements
   const allAnnouncements = React.useMemo(() => {
+    const list: Array<{ text: string; code?: string | null; href: string; isLiveSale?: boolean }> = [];
+
     if (activePromos.length > 0) {
-      const dynamicItems = activePromos.map((p) => {
+      activePromos.forEach((p) => {
         const discountLabel =
           p.type === "percentage_discount"
             ? `${p.discount_value}% OFF`
             : `₹${p.discount_value} OFF`;
-        return {
+        list.push({
           text: p.description || `${p.name} · Flat ${discountLabel}`,
           code: p.code,
           href: "/products",
           isLiveSale: true,
-        };
+        });
       });
-      return [...dynamicItems, ...siteConfig.announcements];
     }
-    return siteConfig.announcements;
-  }, [activePromos]);
+
+    if (settings.announcement_enabled && settings.announcement_message) {
+      list.push({
+        text: settings.announcement_message,
+        href: settings.announcement_link || "/same-day",
+      });
+    } else {
+      siteConfig.announcements.forEach((a) => {
+        list.push({
+          text: a.text,
+          code: a.code,
+          href: a.href || "/products",
+        });
+      });
+    }
+
+    return list;
+  }, [activePromos, settings]);
 
   React.useEffect(() => {
     if (allAnnouncements.length <= 1) return;
@@ -92,10 +111,10 @@ export function AnnouncementBar() {
           <Phone className="size-3 text-marigold" />
           <span>Need help with specs?</span>
           <a
-            href={siteConfig.contact.phoneHref}
+            href={`tel:${(settings.phone || siteConfig.contact.phone).replace(/\s+/g, "")}`}
             className="font-mono font-medium text-white hover:text-marigold transition-colors"
           >
-            {siteConfig.contact.phone}
+            {settings.phone || siteConfig.contact.phone}
           </a>
         </div>
 
@@ -114,19 +133,21 @@ export function AnnouncementBar() {
           <div className="flex items-center gap-2 font-medium">
             {isLiveSale && <Sparkles className="size-3.5 text-amber-400 fill-amber-400 shrink-0" />}
             <span>{current.text}</span>
+
             {promoCode && (
-              <span className="inline-flex items-center gap-1 rounded bg-amber-400/20 px-2 py-0.5 font-mono text-[0.6875rem] font-bold text-amber-300 border border-amber-400/40 animate-pulse">
-                <Tag className="size-2.5" /> Use Code: {promoCode}
+              <span className="hidden sm:inline-flex items-center gap-1 rounded bg-amber-400/20 px-1.5 py-0.5 font-mono text-[0.6875rem] font-bold text-amber-300 border border-amber-400/30">
+                <Tag className="size-2.5" />
+                Use Code: {promoCode}
               </span>
             )}
-            {"href" in current && current.href && (
-              <Link
-                href={current.href as string}
-                className="underline underline-offset-2 hover:text-amber-300 text-white/90 font-bold ml-1 transition-colors"
-              >
-                Shop Sale &rarr;
-              </Link>
-            )}
+
+            <Link
+              href={current.href}
+              className="inline-flex items-center gap-1 font-bold text-marigold hover:underline ml-1"
+            >
+              {isLiveSale ? "Shop Sale" : "Learn More"}
+              <ArrowRight className="size-3" />
+            </Link>
           </div>
 
           {allAnnouncements.length > 1 && (
@@ -142,9 +163,10 @@ export function AnnouncementBar() {
 
         {/* Right: Dismiss button */}
         <button
+          type="button"
           onClick={() => setDismissed(true)}
-          className="text-white/60 hover:text-white p-1 transition-colors ml-4"
-          aria-label="Dismiss banner"
+          className="text-white/60 hover:text-white transition-colors p-1"
+          aria-label="Dismiss announcement banner"
         >
           <X className="size-3.5" />
         </button>

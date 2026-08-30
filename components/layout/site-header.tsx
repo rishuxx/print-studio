@@ -25,7 +25,10 @@ import { Button } from "@/components/ui/button";
 import { HeaderAuthButton } from "@/components/layout/header-auth-button";
 import { cn } from "@/lib/utils";
 
+import { useStoreSettings } from "@/lib/settings/settings-context";
+
 export function SiteHeader() {
+  const settings = useStoreSettings();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [activeMegaCategory, setActiveMegaCategory] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -73,10 +76,10 @@ export function SiteHeader() {
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1.5 font-medium text-ink">
               <MapPin className="size-3 text-violet" />
-              <span>{siteConfig.address.city}, {siteConfig.address.state}</span>
+              <span>{settings.city || siteConfig.address.city}, {settings.state || siteConfig.address.state}</span>
             </span>
             <span className="text-border">|</span>
-            <span className="text-[0.6875rem]">{siteConfig.operations.deliveryMessage}</span>
+            <span className="text-[0.6875rem]">{settings.delivery_estimate_text || siteConfig.operations.deliveryMessage}</span>
           </div>
 
           <div className="flex items-center gap-5 font-medium">
@@ -87,11 +90,11 @@ export function SiteHeader() {
               Order Paper Sample Kit
             </Link>
             <a
-              href={siteConfig.contact.phoneHref}
+              href={`tel:${(settings.phone || siteConfig.contact.phone).replace(/\s+/g, "")}`}
               className="flex items-center gap-1 hover:text-violet transition-colors font-mono"
             >
               <Phone className="size-3" />
-              <span>{siteConfig.contact.phone}</span>
+              <span>{settings.phone || siteConfig.contact.phone}</span>
             </a>
           </div>
         </div>
@@ -115,10 +118,7 @@ export function SiteHeader() {
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
               <span className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-ink">
-                {siteConfig.logo.lead}
-              </span>
-              <span className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-violet">
-                {siteConfig.logo.trail}
+                {settings.business_name || siteConfig.businessName}
               </span>
             </div>
             {/* CMYK Mini Registration Mark */}

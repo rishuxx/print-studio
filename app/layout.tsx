@@ -61,7 +61,11 @@ export const viewport: Viewport = {
   themeColor: "#4a1e9e",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+import { getAuthoritativeBusinessSettings } from "@/lib/settings/queries";
+
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const initialSettings = await getAuthoritativeBusinessSettings();
+
   return (
     <html
       lang="en"
@@ -69,7 +73,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${sora.variable} ${inter.variable} ${jetbrains.variable}`}
     >
       <body className="flex min-h-dvh flex-col bg-paper">
-        <Providers>
+        <Providers initialSettings={initialSettings}>
           <CustomerLayoutShell>{children}</CustomerLayoutShell>
         </Providers>
       </body>

@@ -13,7 +13,11 @@ import {
 import { siteConfig } from "@/lib/site-config";
 import { categories } from "@/lib/data/categories";
 
+import { useStoreSettings } from "@/lib/settings/settings-context";
+
 export function SiteFooter() {
+  const settings = useStoreSettings();
+
   return (
     <footer className="mt-auto border-t border-ink-line bg-ink text-white">
       {/* ── Process Inks (CMYK) Signature Color Bar ─────────────────── */}
@@ -34,7 +38,7 @@ export function SiteFooter() {
             <div>
               <h4 className="text-sm font-bold text-white">Fast Local Dispatch</h4>
               <p className="mt-1 text-xs text-white/70">
-                {siteConfig.operations.sameDayMessage}
+                {settings.delivery_estimate_text || siteConfig.operations.sameDayMessage}
               </p>
             </div>
           </div>
@@ -58,7 +62,7 @@ export function SiteFooter() {
             <div>
               <h4 className="text-sm font-bold text-white">Pickup & Delivery</h4>
               <p className="mt-1 text-xs text-white/70">
-                {siteConfig.operations.pickupMessage}. {siteConfig.operations.shippingMessage}.
+                Free shipping on orders above ₹{(settings.free_shipping_threshold_minor / 100).toLocaleString("en-IN")}
               </p>
             </div>
           </div>
@@ -68,9 +72,9 @@ export function SiteFooter() {
               <Sparkles className="size-5 text-violet-lift" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-white">Corporate & Bulk Printing</h4>
+              <h4 className="text-sm font-bold text-white">Dedicated Support</h4>
               <p className="mt-1 text-xs text-white/70">
-                Volume pricing and GST-compliant invoicing for businesses and organizations.
+                {settings.support_hours || siteConfig.contact.supportHours}
               </p>
             </div>
           </div>
@@ -84,38 +88,35 @@ export function SiteFooter() {
           <div className="col-span-2 lg:col-span-2 space-y-4">
             <div className="flex items-center gap-1.5">
               <span className="font-display text-2xl font-extrabold text-white">
-                {siteConfig.logo.lead}
-              </span>
-              <span className="font-display text-2xl font-extrabold text-violet-tint">
-                {siteConfig.logo.trail}
+                {settings.business_name || siteConfig.logo.lead}
               </span>
             </div>
             <p className="text-xs leading-relaxed text-white/70 max-w-sm">
-              {siteConfig.description}
+              {settings.site_description || siteConfig.description}
             </p>
 
             <div className="space-y-2 pt-2 text-xs text-white/80">
               <div className="flex items-start gap-2">
                 <MapPin className="size-4 shrink-0 text-marigold mt-0.5" />
                 <span>
-                  {siteConfig.address.line1}, {siteConfig.address.line2}, {siteConfig.address.city}, {siteConfig.address.state} — {siteConfig.address.pincode}
+                  {settings.address_line_1 || siteConfig.address.line1}, {settings.city || siteConfig.address.city}, {settings.state || siteConfig.address.state} — {settings.postal_code || siteConfig.address.pincode}
                 </span>
               </div>
               <div className="flex items-center gap-2 font-mono">
                 <Phone className="size-4 shrink-0 text-violet-tint" />
-                <a href={siteConfig.contact.phoneHref} className="hover:text-marigold transition-colors">
-                  {siteConfig.contact.phone}
+                <a href={`tel:${(settings.phone || siteConfig.contact.phone).replace(/\s+/g, "")}`} className="hover:text-marigold transition-colors">
+                  {settings.phone || siteConfig.contact.phone}
                 </a>
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="size-4 shrink-0 text-violet-tint" />
-                <a href={siteConfig.contact.emailHref} className="hover:text-marigold transition-colors">
-                  {siteConfig.contact.email}
+                <a href={`mailto:${settings.email || siteConfig.contact.email}`} className="hover:text-marigold transition-colors">
+                  {settings.email || siteConfig.contact.email}
                 </a>
               </div>
               <div className="flex items-center gap-2 text-white/60">
                 <Clock className="size-4 shrink-0 text-white/40" />
-                <span>Hours: {siteConfig.contact.supportHours}</span>
+                <span>Hours: {settings.support_hours || siteConfig.contact.supportHours}</span>
               </div>
             </div>
           </div>
