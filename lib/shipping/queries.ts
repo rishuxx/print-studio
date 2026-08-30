@@ -98,6 +98,7 @@ export async function fetchAdminShipments(params?: {
 }): Promise<{
   shipments: ShippingShipment[];
   carriers: ShippingCarrier[];
+  availableOrders: Array<{ id: string; order_number: string; total: number; customer_name?: string }>;
   kpi: {
     totalActive: number;
     inTransit: number;
@@ -109,11 +110,24 @@ export async function fetchAdminShipments(params?: {
 }> {
   const supabase = await createClient();
 
-  // 1. Fetch carriers
+  // 1. Fetch carriers & recent active orders for waybill creation dropdown
   const { data: carriers } = await supabase
     .from("shipping_carriers")
     .select("*")
     .order("name", { ascending: true });
+
+  const { data: recentOrders } = await supabase
+    .from("orders")
+    .select("id, order_number, total, shipping_address")
+    .order("created_at", { ascending: false })
+    .limit(25);
+
+  const availableOrders = (recentOrders || []).map((o: { id: string; order_number: string; total: number; shipping_address: unknown }) => ({
+    id: o.id,
+    order_number: o.order_number,
+    total: o.total,
+    customer_name: (o.shipping_address as Record<string, unknown>)?.recipient_name as string || (o.shipping_address as Record<string, unknown>)?.full_name as string || "Customer",
+  }));
 
   // 2. Fetch shipments
   let query = supabase
@@ -148,6 +162,7 @@ export async function fetchAdminShipments(params?: {
   return {
     shipments: list,
     carriers: (carriers || []) as ShippingCarrier[],
+    availableOrders,
     kpi: {
       totalActive,
       inTransit,

@@ -17,6 +17,7 @@ import { AdminPageHelpButton } from "@/components/admin/admin-page-help-button";
 interface AdminShippingClientViewProps {
   initialShipments: ShippingShipment[];
   carriers: ShippingCarrier[];
+  availableOrders?: Array<{ id: string; order_number: string; total: number; customer_name?: string }>;
   kpi: {
     totalActive: number;
     inTransit: number;
@@ -30,6 +31,7 @@ interface AdminShippingClientViewProps {
 export function AdminShippingClientView({
   initialShipments,
   carriers,
+  availableOrders = [],
   kpi,
 }: AdminShippingClientViewProps) {
   const [search, setSearch] = React.useState("");
@@ -39,7 +41,7 @@ export function AdminShippingClientView({
 
   // New Shipment Creation Dialog State
   const [showCreateModal, setShowCreateModal] = React.useState(false);
-  const [newOrderId, setNewOrderId] = React.useState("");
+  const [newOrderId, setNewOrderId] = React.useState(availableOrders[0]?.order_number || "");
   const [newCarrierCode, setNewCarrierCode] = React.useState<"shiprocket" | "delhivery" | "bluedart" | "fake">("fake");
   const [newWeightGrams, setNewWeightGrams] = React.useState(500);
   const [isCreating, setIsCreating] = React.useState(false);
@@ -320,15 +322,35 @@ export function AdminShippingClientView({
 
             <form onSubmit={handleCreateShipment} className="space-y-3">
               <div className="space-y-1">
-                <label className="font-bold text-ink">Order UUID (from Orders tab)</label>
-                <input
-                  type="text"
-                  value={newOrderId}
-                  onChange={(e) => setNewOrderId(e.target.value)}
-                  placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
-                  className="w-full p-2.5 rounded-xl border border-border font-mono text-xs"
-                  required
-                />
+                <label className="font-bold text-ink flex items-center justify-between">
+                  <span>Select Order</span>
+                  <span className="text-[0.6875rem] text-muted-foreground font-normal">
+                    Or type Order # (e.g. PRT-2026-2945)
+                  </span>
+                </label>
+                {availableOrders.length > 0 ? (
+                  <select
+                    value={newOrderId}
+                    onChange={(e) => setNewOrderId(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-border font-mono text-xs bg-white font-bold"
+                  >
+                    <option value="">-- Choose Order to Dispatch --</option>
+                    {availableOrders.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.order_number} · {o.customer_name} (₹{o.total})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={newOrderId}
+                    onChange={(e) => setNewOrderId(e.target.value)}
+                    placeholder="e.g. PRT-2026-2945 or Order UUID"
+                    className="w-full p-2.5 rounded-xl border border-border font-mono text-xs"
+                    required
+                  />
+                )}
               </div>
 
               <div className="space-y-1">

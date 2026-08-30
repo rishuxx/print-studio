@@ -17,12 +17,13 @@ export default async function AdminShippingPage({ searchParams }: AdminShippingP
   await requireAdminAuth("/admin/shipping");
   const params = await searchParams;
 
-  const { shipments, carriers, kpi } = await fetchAdminShipments(params);
+  const { shipments, carriers, availableOrders, kpi } = await fetchAdminShipments(params);
 
   return (
     <AdminShippingClientView
       initialShipments={shipments}
       carriers={carriers}
+      availableOrders={availableOrders}
       kpi={kpi}
     />
   );

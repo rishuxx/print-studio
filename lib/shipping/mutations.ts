@@ -25,15 +25,20 @@ export async function createOrderShipmentAction(
     await requireAdminAuth("/admin/shipping");
     const supabase = await createClient();
 
-    // 1. Fetch target order
-    const { data: order, error: orderErr } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("id", input.order_id)
-      .single();
+    // 1. Fetch target order (accepts either Order Number like 'PRT-2026-2945' or UUID)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.order_id.trim());
+
+    let orderQuery = supabase.from("orders").select("*");
+    if (isUuid) {
+      orderQuery = orderQuery.eq("id", input.order_id.trim());
+    } else {
+      orderQuery = orderQuery.eq("order_number", input.order_id.trim());
+    }
+
+    const { data: order, error: orderErr } = await orderQuery.maybeSingle();
 
     if (orderErr || !order) {
-      return { success: false, error: "Order not found." };
+      return { success: false, error: `Order '${input.order_id}' was not found in the database.` };
     }
 
     // 2. Fetch carrier record
