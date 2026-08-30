@@ -96,6 +96,11 @@ export function AdminOrderDetailClientView({
       return;
     }
 
+    if (selectedNextStatus === "cancelled") {
+      setShowCancelModal(true);
+      return;
+    }
+
     const nextMeta = ORDER_STATUS_METADATA[selectedNextStatus];
     if (
       !confirm(
@@ -235,7 +240,13 @@ export function AdminOrderDetailClientView({
                     </label>
                     <select
                       value={selectedNextStatus}
-                      onChange={(e) => setSelectedNextStatus(e.target.value as OrderStatus)}
+                      onChange={(e) => {
+                        const val = e.target.value as OrderStatus;
+                        setSelectedNextStatus(val);
+                        if (val === "cancelled") {
+                          setShowCancelModal(true);
+                        }
+                      }}
                       disabled={isTransitioning}
                       className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold text-ink focus:border-violet focus:outline-none focus:ring-1 focus:ring-violet shadow-sm"
                     >

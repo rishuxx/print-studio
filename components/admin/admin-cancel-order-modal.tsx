@@ -8,9 +8,10 @@ import {
   RotateCcw,
   ShieldAlert,
   Info,
+  ListFilter,
+  PenTool,
 } from "lucide-react";
 import {
-  CANCELLATION_REASONS,
   getCustomerSafeReasonMessage,
 } from "@/lib/cancellations/reasons";
 import {
@@ -47,13 +48,14 @@ export function AdminCancelOrderModal({
   paymentReference,
 }: AdminCancelOrderModalProps) {
   const router = useRouter();
-  const [selectedReason, setSelectedReason] =
-    React.useState<CancellationReasonCode>("OUT_OF_STOCK");
-  const [reasonNote, setReasonNote] = React.useState("");
+  
+  // Selection Mode: "DROPDOWN" | "CUSTOM"
+  const [reasonMode, setReasonMode] = React.useState<"DROPDOWN" | "CUSTOM">("DROPDOWN");
+  const [selectedReason, setSelectedReason] = React.useState<CancellationReasonCode>("OUT_OF_STOCK");
+  const [customReasonText, setCustomReasonText] = React.useState("");
   const [internalNote, setInternalNote] = React.useState("");
   const [customCustomerMessage, setCustomCustomerMessage] = React.useState("");
-  const [refundMode, setRefundMode] =
-    React.useState<CancellationRefundMode>("FULL");
+  const [refundMode, setRefundMode] = React.useState<CancellationRefundMode>("FULL");
   const [partialAmount, setPartialAmount] = React.useState<number>(grossTotal);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -67,15 +69,24 @@ export function AdminCancelOrderModal({
       ? Math.round(grossTotal * 100)
       : Math.round(Number(partialAmount || 0) * 100);
 
-  const previewCustomerMessage = getCustomerSafeReasonMessage(
-    selectedReason,
-    customCustomerMessage
-  );
+  const activeReasonCode = reasonMode === "CUSTOM" ? "OTHER" : selectedReason;
+  const defaultCustomerSafeExplanation =
+    reasonMode === "CUSTOM" && customReasonText.trim().length > 0
+      ? customReasonText.trim()
+      : getCustomerSafeReasonMessage(activeReasonCode, customCustomerMessage);
 
   const handleConfirmCancellation = async () => {
-    if (selectedReason === "OTHER" && reasonNote.trim().length < 10) {
-      toast.error("Please provide an explanatory reason note (minimum 10 characters).");
-      return;
+    // Strict Validation: No cancellation without genuine reason
+    if (reasonMode === "CUSTOM") {
+      if (customReasonText.trim().length < 5) {
+        toast.error("Please provide a genuine custom cancellation reason (minimum 5 characters).");
+        return;
+      }
+    } else {
+      if (!selectedReason) {
+        toast.error("Please select a genuine cancellation reason from the dropdown.");
+        return;
+      }
     }
 
     if (refundMode === "PARTIAL" && (partialAmount <= 0 || partialAmount > grossTotal)) {
@@ -87,10 +98,15 @@ export function AdminCancelOrderModal({
     try {
       const res = await executeOrderCancellationAndRefund({
         orderId: orderNumber || orderId,
-        reasonCode: selectedReason,
-        reasonNote: reasonNote.trim() || undefined,
+        reasonCode: activeReasonCode,
+        reasonNote:
+          reasonMode === "CUSTOM"
+            ? customReasonText.trim()
+            : customReasonText.trim() || undefined,
         internalNote: internalNote.trim() || undefined,
-        customerMessage: customCustomerMessage.trim() || undefined,
+        customerMessage:
+          customCustomerMessage.trim() ||
+          (reasonMode === "CUSTOM" ? customReasonText.trim() : undefined),
         refundMode: isPaid ? refundMode : "NONE",
         refundAmountMinor: calculatedRefundMinor,
       });
@@ -102,7 +118,7 @@ export function AdminCancelOrderModal({
               ? `Refund of ₹${(calculatedRefundMinor / 100).toFixed(
                   2
                 )} initiated via Razorpay.`
-              : "Order cancelled successfully.",
+              : "Order cancelled with genuine reason logged.",
         });
         onClose();
         router.refresh();
@@ -166,38 +182,106 @@ export function AdminCancelOrderModal({
 
         {/* Form Fields */}
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-          {/* Reason Code Dropdown */}
+          {/* Reason Mode Selector */}
           <div className="space-y-1.5">
-            <label className="font-bold text-ink uppercase font-mono text-[0.6875rem]">
-              Cancellation Reason Code <span className="text-red-600">*</span>
+            <label className="font-bold text-ink uppercase font-mono text-[0.6875rem] flex items-center justify-between">
+              <span>Mandatory Cancellation Reason <span className="text-red-600">*</span></span>
+              <span className="text-[0.625rem] text-muted-foreground font-normal">Choose selection method</span>
             </label>
-            <select
-              value={selectedReason}
-              onChange={(e) =>
-                setSelectedReason(e.target.value as CancellationReasonCode)
-              }
-              className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs font-medium text-ink focus:border-violet focus:outline-none"
-            >
-              {Object.values(CANCELLATION_REASONS).map((r) => (
-                <option key={r.code} value={r.code}>
-                  [{r.category}] {r.label}
-                </option>
-              ))}
-            </select>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setReasonMode("DROPDOWN")}
+                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border font-bold transition-all ${
+                  reasonMode === "DROPDOWN"
+                    ? "border-violet bg-violet/10 text-violet shadow-xs ring-1 ring-violet"
+                    : "border-border bg-white text-muted-foreground hover:bg-paper"
+                }`}
+              >
+                <ListFilter className="size-3.5" />
+                <span>Select from Dropdown</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setReasonMode("CUSTOM")}
+                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border font-bold transition-all ${
+                  reasonMode === "CUSTOM"
+                    ? "border-violet bg-violet/10 text-violet shadow-xs ring-1 ring-violet"
+                    : "border-border bg-white text-muted-foreground hover:bg-paper"
+                }`}
+              >
+                <PenTool className="size-3.5" />
+                <span>Custom Genuine Reason</span>
+              </button>
+            </div>
           </div>
 
-          {/* If OTHER is chosen, require reason note */}
-          {selectedReason === "OTHER" && (
+          {/* Option A: Dropdown Selection */}
+          {reasonMode === "DROPDOWN" && (
+            <div className="space-y-2 animate-in fade-in">
+              <div className="space-y-1">
+                <select
+                  value={selectedReason}
+                  onChange={(e) =>
+                    setSelectedReason(e.target.value as CancellationReasonCode)
+                  }
+                  className="w-full rounded-xl border border-border bg-white px-3 py-2 text-xs font-semibold text-ink focus:border-violet focus:outline-none"
+                >
+                  <optgroup label="── Operations & Manufacturing ──">
+                    <option value="OUT_OF_STOCK">Material / Raw Stock Unavailable</option>
+                    <option value="PRODUCTION_CAPACITY">Production Capacity Exceeded</option>
+                    <option value="PRODUCTION_DELAY">Press / Machine Breakdown</option>
+                    <option value="DUPLICATE_ORDER">Duplicate Submission Detected</option>
+                    <option value="PRICE_CONFIGURATION_ERROR">Checkout Calculation Error</option>
+                    <option value="ORDER_CONFIGURATION_ERROR">Specification Conflict</option>
+                  </optgroup>
+                  <optgroup label="── Customer & Artwork Quality ──">
+                    <option value="CUSTOMER_REQUEST">Customer Explicitly Requested Cancellation</option>
+                    <option value="LOW_QUALITY_ARTWORK">Low Artwork Resolution (&lt;300 DPI)</option>
+                    <option value="ARTWORK_NOT_USABLE">Artwork Missing Bleed / Unusable Fonts</option>
+                    <option value="CUSTOMER_UNREACHABLE">Customer Unreachable for Proof Confirmation</option>
+                  </optgroup>
+                  <optgroup label="── Shipping & Logistics ──">
+                    <option value="PINCODE_UNSERVICEABLE">Pincode Unserviceable by Logistics Partners</option>
+                    <option value="SHIPPING_UNAVAILABLE">Carrier Routing Suspended to Destination</option>
+                    <option value="CUSTOMER_ADDRESS_ISSUE">Incomplete / Invalid Address</option>
+                  </optgroup>
+                  <optgroup label="── Payment & Security ──">
+                    <option value="PAYMENT_ISSUE">Payment Verification Issue</option>
+                    <option value="PAYMENT_VERIFICATION_FAILED">Bank Authentication Failed</option>
+                    <option value="FRAUD_RISK">Security / Fraud Risk Assessment</option>
+                    <option value="BUSINESS_DECISION">Administrative Business Decision</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <input
+                  type="text"
+                  value={customReasonText}
+                  onChange={(e) => setCustomReasonText(e.target.value)}
+                  placeholder="Optional extra details for internal record..."
+                  className="w-full rounded-xl border border-border px-3 py-2 text-xs text-ink focus:border-violet focus:outline-none placeholder:text-muted-foreground/70"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Option B: Custom Reason Input */}
+          {reasonMode === "CUSTOM" && (
             <div className="space-y-1.5 animate-in fade-in">
-              <label className="font-bold text-ink uppercase font-mono text-[0.6875rem]">
-                Detailed Reason Note (Min 10 chars) <span className="text-red-600">*</span>
+              <label className="font-bold text-ink uppercase font-mono text-[0.6875rem] flex items-center justify-between">
+                <span>Enter Genuine Cancellation Rationale <span className="text-red-600">*</span></span>
+                <span className="text-[0.625rem] text-muted-foreground">Min 5 characters</span>
               </label>
               <textarea
-                rows={2}
-                value={reasonNote}
-                onChange={(e) => setReasonNote(e.target.value)}
-                placeholder="Explain the operational rationale for cancellation..."
-                className="w-full rounded-xl border border-border p-2.5 text-xs text-ink focus:border-violet focus:outline-none"
+                rows={3}
+                value={customReasonText}
+                onChange={(e) => setCustomReasonText(e.target.value)}
+                placeholder="e.g. Special UV varnish machine head failure during run #4. Customer contacted on WhatsApp and approved full refund."
+                className="w-full rounded-xl border border-border p-2.5 text-xs text-ink focus:border-violet focus:outline-none leading-relaxed"
               />
             </div>
           )}
@@ -281,15 +365,15 @@ export function AdminCancelOrderModal({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="font-bold text-ink uppercase font-mono text-[0.6875rem]">
-                Customer-Facing Explanation (Editable)
+                Customer-Facing Explanation
               </label>
-              <span className="text-[0.625rem] text-muted-foreground">Visible on customer timeline</span>
+              <span className="text-[0.625rem] text-muted-foreground">Shown to customer on timeline</span>
             </div>
             <textarea
               rows={2}
               value={customCustomerMessage}
               onChange={(e) => setCustomCustomerMessage(e.target.value)}
-              placeholder={previewCustomerMessage}
+              placeholder={defaultCustomerSafeExplanation}
               className="w-full rounded-xl border border-border p-2.5 text-xs text-ink focus:border-violet focus:outline-none leading-relaxed"
             />
           </div>
@@ -307,7 +391,7 @@ export function AdminCancelOrderModal({
               type="text"
               value={internalNote}
               onChange={(e) => setInternalNote(e.target.value)}
-              placeholder="e.g. Pre-press plate 4 defect / Customer requested via WhatsApp"
+              placeholder="e.g. Approved by plant manager / customer logged in ticket #402"
               className="w-full rounded-xl border border-border px-3 py-2 text-xs text-ink focus:border-violet focus:outline-none"
             />
           </div>
@@ -332,7 +416,7 @@ export function AdminCancelOrderModal({
               disabled={isSubmitting}
               className="rounded-xl border border-border px-4 py-2 font-semibold text-muted-foreground hover:bg-paper"
             >
-              Cancel
+              Keep Order
             </button>
 
             <button
@@ -344,7 +428,7 @@ export function AdminCancelOrderModal({
               {isSubmitting ? (
                 <>
                   <RotateCcw className="size-3.5 animate-spin" />
-                  <span>Processing...</span>
+                  <span>Processing Cancellation...</span>
                 </>
               ) : calculatedRefundMinor > 0 ? (
                 <span>Cancel Order & Refund ₹{(calculatedRefundMinor / 100).toFixed(2)}</span>
