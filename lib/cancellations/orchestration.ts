@@ -70,12 +70,16 @@ export async function canCancelOrder(orderId: string) {
   }>;
 
   const capturedPayment = payments.find(
-    (p) => p.status === "captured" || p.status === "partially_refunded"
+    (p) => p.status === "captured" || p.status === "partially_refunded" || p.status === "paid"
   );
 
-  const capturedAmountMinor = capturedPayment
+  let capturedAmountMinor = capturedPayment
     ? Number(capturedPayment.amount_minor || capturedPayment.amount || 0)
     : 0;
+
+  if (capturedAmountMinor === 0 && (order.payment_status === "paid" || order.payment_status === "partially_refunded")) {
+    capturedAmountMinor = Math.round(Number(order.total || 0) * 100);
+  }
 
   const alreadyRefundedMinor = capturedPayment
     ? Number(capturedPayment.amount_refunded_minor || 0)
@@ -104,7 +108,7 @@ export async function canCancelOrder(orderId: string) {
  * 5. If refund requested and payment is captured:
  *    - Persists payment_refunds intent record with unique idempotency_key
  *    - Calls Razorpay Refund API with X-Refund-Idempotency
- *    - Updates payment.status to 'refund_pending' or 'partially_refunded'
+ *    - Updates payment.status to 'refunded' or 'partially_refunded'
  *    - Inserts GST credit_notes record linked to invoice
  * 6. Emits immutable order_events audit trail in PostgreSQL
  */
@@ -124,7 +128,7 @@ export async function executeOrderCancellationAndRefund(
   }
 
   const order = validation.order;
-  const capturedPayment = validation.capturedPayment;
+  let effectivePayment = validation.capturedPayment;
   const customerSafeMessage = getCustomerSafeReasonMessage(
     params.reasonCode,
     params.customerMessage
@@ -146,17 +150,24 @@ export async function executeOrderCancellationAndRefund(
     }
   }
 
-  // 1. Atomic Order Status Transition to CANCELLED
+  // 1. Determine strictly valid check-constraint payment_status
+  const targetPaymentStatus =
+    refundAmountMinor > 0
+      ? params.refundMode === "FULL" || refundAmountMinor >= validation.capturedAmountMinor
+        ? "refunded"
+        : "partially_refunded"
+      : order.payment_status === "paid"
+      ? "paid"
+      : order.payment_status === "failed"
+      ? "failed"
+      : "pending";
+
+  // Atomic Order Status Transition to CANCELLED
   const { error: cancelOrderErr } = await supabase
     .from("orders")
     .update({
       status: "cancelled",
-      payment_status:
-        refundAmountMinor > 0
-          ? "refund_pending"
-          : order.payment_status === "paid"
-          ? "paid"
-          : "unpaid",
+      payment_status: targetPaymentStatus,
       updated_at: new Date().toISOString(),
     })
     .eq("id", order.id);
@@ -210,41 +221,66 @@ export async function executeOrderCancellationAndRefund(
   let refundStatus = "NO_REFUND";
 
   // 4. If Refund Eligible & Payment Captured: Execute Razorpay Refund Orchestration
-  if (refundAmountMinor > 0 && capturedPayment) {
+  if (refundAmountMinor > 0) {
+    // Ensure effective payment record exists in public.payments
+    if (!effectivePayment) {
+      const { data: newPayment } = await supabase
+        .from("payments")
+        .insert({
+          order_id: order.id,
+          provider: "razorpay",
+          provider_order_id: `order_${order.order_number}`,
+          provider_payment_id: order.payment_reference || `pay_${order.order_number}`,
+          status: "captured",
+          amount: Math.round(Number(order.total || 0) * 100),
+          amount_minor: Math.round(Number(order.total || 0) * 100),
+          currency: "INR",
+          reconciliation_state: "reconciled",
+          captured_at: order.created_at || new Date().toISOString(),
+        })
+        .select("*")
+        .single();
+
+      if (newPayment) {
+        effectivePayment = newPayment;
+      }
+    }
+
+    const paymentDbId = effectivePayment?.id;
     const idempotencyKey =
       params.idempotencyKey ||
-      `ref_${order.order_number}_${capturedPayment.id}_${Date.now()}`;
+      `ref_${order.order_number}_${paymentDbId || order.id}_${Date.now()}`;
 
     // Step A: Create internal refund intent record first
-    const { data: refundIntent } = await supabase
-      .from("payment_refunds")
-      .insert({
-        payment_id: capturedPayment.id,
-        order_id: order.id,
-        provider: "razorpay",
-        amount_minor: refundAmountMinor,
-        currency: "INR",
-        refund_type: params.refundMode === "FULL" ? "FULL" : "PARTIAL",
-        provider_status: "PENDING",
-        internal_status: "SUBMITTED",
-        idempotency_key: idempotencyKey,
-        reason_code: params.reasonCode,
-        reason_note: params.reasonNote || customerSafeMessage,
-        requested_by_user_id: user.id,
-        requested_at: new Date().toISOString(),
-      })
-      .select("id")
-      .single();
+    if (paymentDbId) {
+      const { data: refundIntent } = await supabase
+        .from("payment_refunds")
+        .insert({
+          payment_id: paymentDbId,
+          order_id: order.id,
+          provider: "razorpay",
+          amount_minor: refundAmountMinor,
+          currency: "INR",
+          refund_type: params.refundMode === "FULL" ? "FULL" : "PARTIAL",
+          provider_status: "PENDING",
+          internal_status: "SUBMITTED",
+          idempotency_key: idempotencyKey,
+          reason_code: params.reasonCode,
+          reason_note: params.reasonNote || customerSafeMessage,
+          requested_by_user_id: user.id,
+          requested_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
 
-    refundId = refundIntent?.id;
+      refundId = refundIntent?.id;
+    }
 
     // Step B: Call Gateway (or simulate if sandbox payment reference)
-    if (
-      capturedPayment.provider_payment_id &&
-      capturedPayment.provider_payment_id.startsWith("pay_")
-    ) {
+    const gatewayPaymentId = effectivePayment?.provider_payment_id || order.payment_reference;
+    if (gatewayPaymentId && gatewayPaymentId.startsWith("pay_") && !gatewayPaymentId.startsWith("pay_legacy_")) {
       const rzpRes = await createRazorpayRefund({
-        paymentId: capturedPayment.provider_payment_id,
+        paymentId: gatewayPaymentId,
         amountMinor: refundAmountMinor,
         reason: customerSafeMessage,
         notes: {
@@ -274,14 +310,16 @@ export async function executeOrderCancellationAndRefund(
         const isFullyRefunded =
           newRefundedMinor >= validation.capturedAmountMinor;
 
-        await supabase
-          .from("payments")
-          .update({
-            status: isFullyRefunded ? "refunded" : "partially_refunded",
-            amount_refunded_minor: newRefundedMinor,
-            refunded_at: new Date().toISOString(),
-          })
-          .eq("id", capturedPayment.id);
+        if (paymentDbId) {
+          await supabase
+            .from("payments")
+            .update({
+              status: isFullyRefunded ? "refunded" : "partially_refunded",
+              amount_refunded_minor: newRefundedMinor,
+              refunded_at: new Date().toISOString(),
+            })
+            .eq("id", paymentDbId);
+        }
 
         if (isFullyRefunded) {
           await supabase
@@ -320,14 +358,16 @@ export async function executeOrderCancellationAndRefund(
         validation.alreadyRefundedMinor + refundAmountMinor;
       const isFullyRefunded = newRefundedMinor >= validation.capturedAmountMinor;
 
-      await supabase
-        .from("payments")
-        .update({
-          status: isFullyRefunded ? "refunded" : "partially_refunded",
-          amount_refunded_minor: newRefundedMinor,
-          refunded_at: new Date().toISOString(),
-        })
-        .eq("id", capturedPayment.id);
+      if (paymentDbId) {
+        await supabase
+          .from("payments")
+          .update({
+            status: isFullyRefunded ? "refunded" : "partially_refunded",
+            amount_refunded_minor: newRefundedMinor,
+            refunded_at: new Date().toISOString(),
+          })
+          .eq("id", paymentDbId);
+      }
 
       await supabase
         .from("orders")

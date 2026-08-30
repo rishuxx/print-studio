@@ -129,3 +129,19 @@ ON public.credit_notes FOR ALL
 TO authenticated
 USING (public.is_admin())
 WITH CHECK (public.is_admin());
+
+-- 4. Ensure orders.payment_status constraint allows all valid statuses
+ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_payment_status_check;
+ALTER TABLE public.orders ADD CONSTRAINT orders_payment_status_check CHECK (
+  payment_status IN (
+    'pending',
+    'authorized',
+    'paid',
+    'failed',
+    'refunded',
+    'partially_refunded',
+    'refund_pending',
+    'unpaid'
+  )
+);
+
