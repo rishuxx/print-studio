@@ -91,19 +91,15 @@ export class DelhiveryCarrierAdapter implements CarrierAdapter {
 
       const res = await response.json();
       const pkg = res.packages?.[0];
-      const waybill = pkg?.waybill || res.upload_wbn || res.waybill;
+      const waybill = pkg?.waybill;
+      const isFailed = res.success === false || pkg?.status === "Fail" || !waybill;
 
-      if (!response.ok || !waybill) {
-        // If Delhivery staging or warehouse pickup registration is pending, generate structured Delhivery AWB
-        const mockAwb = `DLV-${params.pincode}-${Date.now().toString().slice(-6)}`;
+      if (isFailed || !waybill) {
+        const errorRemarks = pkg?.remarks?.join(", ") || res.rmk || res.error || "Delhivery shipment creation failed";
         return {
-          success: true,
-          awbNumber: mockAwb,
-          providerShipmentId: `DLV-SHP-${Date.now()}`,
-          providerOrderId: params.orderNumber,
-          labelUrl: `https://track.delhivery.com/print/label/${mockAwb}`,
-          trackingUrl: `https://www.delhivery.com/track/package/${mockAwb}`,
-          estimatedDeliveryAt: new Date(Date.now() + 3 * 86400000).toISOString(),
+          success: false,
+          awbNumber: "",
+          error: `Delhivery API Error: ${errorRemarks}`,
         };
       }
 
@@ -115,16 +111,11 @@ export class DelhiveryCarrierAdapter implements CarrierAdapter {
         labelUrl: `https://track.delhivery.com/print/label/${waybill}`,
         estimatedDeliveryAt: new Date(Date.now() + 3 * 86400000).toISOString(),
       };
-    } catch {
-      const mockAwb = `DLV-${params.pincode}-${Date.now().toString().slice(-6)}`;
+    } catch (err: unknown) {
       return {
-        success: true,
-        awbNumber: mockAwb,
-        providerShipmentId: `DLV-SHP-${Date.now()}`,
-        providerOrderId: params.orderNumber,
-        labelUrl: `https://track.delhivery.com/print/label/${mockAwb}`,
-        trackingUrl: `https://www.delhivery.com/track/package/${mockAwb}`,
-        estimatedDeliveryAt: new Date(Date.now() + 3 * 86400000).toISOString(),
+        success: false,
+        awbNumber: "",
+        error: err instanceof Error ? err.message : "Delhivery gateway communication failure",
       };
     }
   }
