@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { DirectDispatchCard } from "@/components/admin/shipping/direct-dispatch-card";
+
 type DbOrderFull = Database["public"]["Tables"]["orders"]["Row"] & {
   order_items?: Database["public"]["Tables"]["order_items"]["Row"][];
   order_events?: Database["public"]["Tables"]["order_events"]["Row"][];
@@ -218,6 +220,15 @@ export function AdminOrderDetailClientView({ dbOrder }: AdminOrderDetailClientVi
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
         {/* Left Column (8 Cols): Status Machine, Timeline, Items */}
         <div className="lg:col-span-8 space-y-6">
+          {/* Direct Logistics Partner Pincode Serviceability & Assignment */}
+          <DirectDispatchCard
+            orderId={dbOrder.id}
+            orderNumber={dbOrder.order_number}
+            pincode={delivery.pincode || "248007"}
+            city={delivery.city || "Dehradun"}
+            state={delivery.state || "Uttarakhand"}
+          />
+
           {/* Status Machine Action Card */}
           <div className="rounded-2xl border-2 border-violet/30 bg-violet/5 p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-violet/20 pb-3">
