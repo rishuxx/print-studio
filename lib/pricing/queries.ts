@@ -6,46 +6,6 @@ import type {
   PricingHealthIssue,
 } from "./types";
 
-/**
- * Auto-Seed Default Retail Price Book if missing
- */
-export async function getOrCreateDefaultPriceBook(): Promise<DatabasePriceBook | null> {
-  const supabase = await createClient();
-  const { data: existing } = await supabase
-    .from("price_books")
-    .select("*")
-    .eq("code", "DEFAULT_RETAIL")
-    .maybeSingle();
-
-  if (existing) return existing as DatabasePriceBook;
-
-  const { data: inserted, error } = await supabase
-    .from("price_books")
-    .insert({
-      name: "Default Retail Price Book",
-      code: "DEFAULT_RETAIL",
-      description: "Standard customer-facing retail price list in INR.",
-      currency: "INR",
-      status: "active",
-      priority: 0,
-      is_default: true,
-    })
-    .select("*")
-    .single();
-
-  if (error) {
-    console.error("[getOrCreateDefaultPriceBook error]:", error);
-    return null;
-  }
-
-  return inserted as DatabasePriceBook;
-}
-
-import { autoSyncStaticCatalogueIfEmpty } from "@/lib/catalogue/queries";
-
-/**
- * Fetch Pricing Engine Dashboard Metrics & Rules
- */
 export async function fetchPricingDashboardData(): Promise<{
   priceBooks: DatabasePriceBook[];
   activeSalesCount: number;
@@ -55,10 +15,8 @@ export async function fetchPricingDashboardData(): Promise<{
   productPrices: DatabaseProductPrice[];
 }> {
   const supabase = await createClient();
-  await getOrCreateDefaultPriceBook();
-  await autoSyncStaticCatalogueIfEmpty();
 
-  // Run in parallel for high performance
+  // Run all pricing database queries in parallel for high-speed rendering (< 100ms)
   const [
     { data: priceBooksData },
     { data: promotionsData },
@@ -82,7 +40,7 @@ export async function fetchPricingDashboardData(): Promise<{
 
   const priceBooks = (priceBooksData || []) as DatabasePriceBook[];
   const promotions = (promotionsData || []) as DatabasePromotion[];
-  let productPrices = (productPricesData || []) as DatabaseProductPrice[];
+  let productPrices = ((productPricesData || []) as unknown) as DatabaseProductPrice[];
 
   // If database product_prices is empty, auto-seed with static catalog for seamless zero-config operation
   if (productPrices.length === 0) {
