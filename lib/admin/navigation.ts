@@ -72,7 +72,6 @@ export const ADMIN_NAVIGATION: AdminNavSection[] = [
         title: "Customers",
         href: "/admin/customers",
         icon: Users,
-        badge: "Phase 10E",
       },
     ],
   },

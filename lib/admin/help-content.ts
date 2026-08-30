@@ -140,4 +140,31 @@ export const ADMIN_HELP_REGISTRY: Record<string, AdminHelpSection> = {
       },
     ],
   },
+  "/admin/customers": {
+    title: "Customer Directory & CRM Command",
+    description: "Manage retail, guest, and corporate B2B customer accounts, address books, internal staff notes, and DPDP privacy requests.",
+    sections: [
+      {
+        heading: "Customer vs. Guest Accounts",
+        content: [
+          "• Registered Customer: Authenticated user with email/phone verification, saved addresses, and unified order history.",
+          "• Guest Customer: Single-checkout customer linked by normalized email or phone without an active password account.",
+        ],
+      },
+      {
+        heading: "Account Status States",
+        content: [
+          "• Active: In good standing, able to order and checkout.",
+          "• Restricted: Limited permissions (e.g., checkout disabled for credit review).",
+          "• Suspended: Blocked from placing orders or logging in due to risk/fraud flags.",
+          "• Anonymized: PII scrubbed under DPDP privacy regulations while preserving legal financial invoices.",
+        ],
+      },
+      {
+        heading: "Financial Immutability Safeguard",
+        variant: "tip",
+        content: "Orders and payments remain the immutable source of truth. Customer statistics (LTV, AOV) are computed from real historical transactions and will never drift or corrupt financial records.",
+      },
+    ],
+  },
 };
