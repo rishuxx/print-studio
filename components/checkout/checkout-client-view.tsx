@@ -105,6 +105,7 @@ export function CheckoutClientView({
   const [couponInput, setCouponInput] = React.useState("");
   const [isApplyingCoupon, setIsApplyingCoupon] = React.useState(false);
   const [showCouponsDrawer, setShowCouponsDrawer] = React.useState(false);
+  const [isLookingUpPin, setIsLookingUpPin] = React.useState(false);
 
   if (!isHydrated) {
     return (
@@ -134,6 +135,56 @@ export function CheckoutClientView({
     setForm((prev) => ({ ...prev, [field]: value }));
     if (field in errors) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+
+    // Auto-detect & auto-fill City and State when user enters 6-digit Pincode
+    if (field === "pincode" && value.length === 6) {
+      lookupCityAndState(value);
+    }
+  };
+
+  const lookupCityAndState = async (pin: string) => {
+    setIsLookingUpPin(true);
+    try {
+      // 1. Query Postal API for authoritative district & state
+      const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+      if (res.ok) {
+        const data = await res.json();
+        const po = data?.[0]?.PostOffice?.[0];
+        if (po && po.District && po.State) {
+          setForm((prev) => ({
+            ...prev,
+            city: po.District,
+            state: po.State,
+          }));
+          toast.success(`Location detected: ${po.District}, ${po.State}`);
+          return;
+        }
+      }
+
+      // 2. Secondary fallback via Delhivery Pincode gateway
+      const sRes = await fetch("/api/shipping/serviceability", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pincode: pin, weightGrams: 500 }),
+      });
+      if (sRes.ok) {
+        const sData = await sRes.json();
+        if (sData.success && sData.result) {
+          if (sData.result.city && sData.result.city !== "India") {
+            setForm((prev) => ({
+              ...prev,
+              city: sData.result.city,
+              state: sData.result.state !== "India" ? sData.result.state : prev.state,
+            }));
+            toast.success(`Location detected: ${sData.result.city}`);
+          }
+        }
+      }
+    } catch {
+      // User can still manually edit
+    } finally {
+      setIsLookingUpPin(false);
     }
   };
 
@@ -415,7 +466,14 @@ export function CheckoutClientView({
             </div>
 
             <div className="space-y-1.5">
-              <label className="font-bold text-ink">PIN Code (6 digits) *</label>
+              <div className="flex items-center justify-between">
+                <label className="font-bold text-ink">PIN Code (6 digits) *</label>
+                {isLookingUpPin && (
+                  <span className="text-[0.625rem] text-violet font-semibold animate-pulse">
+                    Detecting City & State...
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 value={form.pincode}
