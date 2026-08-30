@@ -2,10 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getRazorpayClient } from "@/lib/payments/razorpay-server";
 import { recalculateAuthoritativeCartTotal } from "@/lib/payments/server-calculator";
+import { getAuthoritativeBusinessSettings } from "@/lib/settings/queries";
 import type { Database } from "@/lib/supabase/database.types";
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authoritative store operational & maintenance status
+    const settings = await getAuthoritativeBusinessSettings();
+    if (settings.store_status === "PAUSED" || !settings.checkout_enabled || !settings.accept_new_orders) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: settings.store_pause_message || "The storefront is currently undergoing scheduled maintenance and not accepting new orders.",
+        },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const { draftCheckout, lines, discount, clientTotalPaise } = body;
 
