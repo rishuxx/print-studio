@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import type { Database } from "@/lib/supabase/database.types";
 
 export type AdminUser = {
@@ -13,13 +14,13 @@ export type AdminUser = {
  * Server-side guard that checks if the current request is authenticated
  * and has profile.role === 'admin'.
  * 
- * If authorized, returns { user, profile }.
- * If unauthenticated or role !== 'admin', redirects safely.
+ * Wrapped in React cache() so layout.tsx and page.tsx share the exact same
+ * auth verification in 1 single fast round-trip instead of duplicate sequential queries.
  */
-export async function requireAdminAuth(redirectPath: string = "/"): Promise<{
+export const requireAdminAuth = cache(async (redirectPath: string = "/"): Promise<{
   user: { id: string; email?: string };
   profile: Database["public"]["Tables"]["profiles"]["Row"];
-}> {
+}> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -31,13 +32,14 @@ export async function requireAdminAuth(redirectPath: string = "/"): Promise<{
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("*")
+    .select("id, email, full_name, role, created_at, updated_at")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
   if (error || !profile || profile.role !== "admin") {
     redirect("/");
   }
 
-  return { user, profile };
-}
+  return { user, profile: profile as Database["public"]["Tables"]["profiles"]["Row"] };
+});
+

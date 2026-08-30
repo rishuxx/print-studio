@@ -19,6 +19,7 @@ import {
   ShieldAlert,
   ArrowRight,
 } from "lucide-react";
+import { useRealtimeOrderSync } from "@/lib/realtime/use-order-sync";
 
 interface AdminDashboardClientViewProps {
   data: DashboardDataDTO;
@@ -33,6 +34,8 @@ export function AdminDashboardClientView({
   adminEmail,
   adminRole,
 }: AdminDashboardClientViewProps) {
+  // Live WebSocket Realtime Streaming: Instantly synchronizes KPIs when orders/payments happen
+  useRealtimeOrderSync();
   const quickActions = [
     {
       title: "Order Console",

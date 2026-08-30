@@ -30,6 +30,7 @@ import type {
 } from "@/lib/admin/orders/types";
 import { bulkUpdateOrdersStatus } from "@/lib/supabase/actions";
 import { toast } from "sonner";
+import { useRealtimeOrderSync } from "@/lib/realtime/use-order-sync";
 
 type DbOrderWithItems = Database["public"]["Tables"]["orders"]["Row"] & {
   order_items?: Database["public"]["Tables"]["order_items"]["Row"][];
@@ -108,6 +109,9 @@ export function AdminOrdersClientView({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  // Instant WebSocket Realtime Subscription for live incoming orders
+  useRealtimeOrderSync();
 
   const [searchTerm, setSearchTerm] = React.useState(queryTerm);
   const [prevQueryTerm, setPrevQueryTerm] = React.useState(queryTerm);
