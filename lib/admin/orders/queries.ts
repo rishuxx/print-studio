@@ -36,13 +36,28 @@ export async function fetchAdminOrders(
     .from("orders")
     .select("*, order_items(*)", { count: "exact" });
 
-  // 1. Filter: Order Status
-  if (params.status && params.status !== "ALL") {
+  // 1. Filter: Order Status (Supports 'active' pipeline and individual statuses)
+  if (params.status === "active") {
+    query = query.in("status", [
+      "pending",
+      "confirmed",
+      "artwork_review",
+      "proof_pending",
+      "proof_approved",
+      "in_production",
+      "quality_check",
+      "ready",
+      "shipped",
+      "out_for_delivery",
+    ]);
+  } else if (params.status && params.status !== "ALL") {
     query = query.eq("status", params.status);
   }
 
   // 2. Filter: Payment Status
-  if (params.paymentStatus && params.paymentStatus !== "ALL") {
+  if (params.paymentStatus === "pending" || params.paymentStatus === "unpaid") {
+    query = query.in("payment_status", ["pending", "unpaid", "failed"]);
+  } else if (params.paymentStatus && params.paymentStatus !== "ALL") {
     query = query.eq("payment_status", params.paymentStatus);
   }
 

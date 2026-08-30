@@ -46,13 +46,14 @@ export function DashboardAttention({ items }: DashboardAttentionProps) {
           const isWarning = item.severity === "warning";
 
           return (
-            <div
+            <Link
               key={item.id}
+              href={item.href}
               className={cn(
-                "flex flex-col justify-between rounded-xl border p-4 transition-all",
-                isUrgent && "border-rose-200 bg-rose-50/40 hover:border-rose-300",
-                isWarning && "border-amber-200 bg-amber-50/40 hover:border-amber-300",
-                !isUrgent && !isWarning && "border-border/80 bg-paper/60 hover:border-border"
+                "group flex flex-col justify-between rounded-xl border p-4 transition-all hover:shadow-sm cursor-pointer",
+                isUrgent && "border-rose-200 bg-rose-50/40 hover:border-rose-400 hover:bg-rose-50/70",
+                isWarning && "border-amber-200 bg-amber-50/40 hover:border-amber-400 hover:bg-amber-50/70",
+                !isUrgent && !isWarning && "border-border/80 bg-paper/60 hover:border-violet/50 hover:bg-violet-wash/30"
               )}
             >
               <div className="space-y-1.5">
@@ -83,21 +84,23 @@ export function DashboardAttention({ items }: DashboardAttentionProps) {
                 </p>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-end">
-                <Link
-                  href={item.href}
+              <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between">
+                <span className="text-[0.6875rem] font-mono text-muted-foreground group-hover:text-ink transition-colors">
+                  Inspect filter
+                </span>
+                <div
                   className={cn(
-                    "inline-flex items-center gap-1 text-xs font-bold transition-all hover:underline",
+                    "inline-flex items-center gap-1 text-xs font-bold transition-all group-hover:underline",
                     isUrgent && "text-rose-700",
                     isWarning && "text-amber-800",
                     !isUrgent && !isWarning && "text-violet"
                   )}
                 >
                   <span>{item.actionLabel}</span>
-                  <ArrowRight className="size-3.5" />
-                </Link>
+                  <ArrowRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </div>
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>

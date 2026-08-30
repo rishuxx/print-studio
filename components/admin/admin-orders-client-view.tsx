@@ -51,8 +51,9 @@ interface AdminOrdersClientViewProps {
   dbError?: string;
 }
 
-const ALL_STATUSES: Array<"ALL" | OrderStatus> = [
+const ALL_STATUSES: Array<"ALL" | "active" | OrderStatus> = [
   "ALL",
+  "active",
   "pending",
   "confirmed",
   "artwork_review",
@@ -390,7 +391,12 @@ export function AdminOrdersClientView({
         </div>
         {ALL_STATUSES.map((st) => {
           const isSelected = statusFilter === st;
-          const label = st === "ALL" ? "All Orders" : ORDER_STATUS_METADATA[st]?.label || st;
+          const label =
+            st === "ALL"
+              ? "All Orders"
+              : st === "active"
+              ? "⚡ Active Pipeline"
+              : ORDER_STATUS_METADATA[st as OrderStatus]?.label || st;
           return (
             <button
               key={st}
@@ -428,7 +434,7 @@ export function AdminOrdersClientView({
               className="rounded-xl border border-border bg-white px-3 py-1.5 text-xs font-semibold text-ink focus:border-violet focus:outline-none flex-1 sm:flex-none"
             >
               <option value="">-- Apply Milestone Transition --</option>
-              {ALL_STATUSES.filter((s) => s !== "ALL").map((st) => (
+              {ALL_STATUSES.filter((s) => s !== "ALL" && s !== "active").map((st) => (
                 <option key={st} value={st}>
                   → {ORDER_STATUS_METADATA[st as OrderStatus]?.label || st}
                 </option>

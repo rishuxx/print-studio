@@ -1,6 +1,6 @@
 export type OrderSortOption = "newest" | "oldest" | "highest_value" | "lowest_value" | "recently_updated";
 
-export type PaymentStatusFilter = "ALL" | "paid" | "pending" | "failed" | "refunded";
+export type PaymentStatusFilter = "ALL" | "paid" | "pending" | "failed" | "refunded" | "unpaid";
 
 export type DateRangePreset =
   | "ALL"

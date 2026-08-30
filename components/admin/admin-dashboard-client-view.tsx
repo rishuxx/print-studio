@@ -16,7 +16,9 @@ import {
   CreditCard,
   Users,
   Printer,
-  ShieldAlert,
+  Truck,
+  DollarSign,
+  Settings,
   ArrowRight,
 } from "lucide-react";
 import { useRealtimeOrderSync } from "@/lib/realtime/use-order-sync";
@@ -36,7 +38,8 @@ export function AdminDashboardClientView({
 }: AdminDashboardClientViewProps) {
   // Live WebSocket Realtime Streaming: Instantly synchronizes KPIs when orders/payments happen
   useRealtimeOrderSync();
-  const quickActions = [
+
+  const operationalModules = [
     {
       title: "Order Console",
       description: "Search orders, inspect customer items & advance order lifecycles.",
@@ -60,36 +63,54 @@ export function AdminDashboardClientView({
       description: "Manage product specs, print substrates, finishes, and quantity tiers.",
       href: "/admin/products",
       icon: Layers,
-      statusText: "Phase 10D Module",
-      badge: "Upcoming",
-      badgeColor: "bg-paper text-muted-foreground border-border",
+      statusText: "Catalog & Variants",
+      badge: "Active",
+      badgeColor: "bg-blue-50 text-blue-700 border-blue-200",
     },
     {
       title: "Payment Reconciliation",
       description: "Verify Razorpay transactions, capture references, and audit refunds.",
       href: "/admin/payments",
       icon: CreditCard,
-      statusText: "Phase 10F Module",
-      badge: "Upcoming",
-      badgeColor: "bg-paper text-muted-foreground border-border",
+      statusText: "Razorpay Gateway",
+      badge: "Active",
+      badgeColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
     },
     {
       title: "Customer Directory",
       description: "Inspect customer accounts, enterprise clients, and address books.",
       href: "/admin/customers",
       icon: Users,
-      statusText: "Phase 10G Module",
-      badge: "Upcoming",
-      badgeColor: "bg-paper text-muted-foreground border-border",
+      statusText: "Profiles & Accounts",
+      badge: "Active",
+      badgeColor: "bg-indigo-50 text-indigo-700 border-indigo-200",
     },
     {
-      title: "System Audit Log",
-      description: "Immutable trail of administrative transitions, status changes, and auth events.",
-      href: "/admin/audit-log",
-      icon: ShieldAlert,
-      statusText: "Phase 10K Module",
-      badge: "Upcoming",
-      badgeColor: "bg-paper text-muted-foreground border-border",
+      title: "Shipments & Tracking",
+      description: "Real carrier dispatches via Delhivery & Blue Dart with live AWB tracking.",
+      href: "/admin/shipping",
+      icon: Truck,
+      statusText: "Logistics Engine",
+      badge: "Active",
+      badgeColor: "bg-teal-50 text-teal-700 border-teal-200",
+    },
+    {
+      title: "Dynamic Pricing Engine",
+      description: "Automated cost matrix, paper GSM formulas, and finish surcharges.",
+      href: "/admin/pricing",
+      icon: DollarSign,
+      statusText: "Formula & Margins",
+      badge: "Active",
+      badgeColor: "bg-purple-50 text-purple-700 border-purple-200",
+    },
+    {
+      title: "Store Settings & Tax",
+      description: "Business profiles, GSTIN configuration, dispatch rules and audit logs.",
+      href: "/admin/settings",
+      icon: Settings,
+      statusText: "Governance & GST",
+      badge: "Active",
+      badgeColor: "bg-slate-50 text-slate-700 border-slate-200",
     },
   ];
 
@@ -130,7 +151,7 @@ export function AdminDashboardClientView({
       {/* ── Dashboard Date Range Controls & Refresh ─────────────────── */}
       <DashboardFilters currentRange={data.dateRange} />
 
-      {/* ── KPI Metrics Grid ────────────────────────────────────────── */}
+      {/* ── KPI Metrics Grid (All 5 Flash Cards are Interactive Deep Links) ── */}
       <DashboardKpiGrid kpis={data.kpis} comparison={data.comparison} />
 
       {/* ── Operational Attention Section ───────────────────────────── */}
@@ -158,23 +179,23 @@ export function AdminDashboardClientView({
             Administrative Modules & Systems
           </h3>
           <span className="font-mono text-xs text-muted-foreground">
-            Phase 10 Operations Directory
+            Production Operations Directory
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {quickActions.map((card) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {operationalModules.map((card) => {
             const Icon = card.icon;
-            const isLive = card.badge === "Active";
 
             return (
-              <div
+              <Link
                 key={card.title}
-                className="group relative flex flex-col justify-between rounded-2xl border border-border/80 bg-white p-5 transition-all hover:border-violet/40 hover:shadow-xs"
+                href={card.href}
+                className="group relative flex flex-col justify-between rounded-2xl border border-border/80 bg-white p-5 transition-all hover:border-violet/50 hover:shadow-md hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex size-9 items-center justify-center rounded-xl bg-paper text-violet group-hover:bg-violet-wash transition-colors">
+                    <div className="flex size-9 items-center justify-center rounded-xl bg-paper text-violet group-hover:bg-violet group-hover:text-white transition-all">
                       <Icon className="size-4.5" />
                     </div>
                     <span
@@ -198,21 +219,12 @@ export function AdminDashboardClientView({
                   <span className="font-mono text-[0.6875rem] text-muted-foreground">
                     {card.statusText}
                   </span>
-                  {isLive ? (
-                    <Link
-                      href={card.href}
-                      className="font-bold text-violet inline-flex items-center gap-1 hover:underline"
-                    >
-                      <span>Open</span>
-                      <ArrowRight className="size-3" />
-                    </Link>
-                  ) : (
-                    <span className="font-mono text-[0.625rem] text-muted-foreground/80">
-                      Coming Soon
-                    </span>
-                  )}
+                  <div className="font-bold text-violet inline-flex items-center gap-1 group-hover:underline">
+                    <span>Open</span>
+                    <ArrowRight className="size-3 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
