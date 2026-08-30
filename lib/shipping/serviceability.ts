@@ -42,15 +42,17 @@ export async function checkPincodeServiceabilityLive(
     return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
   };
 
-  // 1. Check live Delhivery Pincode Serviceability API if token is configured
+  // 1. Check live Delhivery Pincode Serviceability API & Freight Rate Calculation
   const delhiveryToken = process.env.DELHIVERY_API_TOKEN;
   let delhiveryLiveServiceable = false;
   let delhiveryPrepaid = false;
   let delhiveryCod = false;
   let delhiveryRemarks = "";
+  let delhiveryRealPrice = 0;
 
   if (delhiveryToken && cleanPin.length === 6) {
     try {
+      // A. Check live pincode coverage
       const res = await fetch(
         `https://track.delhivery.com/c/api/pin-codes/json/?filter_codes=${cleanPin}`,
         {
@@ -67,6 +69,23 @@ export async function checkPincodeServiceabilityLive(
           delhiveryLiveServiceable = pinData.pre_paid === "Y" || pinData.is_oda === "N";
           if (!delhiveryLiveServiceable) {
             delhiveryRemarks = pinData.remarks || "ODA / Restricted Area";
+          }
+        }
+      }
+
+      // B. Fetch live authoritative rate from Delhivery Invoice/Rate Calculator API
+      if (delhiveryLiveServiceable) {
+        const originPin = "248001"; // Print Studio Dehradun central hub
+        const rateUrl = `https://track.delhivery.com/api/kinko/v1/invoice/charges/.json?md=S&ss=Delivered&d_pin=${cleanPin}&o_pin=${originPin}&cgm=${weightGrams}&pt=Pre-paid`;
+        const rateRes = await fetch(rateUrl, {
+          headers: { Authorization: `Token ${delhiveryToken}` },
+          next: { revalidate: 1800 },
+        });
+
+        if (rateRes.ok) {
+          const rateData = await rateRes.json();
+          if (Array.isArray(rateData) && rateData[0]?.total_amount) {
+            delhiveryRealPrice = Math.round(Number(rateData[0].total_amount));
           }
         }
       }
@@ -110,7 +129,7 @@ export async function checkPincodeServiceabilityLive(
       codAvailable: delhiveryCod,
       prepaidAvailable: delhiveryPrepaid || isDelhiveryValid,
       recommendedBadge: isDelhiveryValid ? "Live Delhivery API" : undefined,
-      rateEstimateInr: isDelhiveryValid ? Math.round(45 + (weightGrams / 500) * 20) : 0,
+      rateEstimateInr: isDelhiveryValid ? (delhiveryRealPrice || Math.round(38 + (weightGrams / 500) * 15)) : 0,
     },
     {
       carrierCode: "shiprocket",

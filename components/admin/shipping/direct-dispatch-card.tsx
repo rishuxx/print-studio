@@ -30,11 +30,43 @@ export function DirectDispatchCard({
   const [selectedCarrier, setSelectedCarrier] = React.useState<"delhivery" | "shiprocket" | "bluedart" | "fake">("delhivery");
   const [weightGrams, setWeightGrams] = React.useState(500);
   const [isAssigning, setIsAssigning] = React.useState(false);
+  const [liveServiceability, setLiveServiceability] = React.useState<ReturnType<typeof checkPincodeServiceability> | null>(null);
+  const [isLoadingRates, setIsLoadingRates] = React.useState(false);
 
-  // Compute live serviceability options for recipient's exact pincode
-  const serviceability = React.useMemo(() => {
+  // Compute immediate client baseline fallback
+  const baseline = React.useMemo(() => {
     return checkPincodeServiceability(pincode || "248007", weightGrams, city, state);
   }, [pincode, weightGrams, city, state]);
+
+  // Fetch live real-time rate calculation from Delhivery API
+  React.useEffect(() => {
+    let isCancelled = false;
+    async function fetchLiveRates() {
+      setIsLoadingRates(true);
+      try {
+        const res = await fetch("/api/shipping/serviceability", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pincode: pincode || "248007", weightGrams, city, state }),
+        });
+        const data = await res.json();
+        if (!isCancelled && data.success && data.result) {
+          setLiveServiceability(data.result);
+        }
+      } catch {
+        // fallback to baseline
+      } finally {
+        if (!isCancelled) setIsLoadingRates(false);
+      }
+    }
+
+    fetchLiveRates();
+    return () => {
+      isCancelled = true;
+    };
+  }, [pincode, weightGrams, city, state]);
+
+  const serviceability = liveServiceability || baseline;
 
   const handleAssignDispatch = async (carrierCode: "delhivery" | "shiprocket" | "bluedart" | "fake") => {
     if (existingAwb) {
@@ -89,7 +121,12 @@ export function DirectDispatchCard({
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Destination: <strong className="text-ink">{city}, {state} ({pincode || "248007"})</strong> · Checked against live carrier routing rules.
+              Destination: <strong className="text-ink">{city}, {state} ({pincode || "248007"})</strong> · 
+              {isLoadingRates ? (
+                <span className="text-violet font-semibold animate-pulse ml-1">Calculating live courier freight...</span>
+              ) : (
+                <span className="ml-1">Live Delhivery rate & serviceability active.</span>
+              )}
             </p>
           </div>
         </div>
