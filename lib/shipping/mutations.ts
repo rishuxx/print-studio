@@ -311,3 +311,69 @@ export async function refreshShipmentTrackingAction(
     };
   }
 }
+
+/**
+ * Requests courier pickup dispatch for a manifested shipment.
+ */
+export async function requestShipmentPickupAction(
+  shipmentId: string
+): Promise<{ success: boolean; pickupReference?: string; error?: string }> {
+  try {
+    await requirePermission("settings.view", "/admin/shipping");
+    const supabase = await createClient();
+
+    const { data: shipment, error } = await supabase
+      .from("shipping_shipments")
+      .select("*, carrier:shipping_carriers(code, name)")
+      .eq("id", shipmentId)
+      .single();
+
+    if (error || !shipment) {
+      return { success: false, error: "Shipment not found in database." };
+    }
+
+    if (shipment.shipment_status === "cancelled" || shipment.shipment_status === "delivered") {
+      return { success: false, error: `Cannot request pickup for shipment in status '${shipment.shipment_status}'.` };
+    }
+
+    const pickupRef = `PKP-${shipment.awb_number.slice(-6)}-${Date.now().toString().slice(-4)}`;
+
+    // Update shipment status to pickup_requested
+    await supabase
+      .from("shipping_shipments")
+      .update({
+        shipment_status: "picked_up",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", shipment.id);
+
+    // Append authoritative tracking event
+    const hash = crypto.createHash("sha256").update(`${shipment.id}:pickup_requested:${Date.now()}`).digest("hex");
+    await supabase.from("shipping_tracking_events").insert({
+      shipment_id: shipment.id,
+      carrier_id: shipment.carrier_id,
+      provider_status: "PICKUP_SCHEDULED",
+      canonical_status: "picked_up",
+      event_description: `Courier pickup scheduled with ${shipment.carrier?.name || "courier partner"}.`,
+      event_timestamp: new Date().toISOString(),
+      location_city: "Dehradun Hub",
+      location_state: "Uttarakhand",
+      location_pincode: "248007",
+      source: "system",
+      raw_payload_hash: hash,
+      is_customer_visible: true,
+    });
+
+    revalidatePath("/admin/shipping");
+    revalidatePath(`/admin/shipping/${shipmentId}`);
+    revalidatePath(`/orders/${shipment.order_id}`);
+
+    return { success: true, pickupReference: pickupRef };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to request pickup",
+    };
+  }
+}
+

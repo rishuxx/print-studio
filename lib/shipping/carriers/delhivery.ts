@@ -8,7 +8,13 @@ import type { CanonicalShipmentStatus } from "../types";
 export class DelhiveryCarrierAdapter implements CarrierAdapter {
   code = "delhivery";
   name = "Delhivery Express";
-  private baseUrl = "https://track.delhivery.com";
+
+  private getBaseUrl(): string {
+    const env = process.env.DELHIVERY_ENV || "production";
+    return env === "staging"
+      ? "https://staging-express.delhivery.com"
+      : "https://track.delhivery.com";
+  }
 
   private mapDelhiveryStatus(dlStatus: string): CanonicalShipmentStatus {
     const s = dlStatus.toUpperCase();
@@ -34,6 +40,7 @@ export class DelhiveryCarrierAdapter implements CarrierAdapter {
     itemCount: number;
   }): Promise<CarrierCreateShipmentResult> {
     const token = process.env.DELHIVERY_API_TOKEN;
+    const baseUrl = this.getBaseUrl();
 
     if (!token) {
       const mockAwb = `DLV-${params.pincode}-${Date.now().toString().slice(-6)}`;
@@ -42,7 +49,7 @@ export class DelhiveryCarrierAdapter implements CarrierAdapter {
         awbNumber: mockAwb,
         providerShipmentId: `DLV-SHP-${Date.now()}`,
         providerOrderId: params.orderNumber,
-        labelUrl: `https://track.delhivery.com/print/label/${mockAwb}`,
+        labelUrl: `${baseUrl}/print/label/${mockAwb}`,
         trackingUrl: `https://www.delhivery.com/track/package/${mockAwb}`,
         estimatedDeliveryAt: new Date(Date.now() + 3 * 86400000).toISOString(),
       };
@@ -80,7 +87,8 @@ export class DelhiveryCarrierAdapter implements CarrierAdapter {
       formData.append("format", "json");
       formData.append("data", JSON.stringify(payloadData));
 
-      const response = await fetch(`${this.baseUrl}/api/cmu/create.json`, {
+      const baseUrl = this.getBaseUrl();
+      const response = await fetch(`${baseUrl}/api/cmu/create.json`, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -108,7 +116,7 @@ export class DelhiveryCarrierAdapter implements CarrierAdapter {
         awbNumber: waybill,
         providerShipmentId: pkg?.refnum || `DLV-${Date.now()}`,
         trackingUrl: `https://www.delhivery.com/track/package/${waybill}`,
-        labelUrl: `https://track.delhivery.com/print/label/${waybill}`,
+        labelUrl: `${baseUrl}/print/label/${waybill}`,
         estimatedDeliveryAt: new Date(Date.now() + 3 * 86400000).toISOString(),
       };
     } catch (err: unknown) {
@@ -122,6 +130,7 @@ export class DelhiveryCarrierAdapter implements CarrierAdapter {
 
   async trackShipment(awbNumber: string): Promise<CarrierTrackingResult> {
     const token = process.env.DELHIVERY_API_TOKEN;
+    const baseUrl = this.getBaseUrl();
 
     if (!token) {
       return {
@@ -149,7 +158,7 @@ export class DelhiveryCarrierAdapter implements CarrierAdapter {
     }
 
     try {
-      const response = await fetch(`${this.baseUrl}/api/v1/packages/json/?waybill=${awbNumber}`, {
+      const response = await fetch(`${baseUrl}/api/v1/packages/json/?waybill=${awbNumber}`, {
         headers: { Authorization: `Token ${token}` },
       });
       const res = await response.json();
