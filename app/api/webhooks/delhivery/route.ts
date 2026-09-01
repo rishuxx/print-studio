@@ -128,6 +128,26 @@ export async function POST(request: NextRequest) {
           .update({ status: "delivered", updated_at: new Date().toISOString() })
           .eq("id", targetShipment.order_id);
       }
+
+      // 7. Authoritative Notification Dispatch
+      const { NotificationService } = await import("@/lib/notifications/notification-service");
+      const notificationEventMap: Record<string, "SHIPMENT_OUT_FOR_DELIVERY" | "SHIPMENT_DELIVERED" | "SHIPMENT_IN_TRANSIT" | "SHIPMENT_RTO"> = {
+        out_for_delivery: "SHIPMENT_OUT_FOR_DELIVERY",
+        delivered: "SHIPMENT_DELIVERED",
+        in_transit: "SHIPMENT_IN_TRANSIT",
+        rto_in_transit: "SHIPMENT_RTO",
+      };
+
+      const eventType = notificationEventMap[canonicalStatus];
+      if (eventType) {
+        await NotificationService.dispatchEvent({
+          eventType,
+          orderId: targetShipment.order_id,
+          trackingNumber: awb,
+          carrierName: "Delhivery Express",
+          idempotencyKey: `delhivery_${targetShipment.id}_${canonicalStatus}`,
+        });
+      }
     }
 
     // 7. Record Webhook Receipt

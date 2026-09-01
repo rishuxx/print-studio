@@ -1,6 +1,7 @@
 import { calculateAuthoritativePrice } from "./engine";
 import type { DatabaseProduct, DatabaseProductVariant } from "@/lib/catalogue/types";
 import { money, type Money } from "@/lib/commerce/types";
+import { products } from "@/lib/data/products";
 
 export interface PricingServiceResult {
   basePrice: Money;
@@ -22,12 +23,34 @@ export const PricingService = {
   calculateProductPrice(params: {
     product: DatabaseProduct;
     variant?: DatabaseProductVariant | null;
+    priceRecord?: any;
     quantity: number;
     selectedOptions?: Array<{ name: string; value: string }>;
     currentTime?: string;
     isPersonalized?: boolean;
     needsDesignAssistance?: boolean;
   }): PricingServiceResult {
+    // 1. If product has DB prices or priceRecord attached, use it
+    let priceRecord = params.priceRecord || (params.product as any).prices?.[0] || null;
+
+    // 2. If no DB price record exists or has no tiers, look up static catalog definition
+    if (!priceRecord || (!priceRecord.quantity_tiers && !priceRecord.tiers)) {
+      const staticProd = products.find(
+        (p) => p.id === params.product.id || p.handle === params.product.handle
+      );
+      if (staticProd && staticProd.quantityTiers && staticProd.quantityTiers.length > 0) {
+        priceRecord = {
+          base_price_minor: staticProd.priceFrom.amount,
+          compare_at_price_minor: staticProd.compareAtFrom?.amount || null,
+          quantity_tiers: staticProd.quantityTiers.map((t) => ({
+            min_quantity: t.qty,
+            tier_price_minor: t.price.amount,
+            discount_percent: 0,
+          })),
+        };
+      }
+    }
+
     // We pass the raw product to the engine
     const engineInput = {
       product: {
@@ -50,8 +73,7 @@ export const PricingService = {
             priceFactor: params.variant.price_factor,
           }
         : null,
-      // For now, we mock priceRecord if it's not nested. 
-      // A robust implementation would fetch the exact price record.
+      priceRecord,
       quantity: params.quantity,
       currentTimestamp: params.currentTime || new Date().toISOString(),
       isPersonalized: params.isPersonalized,
@@ -59,6 +81,7 @@ export const PricingService = {
     };
 
     const calculation = calculateAuthoritativePrice(engineInput);
+
 
     // GST/Tax Calculation (Assume 18% standard for print unless configured otherwise)
     // Real implementation should read StoreSettings
@@ -75,7 +98,10 @@ export const PricingService = {
       discount: money(calculation.totalDiscountMinor),
       tax: money(taxMinor),
       total: money(totalMinor),
-      quantityTiers: [], // Would map tiers here
+      quantityTiers: (priceRecord?.quantity_tiers || []).map((t: any) => ({
+        minQty: t.min_quantity,
+        price: money(t.tier_price_minor),
+      })),
     };
   },
 };

@@ -79,18 +79,23 @@ export function mapDatabaseProductToStorefront(dbProduct: any, priceTiers: any[]
     });
     return {
       qty: t.min_quantity,
-      price: tierCalc.finalUnitPrice,
+      price: tierCalc.subtotal,
       note: t.discount_percent ? `${t.discount_percent}% off` : undefined,
     };
   });
 
   if (quantityTiers.length === 0) {
-    const basePaise = baseCalc.finalUnitPrice.amount;
-    quantityTiers = [
-      { qty: dbProduct.min_order_qty || 1, price: money(basePaise) },
-      { qty: (dbProduct.min_order_qty || 1) * 5, price: money(Math.round(basePaise * 4.5)) },
-      { qty: (dbProduct.min_order_qty || 1) * 10, price: money(Math.round(basePaise * 8.5)) },
-    ];
+    const staticProd = getStaticProduct(dbProduct.handle) || getStaticProduct(dbProduct.id);
+    if (staticProd && staticProd.quantityTiers && staticProd.quantityTiers.length > 0) {
+      quantityTiers = staticProd.quantityTiers;
+    } else {
+      const basePaise = baseCalc.subtotal.amount;
+      quantityTiers = [
+        { qty: dbProduct.min_order_qty || 1, price: money(basePaise) },
+        { qty: (dbProduct.min_order_qty || 1) * 5, price: money(Math.round(basePaise * 4.5)) },
+        { qty: (dbProduct.min_order_qty || 1) * 10, price: money(Math.round(basePaise * 8.5)) },
+      ];
+    }
   }
 
   const CATEGORY_MAP: Record<string, string[]> = {

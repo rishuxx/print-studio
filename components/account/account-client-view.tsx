@@ -361,6 +361,36 @@ export function AccountClientView({
               </button>
             </div>
           </form>
+
+          {/* Customer Notification Preferences */}
+          <div className="pt-6 border-t border-border space-y-3">
+            <div className="space-y-0.5">
+              <h3 className="font-bold text-ink text-xs uppercase font-mono tracking-wider">
+                Notification & Communication Preferences
+              </h3>
+              <p className="text-muted-foreground text-[0.6875rem]">
+                Choose how you receive order confirmations, proof updates, and courier dispatch tracking.
+              </p>
+            </div>
+
+            <div className="space-y-2.5 pt-1">
+              <label className="flex items-center justify-between rounded-xl border border-border p-3 hover:bg-paper/60 transition-colors cursor-pointer">
+                <div>
+                  <div className="font-bold text-ink text-xs">Email Notifications</div>
+                  <div className="text-[0.6875rem] text-muted-foreground">Receive invoices, proofs, and shipping updates via email.</div>
+                </div>
+                <input type="checkbox" defaultChecked className="size-4 accent-violet rounded" />
+              </label>
+
+              <label className="flex items-center justify-between rounded-xl border border-border p-3 hover:bg-paper/60 transition-colors cursor-pointer">
+                <div>
+                  <div className="font-bold text-ink text-xs">WhatsApp Order Alerts</div>
+                  <div className="text-[0.6875rem] text-muted-foreground">Receive urgent proof alerts and courier tracking dockets on WhatsApp.</div>
+                </div>
+                <input type="checkbox" defaultChecked className="size-4 accent-violet rounded" />
+              </label>
+            </div>
+          </div>
         </div>
       )}
 

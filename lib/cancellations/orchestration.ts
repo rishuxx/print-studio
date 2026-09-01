@@ -217,6 +217,15 @@ export async function executeOrderCancellationAndRefund(
     description: customerSafeMessage,
   });
 
+  // Authoritative Notification Dispatch
+  const { NotificationService } = await import("@/lib/notifications/notification-service");
+  await NotificationService.dispatchEvent({
+    eventType: "ORDER_CANCELLED",
+    orderId: order.id,
+    cancellationReason: customerSafeMessage,
+    idempotencyKey: `cancel_${order.id}_${Date.now()}`,
+  });
+
   let refundId: string | undefined;
   let providerRefundId: string | undefined;
   let refundStatus = "NO_REFUND";

@@ -174,40 +174,55 @@ export function SiteFooter() {
             </ul>
           </div>
 
-          {/* Customer Care & Policies */}
+          {/* Need Help? / Customer Support */}
           <div>
             <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-white">
-              Information
+              Need Help?
             </h4>
             <ul className="mt-4 space-y-2 text-xs text-white/70">
               <li>
+                <Link href="/orders" className="hover:text-white transition-colors">
+                  Track Your Order
+                </Link>
+              </li>
+              <li>
                 <Link href="/contact" className="hover:text-white transition-colors">
-                  Contact Us
+                  Contact Customer Support
+                </Link>
+              </li>
+              {(settings.whatsapp_number || siteConfig.contact.whatsapp) && (
+                <li>
+                  <a
+                    href={`https://wa.me/${(settings.whatsapp_number || siteConfig.contact.whatsapp || "").replace(/[^0-9]/g, "")}?text=${encodeURIComponent(siteConfig.contact.whatsappMessage)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald-400 hover:text-emerald-300 transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <span>WhatsApp Support</span>
+                  </a>
+                </li>
+              )}
+              <li>
+                <a
+                  href={`tel:${(settings.phone || siteConfig.contact.phone).replace(/\s+/g, "")}`}
+                  className="hover:text-white transition-colors"
+                >
+                  Call: {settings.phone || siteConfig.contact.phone}
+                </a>
+              </li>
+              <li>
+                <Link href="/help/faq" className="hover:text-white transition-colors">
+                  Help & FAQs
                 </Link>
               </li>
               <li>
                 <Link href="/help/shipping" className="hover:text-white transition-colors">
-                  Shipping & Pickup
-                </Link>
-              </li>
-              <li>
-                <Link href="/help/faq" className="hover:text-white transition-colors">
-                  Frequently Asked Questions
+                  Shipping & Dispatch
                 </Link>
               </li>
               <li>
                 <Link href="/help/artwork-guidelines" className="hover:text-white transition-colors">
                   Artwork Guidelines
-                </Link>
-              </li>
-              <li>
-                <Link href="/help/terms" className="hover:text-white transition-colors">
-                  Terms of Service
-                </Link>
-              </li>
-              <li>
-                <Link href="/help/privacy" className="hover:text-white transition-colors">
-                  Privacy Policy
                 </Link>
               </li>
             </ul>

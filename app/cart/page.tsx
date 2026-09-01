@@ -116,7 +116,9 @@ export default function CartPage() {
                         {line.productTitle}
                       </Link>
                       <div className="text-xs text-muted-foreground font-mono mt-0.5">
-                        {line.tierQty ? `${line.tierQty} ${line.priceUnit} / batch` : line.priceUnit}
+                        {line.tierQty
+                          ? `${line.tierQty} ${line.priceUnit?.replace(/^per\s+/i, "") || "units"} / batch`
+                          : line.priceUnit}
                       </div>
                     </div>
                   </div>
@@ -130,11 +132,11 @@ export default function CartPage() {
                       <div className="text-[0.6875rem] text-muted-foreground font-mono">
                         ({formatMoney(line.unitPrice)} / batch)
                       </div>
-                    ) : line.tierQty && line.tierQty > 1 ? (
+                    ) : (
                       <div className="text-[0.6875rem] text-muted-foreground font-mono">
-                        (₹{(line.unitPrice.amount / (line.tierQty * 100)).toFixed(2)} / unit)
+                        (₹{(line.unitPrice.amount / (Math.max(1, line.tierQty || 1) * 100)).toFixed(2)} / unit)
                       </div>
-                    ) : null}
+                    )}
                   </div>
                 </div>
 

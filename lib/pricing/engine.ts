@@ -137,9 +137,9 @@ export function calculateAuthoritativePrice({
   const tiersList = priceRecord?.quantity_tiers || priceRecord?.product_quantity_tiers;
 
   if (tiersList && tiersList.length > 0) {
-    const sortedTiers = [...tiersList].sort((a, b) => a.min_quantity - b.min_quantity);
+    const sortedTiers = [...tiersList].sort((a, b) => b.min_quantity - a.min_quantity);
     for (const tier of sortedTiers) {
-      if (quantity >= tier.min_quantity && (tier.max_quantity === null || quantity <= tier.max_quantity)) {
+      if (quantity >= tier.min_quantity && (tier.max_quantity === null || tier.max_quantity === undefined || quantity <= tier.max_quantity)) {
         // tier.tier_price_minor is the TOTAL price for exactly tier.min_quantity items.
         // We calculate the precise float unit price for accurate scaling.
         const tierUnitPrice = tier.tier_price_minor / Math.max(1, tier.min_quantity);
@@ -271,13 +271,13 @@ export function calculateAuthoritativePrice({
     quantityTierDiscountMinor + productSaleDiscountMinor + promoDiscountMinor;
   let finalSubtotalMinor: MoneyMinor = Math.max(0, rawSubtotalMinor - totalDiscountMinor);
 
-  // Strict Margin Floor Protection
+  // Strict Margin Floor Protection (only if explicitly configured in priceRecord)
   const marginFloorMinor = priceRecord?.minimum_price_floor_minor
     ? priceRecord.minimum_price_floor_minor * quantity
-    : Math.round(rawSubtotalMinor * 0.4);
+    : 0;
 
   let marginFloorProtected = false;
-  if (finalSubtotalMinor < marginFloorMinor && rawSubtotalMinor >= marginFloorMinor) {
+  if (marginFloorMinor > 0 && finalSubtotalMinor < marginFloorMinor && rawSubtotalMinor >= marginFloorMinor) {
     finalSubtotalMinor = marginFloorMinor;
     marginFloorProtected = true;
   }

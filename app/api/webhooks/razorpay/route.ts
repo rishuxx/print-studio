@@ -113,6 +113,15 @@ export async function POST(request: NextRequest) {
           title: "Payment Confirmed via Razorpay Webhook",
           description: `Authoritative capture verified by Razorpay webhook (${rzpPaymentId}). Captured: ₹${(capturedAmountMinor / 100).toFixed(2)}.`,
         });
+
+        // Authoritative Notification Dispatch
+        const { NotificationService } = await import("@/lib/notifications/notification-service");
+        await NotificationService.dispatchEvent({
+          eventType: "PAYMENT_SUCCESS",
+          orderId: paymentRecord.order_id,
+          amountMinor: capturedAmountMinor,
+          idempotencyKey: `rzp_pay_${paymentRecord.order_id}_${rzpPaymentId}`,
+        });
         break;
       }
 
@@ -142,6 +151,14 @@ export async function POST(request: NextRequest) {
           status: "payment_failed",
           title: "Payment Failed",
           description: `Razorpay payment failed: ${errorDesc}`,
+        });
+
+        // Authoritative Notification Dispatch
+        const { NotificationService } = await import("@/lib/notifications/notification-service");
+        await NotificationService.dispatchEvent({
+          eventType: "PAYMENT_FAILED",
+          orderId: paymentRecord.order_id,
+          idempotencyKey: `rzp_fail_${paymentRecord.order_id}_${rzpPaymentId}`,
         });
         break;
       }
@@ -176,6 +193,15 @@ export async function POST(request: NextRequest) {
           status: "refund_processed",
           title: `Refund Processed (${status})`,
           description: `Refund of ₹${(refundAmount / 100).toFixed(2)} recorded from gateway webhook.`,
+        });
+
+        // Authoritative Notification Dispatch
+        const { NotificationService } = await import("@/lib/notifications/notification-service");
+        await NotificationService.dispatchEvent({
+          eventType: "REFUND_COMPLETED",
+          orderId: paymentRecord.order_id,
+          amountMinor: refundAmount,
+          idempotencyKey: `rzp_ref_${paymentRecord.order_id}_${refundEntity?.id || eventId}`,
         });
         break;
       }

@@ -8,7 +8,6 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { AnnouncementBar } from "@/components/layout/announcement-bar";
 import { AdminControlTopBar } from "@/components/layout/admin-control-top-bar";
-import { WhatsAppFab } from "@/components/shared/whatsapp-fab";
 import { useStoreSettings } from "@/lib/settings/settings-context";
 import { StorefrontMaintenanceScreen } from "@/components/layout/storefront-maintenance-screen";
 import { createClient } from "@/lib/supabase/client";
@@ -162,7 +161,6 @@ export function CustomerLayoutShell({ children }: CustomerLayoutShellProps) {
         {children}
       </main>
       <SiteFooter />
-      <WhatsAppFab />
     </>
   );
 }

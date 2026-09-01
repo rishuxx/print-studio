@@ -36,7 +36,7 @@ export async function createOrderShipmentAction(
       orderQuery = orderQuery.eq("order_number", input.order_id.trim());
     }
 
-    let { data: order } = await orderQuery.maybeSingle();
+    const { data: order } = await orderQuery.maybeSingle();
 
     if (!order) {
       return { success: false, error: `Order '${input.order_id}' not found in database.` };
@@ -219,7 +219,17 @@ export async function createOrderShipmentAction(
       .update({ status: "in_production", updated_at: new Date().toISOString() })
       .eq("id", order.id);
 
-    // 8. Revalidate routes
+    // 8. Authoritative Notification Dispatch
+    const { NotificationService } = await import("@/lib/notifications/notification-service");
+    await NotificationService.dispatchEvent({
+      eventType: "ORDER_DISPATCHED",
+      orderId: order.id,
+      trackingNumber: carrierRes.awbNumber,
+      carrierName: carrier.name,
+      idempotencyKey: `ship_disp_${shipment.id}`,
+    });
+
+    // 9. Revalidate routes
     revalidatePath("/admin/shipping");
     revalidatePath(`/admin/orders/${order.id}`);
     revalidatePath(`/orders/${order.id}`);

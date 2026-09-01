@@ -11,6 +11,8 @@ import {
   Sliders,
   FolderTree,
   Truck,
+  Bell,
+  MessageSquare,
   LucideIcon,
 } from "lucide-react";
 import type { Permission } from "@/lib/auth/permissions";
@@ -124,6 +126,18 @@ export const ADMIN_NAVIGATION: AdminNavSection[] = [
         href: "/admin/audit-log",
         icon: ShieldAlert,
         requiredPermission: "users.view", // only owner/admin
+      },
+      {
+        title: "Notifications",
+        href: "/admin/notifications",
+        icon: Bell,
+        requiredPermission: "settings.view",
+      },
+      {
+        title: "WhatsApp Business",
+        href: "/admin/whatsapp",
+        icon: MessageSquare,
+        requiredPermission: "settings.view",
       },
       {
         title: "Store Settings",

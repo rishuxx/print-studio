@@ -581,6 +581,30 @@ export async function updateOrderStatus(
     return { success: false, error: result.error || "Status transition rejected." };
   }
 
+  // Authoritative Notification Dispatch based on target status
+  try {
+    const { NotificationService } = await import("@/lib/notifications/notification-service");
+    const statusEventMap: Record<string, "ORDER_CONFIRMED" | "ARTWORK_APPROVED" | "ORDER_IN_PRODUCTION" | "ORDER_DISPATCHED" | "SHIPMENT_DELIVERED" | "ORDER_CANCELLED"> = {
+      confirmed: "ORDER_CONFIRMED",
+      proof_approved: "ARTWORK_APPROVED",
+      in_production: "ORDER_IN_PRODUCTION",
+      shipped: "ORDER_DISPATCHED",
+      delivered: "SHIPMENT_DELIVERED",
+      cancelled: "ORDER_CANCELLED",
+    };
+
+    const eventType = statusEventMap[targetStatus];
+    if (eventType) {
+      await NotificationService.dispatchEvent({
+        eventType,
+        orderId: targetUuid,
+        idempotencyKey: `trans_${targetUuid}_${targetStatus}`,
+      });
+    }
+  } catch (notifErr) {
+    console.error("[Non-blocking notification dispatch error]:", notifErr);
+  }
+
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);
   revalidatePath("/account");
