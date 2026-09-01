@@ -164,7 +164,7 @@ export default function PaymentPage() {
         key: razorpayKeyId,
         amount: amount,
         currency: "INR",
-        name: "Print Studio",
+        name: "PreetyPrints",
         description: `Custom Print Order #${orderNumber}`,
         order_id: razorpayOrderId,
         prefill: {

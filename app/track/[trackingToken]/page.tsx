@@ -17,8 +17,8 @@ export async function generateMetadata({ params }: PublicTrackingPageProps): Pro
 
   return {
     title: shipment
-      ? `Track Consignment #${shipment.awb_number} · Print Studio`
-      : "Consignment Tracking · Print Studio",
+      ? `Track Consignment #${shipment.awb_number} · PreetyPrints`
+      : "Consignment Tracking · PreetyPrints",
     robots: { index: false, follow: false },
   };
 }
@@ -42,7 +42,7 @@ export default async function PublicTrackingPage({ params }: PublicTrackingPageP
           className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-ink transition-colors"
         >
           <ArrowLeft className="size-3.5" />
-          <span>Back to Print Studio</span>
+          <span>Back to PreetyPrints</span>
         </Link>
         <span className="text-xs font-mono font-bold text-violet bg-violet/10 px-2 py-0.5 rounded">
           Public Secure Tracking

@@ -85,11 +85,11 @@ export interface BusinessConfig {
 }
 
 export const siteConfig: BusinessConfig = {
-  businessName: "Your Print Business",
-  businessShortName: "Print Studio",
+  businessName: "PreetyPrints",
+  businessShortName: "PreetyPrints",
   logo: {
-    lead: "Your",
-    trail: "Print Studio",
+    lead: "Preety",
+    trail: "Prints",
   },
   tagline: "Custom printing for individuals and businesses",
   description:

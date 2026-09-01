@@ -23,7 +23,7 @@ export default function TermsPage() {
 
       <div className="space-y-4 text-muted-foreground">
         <p>
-          By placing an order with our print studio, you agree that you possess the necessary rights and copyright permissions for all artwork and images submitted for reproduction.
+          By placing an order with PreetyPrints, you agree that you possess the necessary rights and copyright permissions for all artwork and images submitted for reproduction.
         </p>
         <p>
           Print production initiates upon digital proof approval and order confirmation. Because custom printed goods are produced to custom specifications, changes or cancellations must be requested prior to press scheduling.

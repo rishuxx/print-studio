@@ -6,9 +6,9 @@ import type { DatabaseBusinessSettings } from "./types";
  */
 export const DEFAULT_BUSINESS_SETTINGS: DatabaseBusinessSettings = {
   id: "00000000-0000-0000-0000-000000000001",
-  business_name: siteConfig.businessName || "Your Print Business",
-  business_short_name: siteConfig.businessShortName || "Print Studio",
-  legal_business_name: "Your Print Business Private Limited",
+  business_name: siteConfig.businessName || "PreetyPrints",
+  business_short_name: siteConfig.businessShortName || "PreetyPrints",
+  legal_business_name: "PreetyPrints Private Limited",
   logo_url: null,
   tagline: siteConfig.tagline,
   description: siteConfig.description,
@@ -54,7 +54,7 @@ export const DEFAULT_BUSINESS_SETTINGS: DatabaseBusinessSettings = {
   invoice_prefix: "INV",
   invoice_footer: "Computer generated tax invoice. No physical signature required.",
 
-  site_title: "Print Studio · High-Quality Custom Online Printing & Branding",
+  site_title: "PreetyPrints · High-Quality Custom Online Printing & Branding",
   site_description: siteConfig.description,
   og_image_url: null,
   canonical_site_url: "http://localhost:3000",
