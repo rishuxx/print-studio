@@ -74,5 +74,19 @@ CREATE INDEX IF NOT EXISTS idx_shipping_shipments_awb_number
 CREATE INDEX IF NOT EXISTS idx_webhook_events_provider_event_id 
   ON public.webhook_events (provider, event_id);
 
+-- 6. Ensure admin_audit_logs Table & Performance Index
+CREATE TABLE IF NOT EXISTS public.admin_audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  target_id UUID,
+  action TEXT NOT NULL,
+  details JSONB DEFAULT '{}'::jsonb,
+  ip_address TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+ALTER TABLE public.admin_audit_logs ENABLE ROW LEVEL SECURITY;
+
 CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_actor_created 
   ON public.admin_audit_logs (actor_id, created_at DESC);
+
