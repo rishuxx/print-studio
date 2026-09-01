@@ -10,7 +10,9 @@ import { PricingService } from "@/lib/pricing/pricing-service";
 export async function getLiveProductPriceAction(
   productId: string,
   quantity: number,
-  variantId?: string | null
+  variantId?: string | null,
+  isPersonalized?: boolean,
+  needsDesignAssistance?: boolean
 ): Promise<{ success: boolean; pricePaise?: number; compareAtPaise?: number; error?: string }> {
   try {
     const supabase = await createClient();
@@ -48,6 +50,8 @@ export async function getLiveProductPriceAction(
       product: dbProduct,
       variant: dbVariant,
       quantity,
+      isPersonalized,
+      needsDesignAssistance,
     });
 
     // We return the full subtotal as the 'unit price' for the cart line item

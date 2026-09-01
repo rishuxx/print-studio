@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   Sparkles,
   Calendar,
@@ -32,6 +33,8 @@ import {
   savePromotionAction,
   deletePromotionAction,
   saveProductPriceAction,
+  savePriceBookAction,
+  deletePriceBookAction,
 } from "@/lib/pricing/mutations";
 import { categories } from "@/lib/data/categories";
 import { products } from "@/lib/data/products";
@@ -56,8 +59,14 @@ export function AdminPricingClientView({
   healthIssues,
   productPrices,
 }: AdminPricingClientViewProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = React.useState<"products" | "campaigns" | "simulator" | "taxation" | "books" | "health">("products");
   const [productSearch, setProductSearch] = React.useState("");
+  
+  // Price Book Modal State
+  const [isPriceBookModalOpen, setIsPriceBookModalOpen] = React.useState(false);
+  const [editingPriceBook, setEditingPriceBook] = React.useState<Partial<DatabasePriceBook> | null>(null);
+  const [isSavingPriceBook, setIsSavingPriceBook] = React.useState(false);
 
   // Smart Tax / GST configuration control
   const [gstModeState, setGstModeState] = React.useState<"inclusive" | "exclusive">(siteConfig.pricingPolicy.gstMode);
@@ -992,14 +1001,32 @@ export function AdminPricingClientView({
       {/* TAB 4: Price Books */}
       {activeTab === "books" && (
         <div className="bg-white rounded-2xl border border-border shadow-xs p-6 space-y-4">
-          <div className="border-b border-border pb-3">
-            <h3 className="font-display text-sm font-bold text-ink">Active Price Books</h3>
-            <p className="text-xs text-muted-foreground">Contextual lists used for customer segments.</p>
+          <div className="border-b border-border pb-3 flex items-center justify-between">
+            <div>
+              <h3 className="font-display text-sm font-bold text-ink">Active Price Books</h3>
+              <p className="text-xs text-muted-foreground">Contextual lists used for customer segments.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingPriceBook({
+                  currency: "INR",
+                  status: "active",
+                  is_default: false,
+                  priority: 0,
+                });
+                setIsPriceBookModalOpen(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-violet text-white rounded-xl text-xs font-bold shadow-lift hover:bg-violet-lift transition-all"
+            >
+              <Plus className="size-3.5" />
+              <span>New Price Book</span>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {priceBooks.map((b) => (
-              <div key={b.id} className="p-4 rounded-xl border border-border bg-paper/30 space-y-2">
+              <div key={b.id} className="p-4 rounded-xl border border-border bg-paper/30 space-y-3 group relative">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-ink">{b.name}</span>
                   {b.is_default && (
@@ -1008,8 +1035,40 @@ export function AdminPricingClientView({
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground font-mono">Code: {b.code}</p>
-                <p className="text-xs text-muted-foreground">{b.description}</p>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground font-mono">Code: {b.code}</p>
+                  <p className="text-xs text-muted-foreground">{b.description}</p>
+                </div>
+                
+                {/* Actions */}
+                <div className="pt-3 flex gap-2 border-t border-border mt-3">
+                  <button
+                    onClick={() => {
+                      setEditingPriceBook(b);
+                      setIsPriceBookModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-ink bg-white border border-border hover:bg-paper"
+                  >
+                    <Edit className="size-3" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Are you sure you want to archive ${b.name}?`)) return;
+                      const res = await deletePriceBookAction(b.id);
+                      if (res.success) {
+                        toast.success("Price book archived successfully");
+                        router.refresh();
+                      } else {
+                        toast.error(res.error || "Failed to archive");
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 bg-red-50 border border-red-100 hover:bg-red-100"
+                  >
+                    <Trash2 className="size-3" />
+                    <span>Archive</span>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -1517,6 +1576,115 @@ export function AdminPricingClientView({
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* PRICE BOOK MODAL */}
+      {isPriceBookModalOpen && editingPriceBook && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/20 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-sheet overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-4 border-b border-border flex items-center justify-between bg-paper/50">
+              <h2 className="font-display font-bold text-sm text-ink">
+                {editingPriceBook.id ? "Edit Price Book" : "New Price Book"}
+              </h2>
+              <button
+                onClick={() => setIsPriceBookModalOpen(false)}
+                className="p-1 rounded hover:bg-black/5 text-muted-foreground"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto space-y-4">
+              <div>
+                <label className="text-xs font-bold text-ink block mb-1">Name</label>
+                <input
+                  type="text"
+                  value={editingPriceBook.name || ""}
+                  onChange={(e) => setEditingPriceBook({ ...editingPriceBook, name: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-white px-3 py-2 text-sm text-ink focus:border-violet focus:outline-none"
+                  placeholder="e.g. Wholesale Partners"
+                />
+              </div>
+              
+              <div>
+                <label className="text-xs font-bold text-ink block mb-1">Code</label>
+                <input
+                  type="text"
+                  value={editingPriceBook.code || ""}
+                  onChange={(e) => setEditingPriceBook({ ...editingPriceBook, code: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '') })}
+                  className="w-full rounded-xl border border-border bg-white px-3 py-2 text-sm font-mono uppercase text-ink focus:border-violet focus:outline-none"
+                  placeholder="e.g. WHOLESALE_2024"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">Uppercase letters, numbers, and underscores only.</p>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-ink block mb-1">Description</label>
+                <textarea
+                  value={editingPriceBook.description || ""}
+                  onChange={(e) => setEditingPriceBook({ ...editingPriceBook, description: e.target.value })}
+                  className="w-full rounded-xl border border-border bg-white px-3 py-2 text-sm text-ink focus:border-violet focus:outline-none"
+                  rows={2}
+                />
+              </div>
+
+              <div className="flex items-center gap-3 bg-paper p-3 rounded-xl border border-border">
+                <input
+                  type="checkbox"
+                  id="isDefaultPriceBook"
+                  checked={editingPriceBook.is_default || false}
+                  onChange={(e) => setEditingPriceBook({ ...editingPriceBook, is_default: e.target.checked })}
+                  className="size-4 accent-violet rounded border-border"
+                />
+                <label htmlFor="isDefaultPriceBook" className="text-xs font-bold text-ink cursor-pointer">
+                  Default Storefront Price Book
+                  <p className="text-[10px] text-muted-foreground font-normal mt-0.5">
+                    Will replace any existing default price book if checked.
+                  </p>
+                </label>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-border flex justify-end gap-3 bg-paper/50 mt-auto">
+              <button
+                type="button"
+                onClick={() => setIsPriceBookModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-ink bg-white border border-border hover:bg-paper"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSavingPriceBook || !editingPriceBook.name || !editingPriceBook.code}
+                onClick={async () => {
+                  setIsSavingPriceBook(true);
+                  const res = await savePriceBookAction({
+                    id: editingPriceBook.id,
+                    name: editingPriceBook.name!,
+                    code: editingPriceBook.code!,
+                    description: editingPriceBook.description,
+                    isDefault: editingPriceBook.is_default || false,
+                    currency: "INR",
+                    status: "active",
+                    priority: 0,
+                  });
+                  setIsSavingPriceBook(false);
+                  
+                  if (res.success) {
+                    toast.success("Price book saved");
+                    setIsPriceBookModalOpen(false);
+                    router.refresh();
+                  } else {
+                    toast.error(res.error || "Failed to save");
+                  }
+                }}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-violet hover:bg-violet-lift disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSavingPriceBook ? "Saving..." : "Save Price Book"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

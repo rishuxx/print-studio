@@ -318,8 +318,41 @@ export async function getStorefrontFeaturedProducts(): Promise<Product[]> {
   } catch (err) {
     console.error("Failed to fetch featured storefront products:", err);
   }
-
   // Fallback to static mock data
   const staticProds = getStaticAllProducts();
   return staticProds.filter((p) => p.isFeatured || p.categoryHandles.includes("marketing-materials")).slice(0, 8);
+}
+
+/**
+ * Fetch approved reviews for a product
+ */
+export async function getStorefrontReviews(productId: string): Promise<any[]> {
+  try {
+    const supabase = await createClient();
+    const { data: reviews } = await supabase
+      .from("product_reviews")
+      .select(`
+        id,
+        rating,
+        title,
+        comment,
+        user_id,
+        verified_purchase,
+        created_at
+      `)
+      .eq("product_id", productId)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false });
+
+    if (reviews) {
+      // Mock user names for now if no join is available on auth.users
+      return reviews.map((r) => ({
+        ...r,
+        user_name: r.user_id ? "Verified Customer" : "Anonymous",
+      }));
+    }
+  } catch (err) {
+    console.error("Failed to fetch product reviews:", err);
+  }
+  return [];
 }

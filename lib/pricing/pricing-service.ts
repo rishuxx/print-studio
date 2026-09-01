@@ -25,6 +25,8 @@ export const PricingService = {
     quantity: number;
     selectedOptions?: Array<{ name: string; value: string }>;
     currentTime?: string;
+    isPersonalized?: boolean;
+    needsDesignAssistance?: boolean;
   }): PricingServiceResult {
     // We pass the raw product to the engine
     const engineInput = {
@@ -37,6 +39,7 @@ export const PricingService = {
         saleStartsAt: params.product.sale_starts_at,
         saleEndsAt: params.product.sale_ends_at,
         customizationConfig: params.product.customization_config as any,
+        personalization_config: params.product.personalization_config as any,
       },
       variant: params.variant
         ? {
@@ -51,6 +54,8 @@ export const PricingService = {
       // A robust implementation would fetch the exact price record.
       quantity: params.quantity,
       currentTimestamp: params.currentTime || new Date().toISOString(),
+      isPersonalized: params.isPersonalized,
+      needsDesignAssistance: params.needsDesignAssistance,
     };
 
     const calculation = calculateAuthoritativePrice(engineInput);

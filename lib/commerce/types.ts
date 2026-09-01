@@ -209,6 +209,12 @@ export interface Product {
   faqs: ProductFaq[];
   relatedHandles: string[];
 
+  personalizationConfig?: {
+    enabled: boolean;
+    designFeeMinor: number;
+    personalizationFeeMinor: number;
+  };
+
   /** Marketing bullets shown on the product page. */
   highlights: string[];
 }

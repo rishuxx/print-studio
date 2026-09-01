@@ -24,6 +24,11 @@ interface CalculatePriceParams {
         ratePerSqUnitMinor: number;
       };
     };
+    personalization_config?: {
+      enabled: boolean;
+      designFeeMinor: number;
+      personalizationFeeMinor: number;
+    };
   };
   variant?: {
     id?: string;
@@ -39,6 +44,8 @@ interface CalculatePriceParams {
   promotions?: DatabasePromotion[];
   couponCode?: string | null;
   currentTimestamp?: string;
+  isPersonalized?: boolean;
+  needsDesignAssistance?: boolean;
 }
 
 /**
@@ -55,8 +62,23 @@ export function calculateAuthoritativePrice({
   promotions = [],
   couponCode,
   currentTimestamp = new Date().toISOString(),
+  isPersonalized = false,
+  needsDesignAssistance = false,
 }: CalculatePriceParams): AuthoritativePriceCalculation {
   const now = new Date(currentTimestamp).getTime();
+
+  // 0. Personalization Fees
+  let personalizationFeeUnitMinor = 0;
+  let designFeeOrderMinor = 0;
+
+  if (product.personalization_config?.enabled) {
+    if (isPersonalized) {
+      personalizationFeeUnitMinor = product.personalization_config.personalizationFeeMinor || 0;
+    }
+    if (needsDesignAssistance) {
+      designFeeOrderMinor = product.personalization_config.designFeeMinor || 0;
+    }
+  }
 
   // 1. Determine Effective Unit Base Price (variant override or base product price)
   let baseUnitPriceMinor: MoneyMinor =
@@ -100,8 +122,13 @@ export function calculateAuthoritativePrice({
   if (customizationAddonsMinor > 0) {
     baseUnitPriceMinor += customizationAddonsMinor;
   }
+  
+  // Add personalization fee to unit base price
+  if (personalizationFeeUnitMinor > 0) {
+    baseUnitPriceMinor += personalizationFeeUnitMinor;
+  }
 
-  const rawSubtotalMinor: MoneyMinor = baseUnitPriceMinor * quantity;
+  const rawSubtotalMinor: MoneyMinor = (baseUnitPriceMinor * quantity) + designFeeOrderMinor;
 
   // 3. Evaluate Quantity Tiers
   let tierDiscountPerUnitMinor = 0;
@@ -271,6 +298,8 @@ export function calculateAuthoritativePrice({
     promotionsDiscountMinor: productSaleDiscountMinor + promoDiscountMinor,
     appliedRules,
     rejectedRules,
+    personalizationFeeMinor: personalizationFeeUnitMinor * quantity,
+    designFeeMinor: designFeeOrderMinor,
     finalLinePriceMinor: finalSubtotalMinor,
     finalUnitPriceMinor,
     effectiveUnitPriceMinor: finalUnitPriceMinor,

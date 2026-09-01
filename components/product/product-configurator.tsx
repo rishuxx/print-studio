@@ -164,6 +164,11 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
   const [isUploadingArtwork, setIsUploadingArtwork] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  // 5. Personalization Options
+  const [isPersonalized, setIsPersonalized] = React.useState(false);
+  const [needsDesignAssistance, setNeedsDesignAssistance] = React.useState(false);
+  const [designInstructions, setDesignInstructions] = React.useState("");
+
   // Match Variant
   const matchedVariant = findVariant(product, selectedOptions);
 
@@ -183,30 +188,45 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
     areaMultiplier = sqFt / 1.5; // normalized ratio
   }
 
-  // Calculate Unit & Total Price
-  const selectedTier =
-    [...product.quantityTiers].reverse().find((t) => selectedTierQty >= t.qty) || product.quantityTiers[0];
-
   let lineTotalPaise = 0;
   let rawUnitPaise = 0;
+  
+  // Find the exact applicable tier based on selected quantity
+  const applicableTier = [...product.quantityTiers]
+    .sort((a, b) => b.qty - a.qty)
+    .find((t) => selectedTierQty >= t.qty) || product.quantityTiers[0];
 
-  if (selectedTier) {
-    lineTotalPaise = tierPrice(selectedTier, matchedVariant).amount;
-    rawUnitPaise = lineTotalPaise / selectedTier.qty;
+  if (applicableTier) {
+    // Determine exact unit price for this tier
+    // Note: the backend uses tier_price_minor / min_quantity for the unit price at that tier.
+    // So we fetch the unit price at this tier and multiply by actual selected quantity.
+    rawUnitPaise = Math.round(applicableTier.price.amount / applicableTier.qty);
   } else {
     rawUnitPaise = product.priceFrom.amount;
-    lineTotalPaise = rawUnitPaise * (selectedTierQty || 1);
+  }
+  
+  if (product.personalizationConfig?.enabled) {
+    if (isPersonalized) {
+      rawUnitPaise += product.personalizationConfig.personalizationFeeMinor || 0;
+    }
   }
 
   if (isDimensionBased) {
     // If dimension based, the area multiplier affects the total and unit price
-    const adjustedTotal = Math.max(10000, Math.round(lineTotalPaise * areaMultiplier));
+    const adjustedTotal = Math.max(10000, Math.round(rawUnitPaise * (selectedTierQty || 1) * areaMultiplier));
     lineTotalPaise = adjustedTotal;
     rawUnitPaise = adjustedTotal / (selectedTierQty || 1);
+  } else {
+    lineTotalPaise = rawUnitPaise * (selectedTierQty || 1);
   }
 
-  const compareAtUnitPaise = selectedTier
-    ? tierCompareAtPrice(selectedTier, matchedVariant)?.amount ? (tierCompareAtPrice(selectedTier, matchedVariant)!.amount / selectedTier.qty) : null
+  // Add Flat Design fee if asked designer
+  if (product.personalizationConfig?.enabled && needsDesignAssistance) {
+    lineTotalPaise += product.personalizationConfig.designFeeMinor || 0;
+  }
+
+  const compareAtUnitPaise = applicableTier
+    ? tierCompareAtPrice(applicableTier, matchedVariant)?.amount ? (tierCompareAtPrice(applicableTier, matchedVariant)!.amount / applicableTier.qty) : null
     : product.compareAtFrom?.amount || null;
 
   // Handle Option Click
@@ -313,7 +333,9 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
     const livePriceCheck = await getLiveProductPriceAction(
       product.id,
       selectedTierQty,
-      matchedVariant?.id
+      matchedVariant?.id,
+      isPersonalized,
+      needsDesignAssistance
     );
 
     toast.dismiss(loadingToast);
@@ -356,8 +378,10 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
           }
         : null,
       turnaroundDays: product.turnaroundDays,
-      sameDayEligible: product.sameDayEligible,
       customizable: product.customizable,
+      isPersonalized,
+      needsDesignAssistance,
+      designInstructions,
     };
 
     if (existingLine && editLineId) {
@@ -478,45 +502,147 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
         </div>
       )}
 
-      {/* 3. Quantity Volume Tiers */}
-      {product.quantityTiers && product.quantityTiers.length > 0 && (
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-ink">Select Quantity & Save</span>
-            <span className="font-mono text-muted-foreground">{product.priceUnit}</span>
+      {/* 3. Quantity Volume Tiers - Dynamic Slider */}
+      <div className="space-y-4 rounded-2xl border border-border bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between text-xs">
+          <span className="font-bold text-ink">Select Quantity & Save</span>
+          {applicableTier && applicableTier.qty > 1 && (
+             <span className="inline-flex rounded bg-marigold-wash text-marigold-deep px-2 py-0.5 text-[10px] font-bold">
+               Volume Discount Applied!
+             </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => setSelectedTierQty(Math.max(1, selectedTierQty - 1))}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-paper hover:bg-violet-wash hover:text-violet transition-colors font-bold text-lg"
+          >
+            -
+          </button>
+          
+          <div className="relative flex-1">
+            <input
+              type="range"
+              min={1}
+              max={200}
+              step={1}
+              value={selectedTierQty}
+              onChange={(e) => setSelectedTierQty(Number(e.target.value))}
+              className="w-full h-2 bg-paper rounded-lg appearance-none cursor-pointer accent-violet"
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-            {product.quantityTiers.map((tier) => {
-              const isSelected = selectedTierQty === tier.qty;
-              return (
-                <button
-                  key={tier.qty}
-                  type="button"
-                  onClick={() => setSelectedTierQty(tier.qty)}
-                  className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all ${
-                    isSelected
-                      ? "border-violet bg-violet-wash text-violet ring-2 ring-violet/20"
-                      : "border-border bg-white hover:bg-paper"
-                  }`}
-                >
-                  <span className="font-mono text-xs font-black text-ink">{tier.qty} pcs</span>
-                  <span className="font-mono text-[11px] text-violet font-bold mt-0.5">
-                    ₹{(tier.price.amount / 100).toFixed(0)}
-                  </span>
-                  {tier.note && (
-                    <span className="mt-1 inline-flex rounded bg-marigold-wash text-marigold-deep px-1.5 py-0.2 text-[9px] font-bold">
-                      {tier.note}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedTierQty(Math.min(200, selectedTierQty + 1))}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-paper hover:bg-violet-wash hover:text-violet transition-colors font-bold text-lg"
+          >
+            +
+          </button>
         </div>
+        
+        <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
+           <div className="flex-1">
+             <label className="text-[11px] text-muted-foreground block mb-1">Direct Input</label>
+             <div className="relative">
+               <input 
+                 type="number"
+                 min={1}
+                 max={200}
+                 value={selectedTierQty}
+                 onChange={(e) => {
+                    const val = Number(e.target.value);
+                    if (val > 0 && val <= 200) setSelectedTierQty(val);
+                 }}
+                 onBlur={(e) => {
+                    const val = Number(e.target.value);
+                    if (val <= 0) setSelectedTierQty(1);
+                    if (val > 200) setSelectedTierQty(200);
+                 }}
+                 className="w-full rounded-xl border border-border bg-white px-3 py-2 font-mono text-sm font-bold text-ink focus:border-violet focus:outline-none"
+               />
+               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-bold">
+                 {product.priceUnit}
+               </span>
+             </div>
+           </div>
+           
+           <div className="flex-1 text-right">
+              <div className="text-[11px] text-muted-foreground">Current Unit Price</div>
+              <div className="font-mono text-lg font-bold text-violet">
+                ₹{(rawUnitPaise / 100).toFixed(2)}
+              </div>
+           </div>
+        </div>
+      </div>
+
+      {/* 4. Personalization Configuration */}
+      {product.personalizationConfig?.enabled && (
+         <div className="rounded-2xl border border-border bg-white p-4 space-y-4 shadow-sm">
+           <div className="flex items-center gap-2 text-ink mb-2">
+             <Paintbrush className="size-4 text-violet" />
+             <h3 className="font-display text-sm font-bold">Personalization Options</h3>
+           </div>
+           
+           <div className="grid grid-cols-2 gap-3">
+             <button
+                type="button"
+                onClick={() => setIsPersonalized(false)}
+                className={`p-3 text-left rounded-xl border transition-all ${
+                  !isPersonalized ? "border-violet bg-violet-wash ring-2 ring-violet/20" : "border-border bg-paper hover:bg-gray-50"
+                }`}
+             >
+                <div className="font-bold text-xs text-ink">Standard</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">No personalization</div>
+             </button>
+             
+             <button
+                type="button"
+                onClick={() => setIsPersonalized(true)}
+                className={`p-3 text-left rounded-xl border transition-all ${
+                  isPersonalized ? "border-violet bg-violet-wash ring-2 ring-violet/20" : "border-border bg-paper hover:bg-gray-50"
+                }`}
+             >
+                <div className="font-bold text-xs text-ink">Personalized</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">
+                  +₹{(product.personalizationConfig.personalizationFeeMinor / 100).toFixed(2)}/unit
+                </div>
+             </button>
+           </div>
+           
+           {isPersonalized && (
+              <div className="mt-4 pt-4 border-t border-border space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                     type="checkbox"
+                     checked={needsDesignAssistance}
+                     onChange={(e) => setNeedsDesignAssistance(e.target.checked)}
+                     className="rounded border-border text-violet focus:ring-violet"
+                  />
+                  <span className="text-xs font-bold text-ink">Need Design Assistance?</span>
+                  {product.personalizationConfig.designFeeMinor > 0 && (
+                     <span className="text-[10px] font-mono text-violet bg-violet-wash px-1.5 py-0.5 rounded">
+                       +₹{(product.personalizationConfig.designFeeMinor / 100).toFixed(2)}
+                     </span>
+                  )}
+                </label>
+                
+                {needsDesignAssistance && (
+                   <textarea
+                     placeholder="Tell our designers what you need (colors, text, fonts, style)..."
+                     value={designInstructions}
+                     onChange={(e) => setDesignInstructions(e.target.value)}
+                     className="w-full h-24 rounded-xl border border-border bg-white p-3 text-xs text-ink focus:border-violet focus:outline-none resize-none"
+                   />
+                )}
+              </div>
+           )}
+         </div>
       )}
 
-      {/* 4. Artwork Upload & Pre-Press Requirements */}
+      {/* 5. Artwork Upload & Pre-Press Requirements */}
       <div className="rounded-2xl border border-border bg-white p-4 space-y-3 shadow-xs">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 font-bold text-xs text-ink">

@@ -64,6 +64,22 @@ export const BulkPriceAdjustmentSchema = z.object({
   reason: z.string().min(3, { message: "Reason is required for audit trail" }).max(200),
 });
 
+export const SavePriceBookSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().min(2, { message: "Price book name must be at least 2 characters" }).max(100),
+  code: z
+    .string()
+    .max(50)
+    .regex(/^[A-Z0-9_]+$/, { message: "Code must be uppercase alphanumeric and underscores only" }),
+  description: z.string().max(300).nullable().optional(),
+  currency: z.string().default("INR"),
+  status: z.enum(["active", "archived"]).default("active"),
+  priority: z.number().int().min(0).max(100).default(0),
+  isDefault: z.boolean().default(false),
+});
+
 export type SaveProductPriceInput = z.input<typeof SaveProductPriceSchema>;
 export type SavePromotionInput = z.input<typeof SavePromotionSchema>;
 export type BulkPriceAdjustmentInput = z.input<typeof BulkPriceAdjustmentSchema>;
+export type SavePriceBookInput = z.input<typeof SavePriceBookSchema>;
+

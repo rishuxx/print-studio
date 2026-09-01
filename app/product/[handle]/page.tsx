@@ -1,13 +1,14 @@
 import * as React from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getStorefrontProduct, getStorefrontCategory, getStorefrontAllProducts } from "@/lib/catalogue/storefront-queries";
+import { getStorefrontProduct, getStorefrontCategory, getStorefrontAllProducts, getStorefrontReviews } from "@/lib/catalogue/storefront-queries";
 import { getAllProducts } from "@/lib/data/products";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { CatalogBadge } from "@/components/ui/badge";
 import { ProductGallery } from "@/components/product/product-gallery";
 import { ProductConfigurator } from "@/components/product/product-configurator";
 import { ProductCard } from "@/components/shared/product-card";
+import { ProductReviews } from "@/components/product/product-reviews";
 import { CheckCircle2, FileCheck, Layers, HelpCircle, PauseCircle, ShieldAlert } from "lucide-react";
 
 interface PageProps {
@@ -41,9 +42,16 @@ export default async function ProductPage({ params }: PageProps) {
 
   // Sibling related products
   const allProducts = await getStorefrontAllProducts();
-  const relatedProducts = allProducts
-    .filter((p) => p.categoryHandles.includes(primaryCategoryHandle) && p.handle !== product.handle)
-    .slice(0, 4);
+  let relatedProducts = allProducts.filter((p) => product.relatedHandles.includes(p.handle));
+
+  if (relatedProducts.length === 0) {
+    relatedProducts = allProducts
+      .filter((p) => p.categoryHandles.includes(primaryCategoryHandle) && p.handle !== product.handle)
+      .slice(0, 4);
+  }
+
+  // Reviews
+  const reviews = await getStorefrontReviews(product.id);
 
   return (
     <div className="shell py-8 space-y-12">
@@ -116,7 +124,15 @@ export default async function ProductPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* 4. Sibling Related Products */}
+      {/* 4. Ratings & Reviews */}
+      <ProductReviews 
+        productId={product.id} 
+        rating={product.rating} 
+        reviewCount={product.reviewCount} 
+        reviews={reviews} 
+      />
+
+      {/* 5. Sibling Related Products (Carousel) */}
       {relatedProducts.length > 0 && (
         <div className="space-y-6 pt-6 border-t border-border">
           <div className="flex items-center justify-between">
@@ -128,9 +144,11 @@ export default async function ProductPage({ params }: PageProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory hide-scrollbar">
             {relatedProducts.map((rel) => (
-              <ProductCard key={rel.id} product={rel} />
+              <div key={rel.id} className="min-w-[280px] sm:min-w-[320px] snap-start shrink-0">
+                <ProductCard product={rel} />
+              </div>
             ))}
           </div>
         </div>

@@ -121,6 +121,8 @@ export interface AuthoritativePriceCalculation {
   promotionsDiscountMinor: MoneyMinor;
   appliedRules: PricingRuleDecision[];
   rejectedRules: PricingRuleDecision[];
+  personalizationFeeMinor: MoneyMinor;
+  designFeeMinor: MoneyMinor;
   finalLinePriceMinor: MoneyMinor;
   finalUnitPriceMinor: MoneyMinor;
   effectiveUnitPriceMinor: MoneyMinor;

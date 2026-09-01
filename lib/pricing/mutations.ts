@@ -364,3 +364,122 @@ export async function executeBulkPriceAdjustmentAction(
     };
   }
 }
+
+/**
+ * Save / Update Price Book
+ */
+export async function savePriceBookAction(rawInput: import("./validation").SavePriceBookInput): Promise<{
+  success: boolean;
+  priceBookId?: string;
+  error?: string;
+}> {
+  try {
+    const { user } = await requireAdminAuth("/admin/pricing");
+    const { SavePriceBookSchema } = await import("./validation");
+    const parsed = SavePriceBookSchema.safeParse(rawInput);
+
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
+    const data = parsed.data;
+    const supabase = await createClient();
+
+    // If this price book is being set as default, we must unset others
+    if (data.isDefault) {
+      await supabase
+        .from("price_books")
+        .update({ is_default: false })
+        .eq("is_default", true);
+    }
+
+    if (data.id) {
+      // Update existing
+      const { error: updateErr } = await supabase
+        .from("price_books")
+        .update({
+          name: data.name,
+          code: data.code,
+          description: data.description,
+          currency: data.currency,
+          status: data.status,
+          priority: data.priority,
+          is_default: data.isDefault,
+          updated_by: user.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", data.id);
+
+      if (updateErr) return { success: false, error: updateErr.message };
+      
+      revalidatePath("/admin/pricing");
+      return { success: true, priceBookId: data.id };
+    } else {
+      // Insert new
+      const { data: inserted, error: insertErr } = await supabase
+        .from("price_books")
+        .insert({
+          name: data.name,
+          code: data.code,
+          description: data.description,
+          currency: data.currency,
+          status: data.status,
+          priority: data.priority,
+          is_default: data.isDefault,
+          created_by: user.id,
+          updated_by: user.id,
+        })
+        .select("id")
+        .single();
+
+      if (insertErr || !inserted) {
+        return { success: false, error: insertErr?.message || "Failed to create price book" };
+      }
+      
+      revalidatePath("/admin/pricing");
+      return { success: true, priceBookId: inserted.id };
+    }
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Save failed" };
+  }
+}
+
+/**
+ * Delete / Archive Price Book
+ * We use archiving by default to prevent orphaned product_prices
+ */
+export async function deletePriceBookAction(priceBookId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { user } = await requireAdminAuth("/admin/pricing");
+    const supabase = await createClient();
+
+    // First check if it's the default book
+    const { data: book } = await supabase
+      .from("price_books")
+      .select("is_default")
+      .eq("id", priceBookId)
+      .single();
+
+    if (book?.is_default) {
+      return { success: false, error: "Cannot delete the default price book. Set another book as default first." };
+    }
+
+    // Instead of hard delete, we archive it
+    const { error } = await supabase
+      .from("price_books")
+      .update({
+        status: "archived",
+        updated_by: user.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", priceBookId);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath("/admin/pricing");
+    return { success: true };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Delete failed" };
+  }
+}
+
