@@ -126,9 +126,15 @@ export default function CartPage() {
                     <span className="font-display text-lg font-extrabold text-ink">
                       {formatMoney(line.linePrice)}
                     </span>
-                    <div className="text-[0.6875rem] text-muted-foreground font-mono">
-                      ({formatMoney(line.unitPrice)} each)
-                    </div>
+                    {line.quantity > 1 ? (
+                      <div className="text-[0.6875rem] text-muted-foreground font-mono">
+                        ({formatMoney(line.unitPrice)} / batch)
+                      </div>
+                    ) : line.tierQty && line.tierQty > 1 ? (
+                      <div className="text-[0.6875rem] text-muted-foreground font-mono">
+                        (₹{(line.unitPrice.amount / (line.tierQty * 100)).toFixed(2)} / unit)
+                      </div>
+                    ) : null}
                   </div>
                 </div>
 
