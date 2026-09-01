@@ -1,4 +1,4 @@
-# Print Studio (AGY Web Platform) 🖨️✨
+# PreetyPrints (AGY Web Platform) 🖨️✨
 
 > **Enterprise-Grade Web-to-Print & Custom Merchandising E-Commerce Platform**  
 > Built with Next.js 16 (Turbopack), TypeScript, Tailwind CSS, Supabase PostgreSQL, and Razorpay Enterprise Payments.
