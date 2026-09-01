@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { MobileHeader } from "@/components/mobile/MobileHeader";
 import { AnnouncementBar } from "@/components/layout/announcement-bar";
 import { AdminControlTopBar } from "@/components/layout/admin-control-top-bar";
 import { WhatsAppFab } from "@/components/shared/whatsapp-fab";
@@ -155,6 +156,7 @@ export function CustomerLayoutShell({ children }: CustomerLayoutShellProps) {
 
       <AdminControlTopBar />
       <AnnouncementBar />
+      <MobileHeader />
       <SiteHeader />
       <main id="main" className="flex-1">
         {children}

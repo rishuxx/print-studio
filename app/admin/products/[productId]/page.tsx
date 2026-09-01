@@ -20,11 +20,17 @@ export default async function AdminProductDetailPage({ params }: AdminProductDet
   await requireAdminAuth("/admin/products");
 
   const { productId } = await params;
-  const { product, categories, error } = await fetchAdminProductById(productId);
+  const { product, categories, auditLogs, error } = await fetchAdminProductById(productId);
 
   if (error || !product) {
     notFound();
   }
 
-  return <AdminProductEditor initialProduct={product} categories={categories} />;
+  return (
+    <AdminProductEditor
+      initialProduct={product}
+      categories={categories}
+      auditLogs={auditLogs}
+    />
+  );
 }

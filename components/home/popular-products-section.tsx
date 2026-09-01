@@ -1,11 +1,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { ChevronRight, ArrowRight } from "lucide-react";
-import { getFeaturedProducts } from "@/lib/data/products";
+import { getStorefrontFeaturedProducts } from "@/lib/catalogue/storefront-queries";
 import { ProductCard } from "@/components/shared/product-card";
 
-export function PopularProductsSection() {
-  const products = getFeaturedProducts(8);
+export async function PopularProductsSection() {
+  const products = await getStorefrontFeaturedProducts();
+  const displayProducts = products.slice(0, 8);
 
   return (
     <section className="shell">
@@ -28,7 +29,7 @@ export function PopularProductsSection() {
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {products.map((product) => (
+        {displayProducts.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
       </div>

@@ -1,16 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
 import { products as staticProducts } from "@/lib/data/products";
 import { categories as staticCategories } from "@/lib/data/categories";
+import { autoSeedAttributesIfEmpty } from "./attributes";
 import type {
   AdminProductListFilter,
   AdminProductListResult,
   DatabaseProduct,
   DatabaseCategory,
+  DatabaseCatalogAuditLog,
 } from "./types";
 
 /**
- * Auto-sync helper: Seeds static categories and products into PostgreSQL
- * if the database catalogue is currently empty.
+ * Auto-sync helper: Seeds static categories, products, price books, and attribute templates
+ * into PostgreSQL if the database catalogue is currently empty.
  */
 export async function autoSyncStaticCatalogueIfEmpty(): Promise<void> {
   try {
@@ -20,6 +22,9 @@ export async function autoSyncStaticCatalogueIfEmpty(): Promise<void> {
       .select("id", { count: "exact", head: true });
 
     if (error || (count && count > 0)) return;
+
+    // 0. Seed attribute definitions
+    await autoSeedAttributesIfEmpty();
 
     // 1. Seed categories
     const categoryMap = new Map<string, string>(); // handle -> UUID
@@ -49,9 +54,37 @@ export async function autoSyncStaticCatalogueIfEmpty(): Promise<void> {
       }
     }
 
-    // 2. Seed initial sample products from static definitions
+    // 2. Ensure Default Price Book exists
+    let { data: defaultPriceBook } = await supabase
+      .from("price_books")
+      .select("id")
+      .eq("code", "DEFAULT_RETAIL")
+      .maybeSingle();
+
+    if (!defaultPriceBook) {
+      const { data: newBook } = await supabase
+        .from("price_books")
+        .insert({
+          name: "Default Retail Price Book",
+          code: "DEFAULT_RETAIL",
+          description: "Standard customer-facing retail price list in INR.",
+          currency: "INR",
+          status: "active",
+          priority: 0,
+          is_default: true,
+          version: 1,
+        })
+        .select("id")
+        .single();
+      defaultPriceBook = newBook;
+    }
+
+    // 3. Seed initial sample products from static definitions
     for (let i = 0; i < staticProducts.length; i++) {
       const sp = staticProducts[i];
+      const basePriceMinor = sp.priceFrom ? sp.priceFrom.amount : 19900;
+      const compareAtMinor = sp.compareAtFrom ? sp.compareAtFrom.amount : null;
+
       const { data: prod } = await supabase
         .from("products")
         .upsert(
@@ -64,6 +97,9 @@ export async function autoSyncStaticCatalogueIfEmpty(): Promise<void> {
             status: "active",
             visibility: "public",
             product_type: sp.productType || "Print",
+            brand: "Doon Print Studio",
+            tags: sp.tags || [],
+            badges: sp.badges || [],
             unit: sp.priceUnit || "pieces",
             min_order_qty: sp.minOrderQty || 1,
             qty_increment: 1,
@@ -77,6 +113,9 @@ export async function autoSyncStaticCatalogueIfEmpty(): Promise<void> {
             upload_only: !!sp.uploadOnly,
             sort_order: i * 10,
             version: 1,
+            base_price_minor: basePriceMinor,
+            compare_at_price_minor: compareAtMinor,
+            cost_price_minor: Math.round(basePriceMinor * 0.6),
             seo_title: `${sp.title} | Custom Online Printing`,
             seo_description: sp.subtitle || sp.description.slice(0, 150),
             published_at: new Date().toISOString(),
@@ -102,17 +141,61 @@ export async function autoSyncStaticCatalogueIfEmpty(): Promise<void> {
           }
         }
 
-        // Auto-seed Default Retail Price and Quantity Tiers for product
-        const { data: defaultPriceBook } = await supabase
-          .from("price_books")
-          .select("id")
-          .eq("code", "DEFAULT_RETAIL")
-          .maybeSingle();
+        // Seed Media Images
+        if (sp.images && sp.images.length > 0) {
+          for (let mIdx = 0; mIdx < sp.images.length; mIdx++) {
+            const img = sp.images[mIdx];
+            await supabase.from("product_media").insert({
+              product_id: prod.id,
+              url: img.url,
+              alt_text: img.altText || sp.title,
+              width: img.width || 800,
+              height: img.height || 800,
+              is_primary: mIdx === 0,
+              sort_order: mIdx * 10,
+            });
+          }
+        }
 
+        // Seed Options
+        if (sp.options && sp.options.length > 0) {
+          for (let oIdx = 0; oIdx < sp.options.length; oIdx++) {
+            const opt = sp.options[oIdx];
+            await supabase.from("product_options").insert({
+              product_id: prod.id,
+              name: opt.name,
+              values: opt.values,
+              sort_order: oIdx * 10,
+            });
+          }
+        }
+
+        // Seed Variants
+        if (sp.variants && sp.variants.length > 0) {
+          for (let vIdx = 0; vIdx < sp.variants.length; vIdx++) {
+            const v = sp.variants[vIdx];
+            await supabase.from("product_variants").upsert(
+              {
+                product_id: prod.id,
+                sku: v.sku,
+                title: v.title,
+                available_for_sale: v.availableForSale ?? true,
+                selected_options: v.selectedOptions || [],
+                price_factor: v.priceFactor || 1.0,
+                price_minor: v.price ? v.price.amount : basePriceMinor,
+                sale_price_minor: v.compareAtPrice ? v.price.amount : null,
+                cost_price_minor: Math.round(basePriceMinor * 0.6),
+                inventory_quantity: 100,
+                status: "active",
+                sort_order: vIdx * 10,
+              },
+              { onConflict: "sku" }
+            );
+          }
+        }
+
+        // Seed Retail Price and Quantity Tiers
         if (defaultPriceBook) {
-          const basePriceMinor = sp.priceFrom ? sp.priceFrom.amount : 19900;
-          const compareAtMinor = sp.compareAtFrom ? sp.compareAtFrom.amount : null;
-
           const { data: priceRecord } = await supabase
             .from("product_prices")
             .upsert(
@@ -121,8 +204,8 @@ export async function autoSyncStaticCatalogueIfEmpty(): Promise<void> {
                 price_book_id: defaultPriceBook.id,
                 base_price_minor: basePriceMinor,
                 compare_at_price_minor: compareAtMinor,
-                cost_price_minor: Math.round(basePriceMinor * 0.6), // 40% gross margin estimate
-                minimum_price_floor_minor: Math.round(basePriceMinor * 0.7), // 30% margin protection floor
+                cost_price_minor: Math.round(basePriceMinor * 0.6),
+                minimum_price_floor_minor: Math.round(basePriceMinor * 0.4),
                 currency: "INR",
                 status: "active",
                 version: 1,
@@ -152,111 +235,63 @@ export async function autoSyncStaticCatalogueIfEmpty(): Promise<void> {
       }
     }
   } catch (err) {
-    console.error("[autoSyncStaticCatalogueIfEmpty error]:", err);
+    console.error("Auto-sync static catalogue failed:", err);
   }
 }
 
 /**
- * Fetch paginated products with filters for admin list view
+ * Fetch filtered, paginated products for the Admin Command Center
  */
 export async function fetchAdminProducts(
-  filters: AdminProductListFilter
+  filter: AdminProductListFilter = {}
 ): Promise<AdminProductListResult> {
-  // Sync if needed
+  const supabase = await createClient();
   await autoSyncStaticCatalogueIfEmpty();
 
-  const supabase = await createClient();
-  const page = Math.max(1, filters.page || 1);
-  const pageSize = Math.min(100, Math.max(10, filters.pageSize || 50));
+  const page = Math.max(1, filter.page || 1);
+  const pageSize = Math.max(1, Math.min(100, filter.pageSize || 50));
   const offset = (page - 1) * pageSize;
 
-  // 1. Fetch available categories for filter dropdown
-  const { data: dbCategories } = await supabase
-    .from("categories")
-    .select("id, handle, title")
-    .eq("status", "active")
-    .order("sort_order", { ascending: true });
-
-  const categories = (dbCategories || []).map((c) => ({
-    id: c.id,
-    handle: c.handle,
-    title: c.title,
-  }));
-
-  // 2. Build filtered product query
-  let query = supabase
-    .from("products")
-    .select(
-      `
-      id,
-      handle,
-      title,
-      subtitle,
-      description,
-      sku,
-      status,
-      visibility,
-      product_type,
-      unit,
-      min_order_qty,
-      qty_increment,
-      turnaround_days,
-      is_featured,
-      same_day_eligible,
-      bulk_eligible,
-      requires_artwork,
-      requires_proof,
-      customizable,
-      upload_only,
-      sort_order,
-      version,
-      seo_title,
-      seo_description,
-      canonical_url,
-      created_at,
-      updated_at,
-      published_at,
-      archived_at,
-      product_category_links (
-        category_id,
-        categories (
-          id,
-          handle,
-          title,
-          status,
-          sort_order,
-          is_featured,
-          blurb,
-          icon,
-          seo_title,
-          seo_description,
-          created_at,
-          updated_at
-        )
-      )
+  let query = supabase.from("products").select(
+    `
+      *,
+      categories:product_category_links(
+        category:categories(id, handle, title)
+      ),
+      media:product_media(id, url, alt_text, is_primary, sort_order),
+      variants:product_variants(id, sku, title, price_minor, available_for_sale, status)
     `,
-      { count: "exact" }
-    );
+    { count: "exact" }
+  );
 
-  if (filters.q && filters.q.trim()) {
-    const term = filters.q.trim();
+  // Status Filter
+  if (filter.status && filter.status !== "ALL") {
+    query = query.eq("status", filter.status);
+  }
+
+  // Visibility Filter
+  if (filter.visibility && filter.visibility !== "ALL") {
+    query = query.eq("visibility", filter.visibility);
+  }
+
+  // Product Type Filter
+  if (filter.productType && filter.productType !== "ALL") {
+    query = query.eq("product_type", filter.productType);
+  }
+
+  // Featured Filter
+  if (filter.isFeatured !== undefined && filter.isFeatured !== "ALL") {
+    query = query.eq("is_featured", filter.isFeatured === true);
+  }
+
+  // Text Search across title, SKU, handle
+  if (filter.q && filter.q.trim()) {
+    const term = filter.q.trim();
     query = query.or(`title.ilike.%${term}%,sku.ilike.%${term}%,handle.ilike.%${term}%`);
   }
 
-  if (filters.status && filters.status !== "ALL") {
-    query = query.eq("status", filters.status);
-  }
-
-  if (filters.visibility && filters.visibility !== "ALL") {
-    query = query.eq("visibility", filters.visibility);
-  }
-
-  if (filters.isFeatured && filters.isFeatured !== "ALL") {
-    query = query.eq("is_featured", filters.isFeatured === true);
-  }
-
-  // Sort allowlist
-  switch (filters.sort) {
+  // Sorting
+  switch (filter.sort) {
     case "oldest":
       query = query.order("created_at", { ascending: true });
       break;
@@ -275,149 +310,137 @@ export async function fetchAdminProducts(
       break;
   }
 
-  query = query.range(offset, offset + pageSize - 1);
-
-  const { data, count, error } = await query;
+  const { data: rawProducts, count, error } = await query.range(offset, offset + pageSize - 1);
 
   if (error) {
-    console.error("[fetchAdminProducts error]:", error);
     return {
       products: [],
       totalCount: 0,
       page,
       pageSize,
-      totalPages: 1,
-      categories,
+      totalPages: 0,
+      categories: [],
       error: error.message,
     };
   }
 
-  const products: DatabaseProduct[] = (data || []).map((raw) => {
-    const p = raw as unknown as DatabaseProduct & {
-      product_category_links?: Array<{ categories: DatabaseCategory }>;
-    };
-    const linkedCategories = (p.product_category_links || [])
-      .map((link) => link.categories)
-      .filter(Boolean);
-
-    return {
-      ...p,
-      categories: linkedCategories,
-    };
-  });
-
-  // Category filter in memory if joined
-  const filteredProducts =
-    filters.categoryHandle && filters.categoryHandle !== "ALL"
-      ? products.filter((p) => p.categories?.some((c) => c.handle === filters.categoryHandle))
-      : products;
+  // Fetch all active categories for filtering dropdown
+  const { data: categoryRows } = await supabase
+    .from("categories")
+    .select("id, handle, title")
+    .order("sort_order", { ascending: true });
 
   const totalCount = count || 0;
-  const totalPages = Math.ceil(totalCount / pageSize) || 1;
+  const totalPages = Math.ceil(totalCount / pageSize);
+
+  // Normalize products
+  const products: DatabaseProduct[] = (rawProducts || []).map((p: any) => ({
+    ...p,
+    categories: (p.categories || []).map((c: any) => c.category).filter(Boolean),
+    media: (p.media || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
+    variants: p.variants || [],
+  }));
 
   return {
-    products: filteredProducts,
+    products,
     totalCount,
     page,
     pageSize,
     totalPages,
-    categories,
+    categories: categoryRows || [],
   };
 }
 
 /**
- * Fetch a single product by ID or Handle for the editor
+ * Fetch a single product by ID with full relations for the Admin Editor
  */
-export async function fetchAdminProductById(
-  productIdOrHandle: string
-): Promise<{ product: DatabaseProduct | null; categories: DatabaseCategory[]; error?: string }> {
-  const supabase = await createClient();
-
-  // 1. Fetch all categories
-  const { data: dbCats } = await supabase
-    .from("categories")
-    .select("*")
-    .order("sort_order", { ascending: true });
-
-  const categories = (dbCats || []) as DatabaseCategory[];
-
-  // 2. Fetch product by UUID or handle
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    productIdOrHandle
-  );
-
-  let query = supabase.from("products").select(`
-    *,
-    product_category_links (
-      category_id,
-      categories (*)
-    ),
-    product_media (*),
-    product_options (*),
-    product_variants (*)
-  `);
-
-  if (isUuid) {
-    query = query.eq("id", productIdOrHandle);
-  } else {
-    query = query.eq("handle", productIdOrHandle);
-  }
-
-  const { data, error } = await query.maybeSingle();
-
-  if (error || !data) {
-    return { product: null, categories, error: error?.message || "Product not found" };
-  }
-
-  const rawProd = data as unknown as DatabaseProduct & {
-    product_category_links?: Array<{ categories: DatabaseCategory }>;
-    product_media?: DatabaseProduct["media"];
-    product_options?: DatabaseProduct["options"];
-    product_variants?: DatabaseProduct["variants"];
-  };
-
-  const product: DatabaseProduct = {
-    ...rawProd,
-    categories: (rawProd.product_category_links || []).map((l) => l.categories).filter(Boolean),
-    media: (rawProd.product_media || []).sort((a, b) => a.sort_order - b.sort_order),
-    options: (rawProd.product_options || []).sort((a, b) => a.sort_order - b.sort_order),
-    variants: (rawProd.product_variants || []).sort((a, b) => a.sort_order - b.sort_order),
-  };
-
-  return { product, categories };
-}
-
-/**
- * Fetch all categories with product counts for /admin/categories
- */
-export async function fetchAdminCategories(): Promise<{
+export async function fetchAdminProductById(productId: string): Promise<{
+  product: DatabaseProduct | null;
   categories: DatabaseCategory[];
+  auditLogs: DatabaseCatalogAuditLog[];
   error?: string;
 }> {
-  await autoSyncStaticCatalogueIfEmpty();
   const supabase = await createClient();
+
+  const [
+    { data: rawProd, error: prodErr },
+    { data: allCats },
+    { data: auditLogsData },
+  ] = await Promise.all([
+    supabase
+      .from("products")
+      .select(
+        `
+        *,
+        categories:product_category_links(
+          category:categories(*)
+        ),
+        media:product_media(*),
+        options:product_options(*),
+        variants:product_variants(*),
+        attributes:product_attribute_values(
+          *,
+          attribute:attribute_definitions(*)
+        )
+      `
+      )
+      .eq("id", productId)
+      .single(),
+    supabase.from("categories").select("*").order("sort_order", { ascending: true }),
+    supabase
+      .from("catalog_audit_logs")
+      .select("*")
+      .eq("entity_id", productId)
+      .order("created_at", { ascending: false })
+      .limit(20),
+  ]);
+
+  if (prodErr || !rawProd) {
+    return {
+      product: null,
+      categories: (allCats || []) as DatabaseCategory[],
+      auditLogs: [],
+      error: prodErr?.message || "Product not found",
+    };
+  }
+
+  const p: any = rawProd;
+  const product: DatabaseProduct = {
+    ...p,
+    categories: (p.categories || []).map((c: any) => c.category).filter(Boolean),
+    media: (p.media || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
+    options: (p.options || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
+    variants: (p.variants || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
+    attributes: p.attributes || [],
+  };
+
+  return {
+    product,
+    categories: (allCats || []) as DatabaseCategory[],
+    auditLogs: (auditLogsData || []) as DatabaseCatalogAuditLog[],
+  };
+}
+
+/**
+ * Fetch all categories with subcategories and product counts for Admin
+ */
+export async function fetchAdminCategories(): Promise<DatabaseCategory[]> {
+  const supabase = await createClient();
+  await autoSyncStaticCatalogueIfEmpty();
 
   const { data, error } = await supabase
     .from("categories")
-    .select(`
+    .select(
+      `
       *,
-      product_category_links (count)
-    `)
+      attribute_templates:category_attribute_templates(
+        *,
+        attribute:attribute_definitions(*)
+      )
+    `
+    )
     .order("sort_order", { ascending: true });
 
-  if (error) {
-    return { categories: [], error: error.message };
-  }
-
-  const categories: DatabaseCategory[] = (data || []).map((raw) => {
-    const c = raw as unknown as DatabaseCategory & {
-      product_category_links?: Array<{ count: number }>;
-    };
-    return {
-      ...c,
-      product_count: c.product_category_links?.[0]?.count || 0,
-    };
-  });
-
-  return { categories };
+  if (error || !data) return [];
+  return data as DatabaseCategory[];
 }

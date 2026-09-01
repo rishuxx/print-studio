@@ -37,8 +37,37 @@ export async function updateSession(request: NextRequest) {
 
     // Refresh the user session if an auth cookie exists
     const hasAuthCookie = request.cookies.getAll().some((c) => c.name.startsWith("sb-"));
+    let user = null;
     if (hasAuthCookie) {
-      await supabase.auth.getUser();
+      const { data } = await supabase.auth.getUser();
+      user = data.user;
+    }
+
+    const currentPath = request.nextUrl.pathname;
+    const protectedCustomerRoutes = ["/account", "/orders", "/checkout"];
+    const adminRoutes = ["/admin"];
+
+    const isProtectedCustomerRoute = protectedCustomerRoutes.some(
+      (route) => currentPath.startsWith(route) && currentPath !== "/checkout/guest" 
+    );
+    
+    const isAdminRoute = adminRoutes.some((route) => currentPath.startsWith(route));
+
+    // If there's no user and they attempt to access protected routes
+    if (!user && (isProtectedCustomerRoute || isAdminRoute)) {
+      const redirectUrl = new URL("/login", request.url);
+      redirectUrl.searchParams.set("redirect", currentPath);
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // If user exists, enforce verification for protected routes
+    if (user && isProtectedCustomerRoute) {
+      const isEmailVerified = user.email_confirmed_at != null;
+      if (!isEmailVerified) {
+        const redirectUrl = new URL("/login", request.url);
+        redirectUrl.searchParams.set("error", "Email verification is required to access this section. Please check your inbox.");
+        return NextResponse.redirect(redirectUrl);
+      }
     }
   } catch (err) {
     // Session refresh should not block public rendering

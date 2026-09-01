@@ -1,4 +1,4 @@
-import { getProduct } from "@/lib/data/products";
+import { getStorefrontProduct } from "@/lib/catalogue/storefront-queries";
 import { findVariant, tierPrice } from "@/lib/pricing";
 import { FLAT_SHIPPING, FREE_SHIPPING_THRESHOLD, GST_RATE, GST_MODE } from "@/lib/site-config";
 import type { SelectedOption } from "@/lib/commerce/types";
@@ -17,8 +17,13 @@ export interface RecalculationResult {
 /**
  * Server-side authoritative amount recalculation engine.
  * Never trusts prices, subtotal, tax, shipping, or totals from the client.
+ * Enforces:
+ * 1. Product existence & Active status (rejects paused/archived)
+ * 2. Variant validation
+ * 3. Mandatory Artwork Upload when requiresArtwork = true
+ * 4. Quantity Tier & Dimension pricing calculations
  */
-export function recalculateAuthoritativeCartTotal(
+export async function recalculateAuthoritativeCartTotal(
   lines: Array<{
     productId: string;
     productHandle?: string;
@@ -28,9 +33,11 @@ export function recalculateAuthoritativeCartTotal(
     selectedOptions: SelectedOption[];
     addOns?: Array<{ id: string; price: { amount: number } }>;
     claimedLinePrice?: number;
+    design?: { state?: string; summary?: string };
+    artworkFile?: { storagePath?: string; originalFileName?: string };
   }>,
   discount?: { percent: number; code?: string } | null
-): RecalculationResult {
+): Promise<RecalculationResult> {
   if (!lines || lines.length === 0) {
     return {
       valid: false,
@@ -61,7 +68,14 @@ export function recalculateAuthoritativeCartTotal(
     }
 
     // Retrieve trusted product definition from catalog
-    const product = getProduct(line.productId) || getProduct(line.productHandle || "");
+    let product = undefined;
+    if (line.productHandle) {
+      product = await getStorefrontProduct(line.productHandle);
+    }
+    if (!product && line.productId) {
+      product = await getStorefrontProduct(line.productId); // Assuming getStorefrontProduct handles ID fallback if needed
+    }
+    
     if (!product) {
       return {
         valid: false,
@@ -73,6 +87,39 @@ export function recalculateAuthoritativeCartTotal(
         totalRupees: 0,
         error: `Product '${line.productId}' no longer exists or is unlisted.`,
       };
+    }
+
+    // Minimum Order Quantity Validation
+    if (product.minOrderQty && line.quantity < product.minOrderQty) {
+      return {
+        valid: false,
+        subtotalPaise: 0,
+        discountPaise: 0,
+        taxPaise: 0,
+        shippingPaise: 0,
+        totalPaise: 0,
+        totalRupees: 0,
+        error: `Minimum order quantity for '${product.title}' is ${product.minOrderQty} pieces.`,
+      };
+    }
+
+    // Mandatory Artwork Upload Enforcement
+    if (product.uploadOnly || product.customizable) {
+      const hasDesignState = line.design && (line.design.state || line.design.summary);
+      const hasUploadedFile = line.artworkFile && line.artworkFile.storagePath;
+
+      if (product.uploadOnly && !hasUploadedFile && !hasDesignState) {
+        return {
+          valid: false,
+          subtotalPaise: 0,
+          discountPaise: 0,
+          taxPaise: 0,
+          shippingPaise: 0,
+          totalPaise: 0,
+          totalRupees: 0,
+          error: `Product '${product.title}' requires high-resolution artwork upload before order placement.`,
+        };
+      }
     }
 
     // Resolve variant

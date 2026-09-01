@@ -123,6 +123,10 @@ export interface AuthoritativePriceCalculation {
   rejectedRules: PricingRuleDecision[];
   finalLinePriceMinor: MoneyMinor;
   finalUnitPriceMinor: MoneyMinor;
+  effectiveUnitPriceMinor: MoneyMinor;
+  finalSubtotalMinor: MoneyMinor;
+  totalDiscountMinor: MoneyMinor;
+  marginFloorProtected?: boolean;
   engineVersion: string;
   calculatedAt: string;
 }

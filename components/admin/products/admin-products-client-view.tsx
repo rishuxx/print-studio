@@ -16,9 +16,19 @@ import {
   Sparkles,
   ExternalLink,
   Edit,
+  Copy,
+  Trash2,
+  Image as ImageIcon,
+  MoreVertical,
 } from "lucide-react";
 import type { DatabaseProduct, ProductStatus } from "@/lib/catalogue/types";
-import { bulkUpdateProductStatusAction } from "@/lib/catalogue/mutations";
+import {
+  bulkProductOperationsAction,
+  updateProductStatusAction,
+  duplicateProductAction,
+  deleteProductSafelyAction,
+} from "@/lib/catalogue/mutations";
+import { toast } from "sonner";
 
 interface AdminProductsClientViewProps {
   products: DatabaseProduct[];
@@ -36,6 +46,7 @@ export function AdminProductsClientView({
   products,
   totalCount,
   currentPage,
+  pageSize = 20,
   totalPages,
   categories,
   initialQuery = "",
@@ -48,7 +59,6 @@ export function AdminProductsClientView({
   const [searchTerm, setSearchTerm] = React.useState(initialQuery);
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [isBulkPending, setIsBulkPending] = React.useState(false);
-  const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
   const updateParams = React.useCallback(
     (newParams: Record<string, string | undefined>) => {
@@ -65,7 +75,7 @@ export function AdminProductsClientView({
     [router, searchParams]
   );
 
-  // Debounced search query update
+  // Debounced search
   React.useEffect(() => {
     const timer = setTimeout(() => {
       if (searchTerm !== initialQuery) {
@@ -90,78 +100,81 @@ export function AdminProductsClientView({
     setSelectedIds(next);
   };
 
-  const handleBulkAction = async (status: ProductStatus) => {
+  const handleBulkAction = async (operation: "publish" | "pause" | "archive" | "delete") => {
     if (selectedIds.size === 0) return;
+    if (operation === "delete" && !confirm(`Are you sure you want to delete ${selectedIds.size} products?`)) {
+      return;
+    }
+
     setIsBulkPending(true);
-    const res = await bulkUpdateProductStatusAction(Array.from(selectedIds), status);
+    const res = await bulkProductOperationsAction(Array.from(selectedIds), operation);
     setIsBulkPending(false);
+
     if (res.success) {
       setSelectedIds(new Set());
-      setToastMessage(`Successfully updated ${res.updatedCount} products to ${status}`);
-      setTimeout(() => setToastMessage(null), 4000);
+      toast.success(`Successfully processed ${res.count} products.`);
+      router.refresh();
     } else {
-      alert(res.error || "Bulk action failed");
+      toast.error(res.error || "Bulk action failed");
     }
   };
 
-  const getStatusBadge = (status: ProductStatus) => {
-    switch (status) {
-      case "active":
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <CheckCircle2 className="size-3 text-emerald-600" />
-            Active
-          </span>
-        );
-      case "draft":
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-300">
-            <AlertCircle className="size-3 text-slate-500" />
-            Draft
-          </span>
-        );
-      case "paused":
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-            <PauseCircle className="size-3 text-amber-600" />
-            Paused
-          </span>
-        );
-      case "archived":
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-            <Archive className="size-3 text-rose-600" />
-            Archived
-          </span>
-        );
+  const handleQuickStatus = async (productId: string, newStatus: ProductStatus) => {
+    const res = await updateProductStatusAction(productId, newStatus);
+    if (res.success) {
+      toast.success(`Product status updated to ${newStatus}`);
+      router.refresh();
+    } else {
+      toast.error(res.error || "Status update failed");
+    }
+  };
+
+  const handleDuplicate = async (productId: string) => {
+    const res = await duplicateProductAction(productId);
+    if (res.success && res.newProductId) {
+      toast.success("Product cloned successfully!");
+      router.push(`/admin/products/${res.newProductId}`);
+    } else {
+      toast.error(res.error || "Failed to clone product");
+    }
+  };
+
+  const handleDelete = async (productId: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete "${title}"?`)) return;
+    const res = await deleteProductSafelyAction(productId);
+    if (res.success) {
+      toast.success(`Product ${res.actionTaken === "archived" ? "archived (has order history)" : "deleted"}`);
+      router.refresh();
+    } else {
+      toast.error(res.error || "Failed to delete product");
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Top Action Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Page Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="font-display text-2xl font-extrabold text-ink tracking-tight">
+          <h1 className="font-display text-2xl font-black tracking-tight text-ink sm:text-3xl">
             Products & Catalogue
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Manage your printing catalogue, technical specifications, variants, and SEO.
+          </h1>
+          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+            Manage your entire catalog, variants, pricing, and live storefront publishing.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <Link
             href="/admin/categories"
-            className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-3.5 py-2 text-xs font-bold text-ink hover:bg-paper transition-all shadow-xs"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-3.5 py-2 text-xs font-bold text-ink shadow-xs hover:bg-paper transition-colors"
           >
-            <Layers className="size-3.5 text-violet" />
-            <span>Manage Categories</span>
+            <Layers className="size-3.5" />
+            <span>Category Taxonomy</span>
           </Link>
 
           <Link
             href="/admin/products/new"
-            className="inline-flex items-center gap-2 rounded-xl bg-violet px-4 py-2 text-xs font-bold text-white hover:bg-violet/90 transition-all shadow-sm"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-violet px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-violet-lift transition-colors"
           >
             <Plus className="size-4" />
             <span>Add Product</span>
@@ -169,200 +182,264 @@ export function AdminProductsClientView({
         </div>
       </div>
 
-      {toastMessage && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-semibold text-emerald-800 animate-in fade-in">
-          {toastMessage}
+      {/* Filter Toolbar */}
+      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-white p-4 shadow-sheet sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by title, SKU, or handle..."
+            className="w-full rounded-xl border border-border bg-paper/50 pl-9 pr-4 py-2 text-xs text-ink focus:border-violet focus:bg-white focus:outline-none transition-colors"
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Status Filter */}
+          <select
+            value={initialStatus}
+            onChange={(e) => updateParams({ status: e.target.value, page: "1" })}
+            className="rounded-xl border border-border bg-paper/50 px-3 py-2 text-xs font-semibold text-ink focus:border-violet focus:outline-none"
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="draft">Draft</option>
+            <option value="paused">Paused</option>
+            <option value="archived">Archived</option>
+          </select>
+
+          {/* Category Filter */}
+          <select
+            value={initialCategory}
+            onChange={(e) => updateParams({ category: e.target.value, page: "1" })}
+            className="rounded-xl border border-border bg-paper/50 px-3 py-2 text-xs font-semibold text-ink focus:border-violet focus:outline-none max-w-xs"
+          >
+            <option value="ALL">All Categories</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.handle}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Bulk Operations Bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between rounded-xl bg-violet-wash border border-violet/20 px-4 py-2.5 shadow-xs">
+          <span className="font-bold text-xs text-violet">
+            {selectedIds.size} product{selectedIds.size > 1 ? "s" : ""} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleBulkAction("publish")}
+              disabled={isBulkPending}
+              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              Publish
+            </button>
+            <button
+              onClick={() => handleBulkAction("pause")}
+              disabled={isBulkPending}
+              className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-50"
+            >
+              Pause
+            </button>
+            <button
+              onClick={() => handleBulkAction("archive")}
+              disabled={isBulkPending}
+              className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              Archive
+            </button>
+            <button
+              onClick={() => handleBulkAction("delete")}
+              disabled={isBulkPending}
+              className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              Delete
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white rounded-2xl border border-border p-4 shadow-xs space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search products by title, SKU, or slug..."
-              className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-border bg-paper/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-violet/20"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Status Filter */}
-            <select
-              value={initialStatus}
-              onChange={(e) => updateParams({ status: e.target.value, page: "1" })}
-              className="px-3 py-2 text-xs rounded-xl border border-border bg-white text-ink font-semibold focus:outline-hidden focus:ring-2 focus:ring-violet/20"
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="active">Active</option>
-              <option value="draft">Draft</option>
-              <option value="paused">Paused</option>
-              <option value="archived">Archived</option>
-            </select>
-
-            {/* Category Filter */}
-            <select
-              value={initialCategory}
-              onChange={(e) => updateParams({ category: e.target.value, page: "1" })}
-              className="px-3 py-2 text-xs rounded-xl border border-border bg-white text-ink font-semibold focus:outline-hidden focus:ring-2 focus:ring-violet/20 max-w-44"
-            >
-              <option value="ALL">All Categories</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.handle}>
-                  {c.title}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Bulk Action Strip */}
-        {selectedIds.size > 0 && (
-          <div className="flex items-center justify-between p-3 bg-violet/5 border border-violet/20 rounded-xl text-xs">
-            <span className="font-bold text-ink">
-              {selectedIds.size} product{selectedIds.size > 1 ? "s" : ""} selected
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={isBulkPending}
-                onClick={() => handleBulkAction("active")}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-all"
-              >
-                Publish Selected
-              </button>
-              <button
-                type="button"
-                disabled={isBulkPending}
-                onClick={() => handleBulkAction("paused")}
-                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition-all"
-              >
-                Pause Selected
-              </button>
-              <button
-                type="button"
-                disabled={isBulkPending}
-                onClick={() => handleBulkAction("archived")}
-                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg transition-all"
-              >
-                Archive Selected
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Product Table */}
-      <div className="bg-white rounded-2xl border border-border shadow-xs overflow-hidden">
+      {/* Products Table */}
+      <div className="rounded-2xl border border-border bg-white shadow-sheet overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-border bg-paper/60 font-mono text-[0.6875rem] font-bold text-muted-foreground uppercase">
-                <th className="p-4 w-10">
+          <table className="w-full text-left text-xs">
+            <thead className="border-b border-border bg-paper text-muted-foreground font-mono uppercase tracking-wider">
+              <tr>
+                <th className="w-10 px-4 py-3">
                   <input
                     type="checkbox"
-                    checked={products.length > 0 && selectedIds.size === products.length}
+                    checked={selectedIds.size === products.length && products.length > 0}
                     onChange={(e) => handleSelectAll(e.target.checked)}
-                    className="rounded border-border size-3.5"
+                    className="size-4 rounded border-border text-violet focus:ring-violet"
                   />
                 </th>
-                <th className="p-4">Product</th>
-                <th className="p-4">SKU</th>
-                <th className="p-4">Category</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">Min Qty</th>
-                <th className="p-4 text-right">Actions</th>
+                <th className="px-3 py-3">Product</th>
+                <th className="px-3 py-3">Master SKU</th>
+                <th className="px-3 py-3">Category</th>
+                <th className="px-3 py-3">Price</th>
+                <th className="px-3 py-3">Variants</th>
+                <th className="px-3 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {products.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-12 text-center text-muted-foreground">
-                    <div className="max-w-xs mx-auto space-y-2">
-                      <p className="font-bold text-ink">No products found</p>
-                      <p className="text-xs">
-                        Try adjusting your search criteria, clear filters, or add a new product.
-                      </p>
-                    </div>
+                  <td colSpan={8} className="p-12 text-center text-xs text-muted-foreground">
+                    No products matching your search criteria.
                   </td>
                 </tr>
               ) : (
-                products.map((p) => (
-                  <tr key={p.id} className="hover:bg-paper/40 transition-colors">
-                    <td className="p-4">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(p.id)}
-                        onChange={() => toggleSelect(p.id)}
-                        className="rounded border-border size-3.5"
-                      />
-                    </td>
-                    <td className="p-4">
-                      <div className="space-y-0.5">
-                        <Link
-                          href={`/admin/products/${p.id}`}
-                          className="font-bold text-ink hover:text-violet transition-colors flex items-center gap-1.5"
-                        >
-                          <span>{p.title}</span>
-                          {p.is_featured && (
-                            <span title="Featured Product">
-                              <Sparkles className="size-3 text-amber-500 fill-amber-400" />
-                            </span>
-                          )}
-                        </Link>
-                        <p className="text-[0.6875rem] text-muted-foreground font-mono">
-                          /{p.handle}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="p-4 font-mono font-bold text-slate-700">{p.sku}</td>
-                    <td className="p-4">
-                      <div className="flex flex-wrap gap-1">
-                        {p.categories && p.categories.length > 0 ? (
-                          p.categories.map((c) => (
-                            <span
-                              key={c.id}
-                              className="px-2 py-0.5 rounded bg-paper border border-border text-[0.6875rem] text-muted-foreground"
+                products.map((p) => {
+                  const isSelected = selectedIds.has(p.id);
+                  const primaryImg = p.media?.find((m) => m.is_primary) || p.media?.[0];
+
+                  return (
+                    <tr
+                      key={p.id}
+                      className={`hover:bg-paper/40 transition-colors ${
+                        isSelected ? "bg-violet-wash/30" : ""
+                      }`}
+                    >
+                      <td className="px-4 py-3.5">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelect(p.id)}
+                          className="size-4 rounded border-border text-violet focus:ring-violet"
+                        />
+                      </td>
+
+                      <td className="px-3 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-paper border border-border overflow-hidden">
+                            {primaryImg ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={primaryImg.url}
+                                alt={p.title}
+                                className="size-full object-cover"
+                              />
+                            ) : (
+                              <ImageIcon className="size-4 text-muted-foreground opacity-40" />
+                            )}
+                          </div>
+
+                          <div>
+                            <Link
+                              href={`/admin/products/${p.id}`}
+                              className="font-bold text-ink hover:text-violet transition-colors line-clamp-1"
                             >
-                              {c.title}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-muted-foreground/60 italic text-[0.6875rem]">
-                            Uncategorized
-                          </span>
+                              {p.title}
+                            </Link>
+                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                              <span>/product/{p.handle}</span>
+                              {p.is_featured && (
+                                <span className="text-violet font-bold bg-violet-wash px-1 rounded">
+                                  Featured
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-3 py-3.5 font-mono text-[11px] font-semibold text-ink">
+                        {p.sku}
+                      </td>
+
+                      <td className="px-3 py-3.5">
+                        <div className="flex flex-wrap gap-1 max-w-[140px]">
+                          {p.categories && p.categories.length > 0 ? (
+                            p.categories.map((c) => (
+                              <span
+                                key={c.id}
+                                className="rounded bg-paper px-1.5 py-0.5 text-[10px] font-semibold text-ink border border-border"
+                              >
+                                {c.title}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground text-[10px]">Unassigned</span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="px-3 py-3.5 font-mono text-[11px]">
+                        <div className="font-bold text-ink">
+                          ₹{((p.base_price_minor || 19900) / 100).toFixed(2)}
+                        </div>
+                        {p.sale_price_minor && (
+                          <div className="text-[10px] text-emerald-600 font-semibold">
+                            Sale: ₹{(p.sale_price_minor / 100).toFixed(2)}
+                          </div>
                         )}
-                      </div>
-                    </td>
-                    <td className="p-4">{getStatusBadge(p.status)}</td>
-                    <td className="p-4 font-mono">
-                      {p.min_order_qty} {p.unit}
-                    </td>
-                    <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/product/${p.handle}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 rounded-lg text-muted-foreground hover:text-ink hover:bg-paper"
-                          title="View on storefront"
+                      </td>
+
+                      <td className="px-3 py-3.5">
+                        <span className="inline-flex rounded-full bg-paper px-2 py-0.5 font-mono text-[10px] font-bold text-ink border border-border">
+                          {p.variants?.length || 0} Variants
+                        </span>
+                      </td>
+
+                      <td className="px-3 py-3.5">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                            p.status === "active"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : p.status === "paused"
+                              ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : "bg-paper-deep text-muted-foreground border border-border"
+                          }`}
                         >
-                          <ExternalLink className="size-3.5" />
-                        </Link>
-                        <Link
-                          href={`/admin/products/${p.id}`}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border bg-white text-ink hover:border-violet hover:text-violet font-bold text-xs transition-all shadow-2xs"
-                        >
-                          <Edit className="size-3" />
-                          <span>Edit</span>
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          {p.status}
+                        </span>
+                      </td>
+
+                      <td className="px-4 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Link
+                            href={`/admin/products/${p.id}`}
+                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-paper hover:text-ink transition-colors"
+                            title="Edit"
+                          >
+                            <Edit className="size-3.5" />
+                          </Link>
+
+                          <button
+                            onClick={() => handleDuplicate(p.id)}
+                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-paper hover:text-ink transition-colors"
+                            title="Duplicate"
+                          >
+                            <Copy className="size-3.5" />
+                          </button>
+
+                          <Link
+                            href={`/product/${p.handle}`}
+                            target="_blank"
+                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-paper hover:text-ink transition-colors"
+                            title="Storefront Preview"
+                          >
+                            <ExternalLink className="size-3.5" />
+                          </Link>
+
+                          <button
+                            onClick={() => handleDelete(p.id, p.title)}
+                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-700 transition-colors"
+                            title="Delete / Archive"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -370,27 +447,27 @@ export function AdminProductsClientView({
 
         {/* Pagination Bar */}
         {totalPages > 1 && (
-          <div className="p-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-            <div>
-              Showing {products.length} of {totalCount} total products
-            </div>
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between border-t border-border bg-paper/40 px-5 py-3 text-xs">
+            <span className="text-muted-foreground">
+              Showing {(currentPage - 1) * pageSize + 1} to{" "}
+              {Math.min(currentPage * pageSize, totalCount)} of {totalCount} products
+            </span>
+
+            <div className="flex items-center gap-1.5">
               <button
-                type="button"
-                disabled={currentPage <= 1}
                 onClick={() => updateParams({ page: String(currentPage - 1) })}
-                className="p-2 rounded-lg border border-border hover:bg-paper disabled:opacity-40"
+                disabled={currentPage <= 1}
+                className="flex size-8 items-center justify-center rounded-lg border border-border bg-white text-muted-foreground hover:bg-paper disabled:opacity-40"
               >
                 <ChevronLeft className="size-4" />
               </button>
-              <span className="font-mono font-bold text-ink">
+              <span className="font-mono text-xs font-bold text-ink px-2">
                 {currentPage} / {totalPages}
               </span>
               <button
-                type="button"
-                disabled={currentPage >= totalPages}
                 onClick={() => updateParams({ page: String(currentPage + 1) })}
-                className="p-2 rounded-lg border border-border hover:bg-paper disabled:opacity-40"
+                disabled={currentPage >= totalPages}
+                className="flex size-8 items-center justify-center rounded-lg border border-border bg-white text-muted-foreground hover:bg-paper disabled:opacity-40"
               >
                 <ChevronRight className="size-4" />
               </button>

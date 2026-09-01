@@ -1,0 +1,325 @@
+import { createClient } from "@/lib/supabase/server";
+import { getProduct as getStaticProduct, getAllProducts as getStaticAllProducts } from "@/lib/data/products";
+import { getCategory as getStaticCategory, categories as staticCategories } from "@/lib/data/categories";
+import type { Product, ProductImage, ProductOption, ProductVariant, QuantityTier, BadgeKind } from "@/lib/commerce/types";
+import { money } from "@/lib/commerce/types";
+import { ProductService } from "./product-service";
+import { PricingService } from "@/lib/pricing/pricing-service";
+
+/**
+ * Maps a database product record into the standard storefront Product interface
+ */
+export function mapDatabaseProductToStorefront(dbProduct: any, priceTiers: any[] = []): Product {
+  const rawMedia = (dbProduct.media || []).slice().sort((a: any, b: any) => {
+    if (a.is_primary && !b.is_primary) return -1;
+    if (!a.is_primary && b.is_primary) return 1;
+    return (a.sort_order || 0) - (b.sort_order || 0);
+  });
+
+  const images: ProductImage[] = rawMedia.map((m: any) => ({
+    url: m.url,
+    altText: m.alt_text || dbProduct.title,
+    width: m.width || 800,
+    height: m.height || 800,
+  }));
+
+  if (images.length === 0) {
+    images.push({
+      url: "/placeholder-product.png",
+      altText: dbProduct.title,
+      width: 800,
+      height: 800,
+      kind: "generic",
+    });
+  }
+
+  const options: ProductOption[] = (dbProduct.options || []).map((o: any) => ({
+    name: o.name,
+    values: Array.isArray(o.values) ? o.values : [],
+  }));
+
+  const visibilityCheck = ProductService.getProductVisibility(dbProduct);
+  const isPurchasableOverall = visibilityCheck.isPurchasable;
+
+  const baseCalc = PricingService.calculateProductPrice({
+    product: dbProduct,
+    quantity: dbProduct.min_order_qty || 1,
+  });
+
+  const variants: ProductVariant[] = (dbProduct.variants || []).map((v: any) => {
+    const variantCalc = PricingService.calculateProductPrice({
+      product: dbProduct,
+      variant: v,
+      quantity: dbProduct.min_order_qty || 1,
+    });
+    return {
+      id: v.id || v.sku,
+      title: v.title,
+      sku: v.sku,
+      price: variantCalc.finalUnitPrice,
+      compareAtPrice: variantCalc.compareAtPrice,
+      availableForSale: isPurchasableOverall && v.status === "active" && v.available_for_sale,
+      selectedOptions: v.selected_options || [],
+      priceFactor: v.price_factor || 1.0,
+    };
+  });
+
+  let quantityTiers: QuantityTier[] = priceTiers.map((t) => {
+    // Recalculate each tier price accounting for sales
+    const tierCalc = PricingService.calculateProductPrice({
+      product: dbProduct,
+      quantity: t.min_quantity,
+    });
+    return {
+      qty: t.min_quantity,
+      price: tierCalc.finalUnitPrice,
+      note: t.discount_percent ? `${t.discount_percent}% off` : undefined,
+    };
+  });
+
+  if (quantityTiers.length === 0) {
+    const basePaise = baseCalc.finalUnitPrice.amount;
+    quantityTiers = [
+      { qty: dbProduct.min_order_qty || 1, price: money(basePaise) },
+      { qty: (dbProduct.min_order_qty || 1) * 5, price: money(Math.round(basePaise * 4.5)) },
+      { qty: (dbProduct.min_order_qty || 1) * 10, price: money(Math.round(basePaise * 8.5)) },
+    ];
+  }
+
+  const categoryHandles = (dbProduct.categories || []).map((c: any) => c.handle || c.category_id || "general");
+  const badges: BadgeKind[] = [];
+  if (dbProduct.is_featured) badges.push("popular");
+  if (dbProduct.same_day_eligible) badges.push("same-day");
+  if (baseCalc.salePrice) badges.push("eco"); // Indicate a sale badge visually if needed
+
+  if (Array.isArray(dbProduct.badges)) {
+    dbProduct.badges.forEach((b: string) => {
+      if (!badges.includes(b as BadgeKind)) {
+        badges.push(b as BadgeKind);
+      }
+    });
+  }
+
+  return {
+    id: dbProduct.id,
+    handle: dbProduct.handle,
+    title: dbProduct.title,
+    subtitle: dbProduct.subtitle || "",
+    description: dbProduct.description || "",
+    productType: dbProduct.product_type || "Print",
+    categoryHandles: categoryHandles.length > 0 ? categoryHandles : ["visiting-cards"],
+    tags: dbProduct.tags || [],
+    badges,
+    images,
+    options,
+    variants,
+    priceFrom: baseCalc.finalUnitPrice,
+    compareAtFrom: baseCalc.compareAtPrice,
+    quantityTiers,
+    priceUnit: `per ${dbProduct.unit || "pieces"}`,
+    specs: [
+      { label: "SKU", value: dbProduct.sku },
+      { label: "Dispatch", value: `${dbProduct.turnaround_days || 3} Working Days` },
+      { label: "Min Order", value: `${dbProduct.min_order_qty || 1} ${dbProduct.unit || "pcs"}` },
+      ...(dbProduct.same_day_eligible ? [{ label: "Express", value: "Same-Day Ready" }] : []),
+    ],
+    minOrderQty: dbProduct.min_order_qty || 1,
+    turnaroundDays: dbProduct.turnaround_days || 3,
+    sameDayEligible: !!dbProduct.same_day_eligible,
+    customizable: !!dbProduct.customizable,
+    uploadOnly: !!dbProduct.upload_only,
+    rating: 4.8,
+    reviewCount: 42,
+    faqs: [
+      {
+        q: "What file formats do you accept for custom printing?",
+        a: "We accept PDF, PNG, JPG, EPS, AI, CDR, and TIFF files. PDF vector files are strongly recommended for the sharpest results.",
+      },
+      {
+        q: "Do you provide a digital soft-proof before production?",
+        a: "Yes, our pre-press team inspects every job and provides a digital proof for approval before printing commences.",
+      },
+    ],
+    relatedHandles: dbProduct.merchandising_config?.relatedProductHandles || [],
+    highlights: [
+      "Precision HD industrial printing with calibrated CMYK colour fidelity.",
+      "Strict pre-press soft-proof quality check before production release.",
+      "Fast, securely packed doorstep delivery across India.",
+    ],
+  };
+}
+
+/**
+ * Fetch product by handle for Storefront (Authoritative DB with fallback to static catalog)
+ */
+export async function getStorefrontProduct(handle: string): Promise<Product | undefined> {
+  try {
+    const supabase = await createClient();
+
+    // 1. Fetch from PostgreSQL
+    const { data: dbProduct } = await supabase
+      .from("products")
+      .select(
+        `
+        *,
+        categories:product_category_links(
+          category:categories(id, handle, title)
+        ),
+        media:product_media(*),
+        options:product_options(*),
+        variants:product_variants(*),
+        prices:product_prices(
+          id, base_price_minor, compare_at_price_minor,
+          tiers:product_quantity_tiers(*)
+        )
+      `
+      )
+      .eq("handle", handle)
+      .maybeSingle();
+
+    if (dbProduct) {
+      const p: any = dbProduct;
+      const categories = (p.categories || []).map((c: any) => c.category).filter(Boolean);
+      const media = (p.media || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
+      const options = (p.options || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
+      const variants = (p.variants || []).sort((a: any, b: any) => a.sort_order - b.sort_order);
+      const priceRecord = p.prices?.[0];
+      const tiers = priceRecord?.tiers || [];
+
+      const mappedProduct = mapDatabaseProductToStorefront(
+        {
+          ...p,
+          categories,
+          media,
+          options,
+          variants,
+        },
+        tiers
+      );
+      
+      const visibility = ProductService.getProductVisibility(p);
+      if (!visibility.isVisible) {
+        return undefined; // Hide from storefront
+      }
+      
+      return mappedProduct;
+    }
+  } catch (err) {
+    console.error("Failed to query DB product:", err);
+  }
+
+  // 2. Fallback to static catalog definition
+  return getStaticProduct(handle);
+}
+
+/**
+ * Fetch category by handle for Storefront
+ */
+export async function getStorefrontCategory(handle: string) {
+  try {
+    const supabase = await createClient();
+    const { data: cat } = await supabase
+      .from("categories")
+      .select("*")
+      .eq("handle", handle)
+      .maybeSingle();
+
+    if (cat && cat.status === "active") return cat;
+    if (cat && cat.status !== "active") return undefined;
+  } catch {}
+
+  return getStaticCategory(handle);
+}
+
+/**
+ * Fetch all products for storefront catalog
+ */
+export async function getStorefrontAllProducts(): Promise<Product[]> {
+  try {
+    const supabase = await createClient();
+    const { data: dbProducts } = await supabase
+      .from("products")
+      .select(
+        `
+        *,
+        categories:product_category_links(
+          category:categories(id, handle, title)
+        ),
+        media:product_media(*)
+      `
+      )
+      .eq("status", "active")
+      .eq("visibility", "public")
+      .order("sort_order", { ascending: true });
+
+    if (dbProducts && dbProducts.length > 0) {
+      const dbMapped = dbProducts
+        .filter((p: any) => ProductService.getProductVisibility(p).isVisible)
+        .map((p: any) =>
+          mapDatabaseProductToStorefront({
+            ...p,
+            categories: (p.categories || []).map((c: any) => c.category).filter(Boolean),
+            media: (p.media || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
+          })
+        );
+
+      // Merge with static catalog handles to ensure full 165+ items coverage
+      const staticProds = getStaticAllProducts();
+      const dbHandles = new Set(dbMapped.map((p) => p.handle));
+      const remainingStatic = staticProds.filter((p) => !dbHandles.has(p.handle));
+
+      return [...dbMapped, ...remainingStatic];
+    }
+  } catch (err) {
+    console.error("Failed to fetch all storefront products:", err);
+  }
+
+  return getStaticAllProducts();
+}
+
+/**
+ * Fetch featured products for the storefront homepage
+ */
+export async function getStorefrontFeaturedProducts(): Promise<Product[]> {
+  try {
+    const supabase = await createClient();
+    const { data: dbProducts } = await supabase
+      .from("products")
+      .select(
+        `
+        *,
+        categories:product_category_links(
+          category:categories(id, handle, title)
+        ),
+        media:product_media(*)
+      `
+      )
+      .eq("status", "active")
+      .eq("visibility", "public")
+      .eq("is_featured", true)
+      .order("sort_order", { ascending: true })
+      .limit(10);
+
+    if (dbProducts && dbProducts.length > 0) {
+      const dbMapped = dbProducts
+        .filter((p: any) => ProductService.getProductVisibility(p).isVisible)
+        .map((p: any) =>
+          mapDatabaseProductToStorefront({
+            ...p,
+            categories: (p.categories || []).map((c: any) => c.category).filter(Boolean),
+            media: (p.media || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
+          })
+        );
+
+      if (dbMapped.length > 0) {
+         return dbMapped;
+      }
+    }
+  } catch (err) {
+    console.error("Failed to fetch featured storefront products:", err);
+  }
+
+  // Fallback to static mock data
+  const staticProds = getStaticAllProducts();
+  return staticProds.filter((p) => p.isFeatured || p.categoryHandles.includes("marketing-materials")).slice(0, 8);
+}

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import type { Database } from "@/lib/supabase/database.types";
+import { logSecurityEvent } from "@/lib/auth/audit-logger";
 
 export type AuthActionResult = {
   success: boolean;
@@ -12,7 +13,52 @@ export type AuthActionResult = {
   message?: string;
   role?: "customer" | "admin";
   redirectTo?: string;
+  url?: string;
 };
+
+/**
+ * Initiates Google OAuth sign-in / registration via Supabase.
+ */
+export async function signInWithGoogle(redirectTo?: string | null): Promise<AuthActionResult> {
+  const supabase = await createClient();
+  const headerList = await headers();
+  const host = headerList.get("x-forwarded-host") || headerList.get("host") || "";
+  const proto = headerList.get("x-forwarded-proto") || "http";
+
+  let origin = process.env.NEXT_PUBLIC_SITE_URL || `${proto}://${host}`;
+  if (origin.includes("0.0.0.0")) {
+    origin = origin.replace("0.0.0.0", "localhost");
+  }
+  if (!origin || origin.startsWith("://")) {
+    origin = "http://localhost:3000";
+  }
+
+  const callbackUrl = new URL("/auth/callback", origin);
+  if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
+    callbackUrl.searchParams.set("next", redirectTo);
+  }
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: callbackUrl.toString(),
+      queryParams: {
+        access_type: "offline",
+        prompt: "consent",
+      },
+    },
+  });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  if (data?.url) {
+    return { success: true, url: data.url };
+  }
+
+  return { success: false, error: "Failed to initialize Google sign in." };
+}
 
 /**
  * Register a new customer via Supabase Auth.
@@ -42,11 +88,26 @@ export async function registerCustomer(formData: {
   });
 
   if (error) {
+    await logSecurityEvent({
+      eventType: "signup",
+      summary: "Failed signup attempt",
+      metadata: { error: error.message, email: formData.email.trim() },
+    });
     return { success: false, error: error.message };
   }
 
-  // If email confirmation is disabled in Supabase, user is immediately logged in
-  if (data.session) {
+  await logSecurityEvent({
+    eventType: "signup",
+    userId: data.user?.id,
+    summary: "Successful customer registration",
+    metadata: { email: formData.email.trim() },
+  });
+
+  // Authoritatively determine verification state
+  // Even if session is returned, we check if email is confirmed.
+  const isVerified = data.user?.email_confirmed_at != null;
+
+  if (isVerified && data.session) {
     return { success: true, message: "Account created and logged in successfully!" };
   }
 
@@ -75,7 +136,24 @@ export async function loginCustomer(
   });
 
   if (error || !authData.user) {
+    await logSecurityEvent({
+      eventType: "login_failure",
+      summary: "Invalid login attempt",
+      metadata: { email: formData.email.trim(), reason: "invalid_credentials" },
+    });
     return { success: false, error: error?.message || "Invalid email or password." };
+  }
+
+  // Strict email verification check
+  if (!authData.user.email_confirmed_at) {
+    await logSecurityEvent({
+      eventType: "login_failure",
+      userId: authData.user.id,
+      summary: "Blocked unverified login attempt",
+    });
+    // We sign them out immediately since we are enforcing verification
+    await supabase.auth.signOut();
+    return { success: false, error: "Your email address hasn't been verified yet. Please check your inbox for the verification link." };
   }
 
   // Authoritatively query profiles.role server-side
@@ -85,13 +163,25 @@ export async function loginCustomer(
     .eq("id", authData.user.id)
     .maybeSingle();
 
+  // Authoritatively query customers for CRM state if it exists
+  const { data: customer } = await supabase
+    .from("customers")
+    .select("account_status")
+    .eq("auth_user_id", authData.user.id)
+    .maybeSingle();
+
+  if (customer && (customer.account_status === "suspended" || customer.account_status === "deactivated")) {
+    await supabase.auth.signOut();
+    return { success: false, error: "This account has been suspended or deactivated." };
+  }
+
   const role = profile?.role === "admin" ? "admin" : "customer";
 
   // Validate internal redirect URL to prevent open redirect vulnerabilities
   const isValidInternalRedirect = (url?: string | null) =>
     !!url && url.startsWith("/") && !url.startsWith("//");
 
-  let destination = "/account";
+  let destination = "/";
 
   if (role === "admin") {
     // If admin requested a specific /admin route, honor it; otherwise send to /admin dashboard
@@ -105,9 +195,16 @@ export async function loginCustomer(
     if (isValidInternalRedirect(requestedRedirect) && !requestedRedirect?.startsWith("/admin")) {
       destination = requestedRedirect!;
     } else {
-      destination = "/account";
+      destination = "/";
     }
   }
+
+  await logSecurityEvent({
+    eventType: "login_success",
+    userId: authData.user.id,
+    summary: `Successful login as ${role}`,
+    metadata: { role, redirect: destination },
+  });
 
   return {
     success: true,
@@ -121,6 +218,16 @@ export async function loginCustomer(
  */
 export async function logoutCustomer() {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (user) {
+    await logSecurityEvent({
+      eventType: "logout",
+      userId: user.id,
+      summary: "User logged out",
+    });
+  }
+
   await supabase.auth.signOut();
   revalidatePath("/", "layout");
   redirect("/");
@@ -140,6 +247,12 @@ export async function forgotPassword(email: string): Promise<AuthActionResult> {
   if (error) {
     return { success: false, error: error.message };
   }
+
+  await logSecurityEvent({
+    eventType: "password_reset_requested",
+    summary: "Password reset email requested",
+    metadata: { email: email.trim() },
+  });
 
   return {
     success: true,

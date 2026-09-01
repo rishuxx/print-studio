@@ -39,11 +39,20 @@ export function ProductCard({ product, className, compact = false }: ProductCard
         href={`/product/${product.handle}`}
         className="relative block aspect-[4/3] w-full overflow-hidden bg-paper"
       >
-        <ProductMockup
-          kind={primaryImage.kind}
-          tone={primaryImage.tone}
-          aria-label={primaryImage.altText || product.title}
-        />
+        {primaryImage.url && !primaryImage.url.includes("placeholder-product.png") ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={primaryImage.url}
+            alt={primaryImage.altText || product.title}
+            className="size-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+        ) : (
+          <ProductMockup
+            kind={primaryImage.kind}
+            tone={primaryImage.tone}
+            aria-label={primaryImage.altText || product.title}
+          />
+        )}
 
         {/* Top Badges */}
         <div className="absolute left-3 top-3 flex flex-wrap gap-1.5 z-10">
@@ -60,9 +69,9 @@ export function ProductCard({ product, className, compact = false }: ProductCard
       </Link>
 
       {/* Body Info */}
-      <div className="flex flex-1 flex-col p-4 sm:p-5">
-        <div className="mb-1.5 flex items-center justify-between gap-2">
-          <span className="font-mono text-[0.6875rem] uppercase tracking-wider text-muted-foreground">
+      <div className="flex flex-1 flex-col p-3 sm:p-5">
+        <div className="mb-1.5 flex items-center justify-between gap-1 sm:gap-2">
+          <span className="font-mono text-[0.5625rem] sm:text-[0.6875rem] uppercase tracking-wider text-muted-foreground truncate">
             {product.productType}
           </span>
           {product.rating > 0 && (
@@ -74,43 +83,43 @@ export function ProductCard({ product, className, compact = false }: ProductCard
           )}
         </div>
 
-        <h3 className="line-clamp-1 text-base font-bold text-ink transition-colors group-hover:text-violet">
+        <h3 className="line-clamp-2 sm:line-clamp-1 text-sm sm:text-base font-bold text-ink transition-colors group-hover:text-violet">
           <Link href={`/product/${product.handle}`}>{product.title}</Link>
         </h3>
 
         {!compact && (
-          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+          <p className="mt-1 hidden sm:-webkit-box line-clamp-2 text-xs leading-relaxed text-muted-foreground">
             {product.subtitle || product.description}
           </p>
         )}
 
         {/* Footer with Pricing and CTA */}
-        <div className="mt-auto pt-4 flex items-end justify-between border-t border-border/60">
+        <div className="mt-auto pt-3 sm:pt-4 flex items-end justify-between border-t border-border/60">
           <div>
-            <span className="block font-mono text-[0.625rem] uppercase tracking-wider text-muted-foreground">
+            <span className="block font-mono text-[0.5rem] sm:text-[0.625rem] uppercase tracking-wider text-muted-foreground">
               Starting from
             </span>
-            <div className="flex items-baseline gap-1.5">
-              <span className="font-display text-lg font-extrabold text-ink">
+            <div className="flex flex-col sm:flex-row sm:items-baseline gap-0 sm:gap-1.5">
+              <span className="font-display text-base sm:text-lg font-extrabold text-ink leading-none">
                 {formatMoney(product.priceFrom)}
               </span>
               {product.compareAtFrom && (
-                <span className="font-mono text-xs text-muted-foreground line-through">
+                <span className="font-mono text-[0.625rem] sm:text-xs text-muted-foreground line-through">
                   {formatMoney(product.compareAtFrom)}
                 </span>
               )}
             </div>
-            <span className="font-mono text-[0.625rem] text-muted-foreground">
+            <span className="font-mono text-[0.5rem] sm:text-[0.625rem] text-muted-foreground mt-0.5 sm:mt-0 block">
               {product.priceUnit}
             </span>
           </div>
 
           <Link
             href={`/product/${product.handle}`}
-            className="inline-flex size-9 items-center justify-center rounded-xl bg-violet-wash text-violet-deep transition-all duration-200 group-hover:bg-violet group-hover:text-white"
+            className="inline-flex size-7 sm:size-9 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-violet-wash text-violet-deep transition-all duration-200 group-hover:bg-violet group-hover:text-white"
             aria-label={`Configure ${product.title}`}
           >
-            <ArrowRight className="size-4" />
+            <ArrowRight className="size-3.5 sm:size-4" />
           </Link>
         </div>
       </div>

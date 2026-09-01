@@ -595,8 +595,19 @@ export function CheckoutClientView({
             {lines.map((line) => (
               <div key={line.id} className="pt-2 first:pt-0 flex items-start gap-3 justify-between">
                 <div className="flex items-start gap-2.5">
-                  <div className="size-12 rounded-lg border border-border bg-paper p-1 shrink-0 flex items-center justify-center">
-                    <ProductMockup kind={line.image?.kind ?? "card"} tone="transparent" className="h-full w-full" />
+                  <div className="size-12 rounded-lg border border-border bg-paper shrink-0 flex items-center justify-center overflow-hidden">
+                    {line.image?.url && !line.image.url.includes("placeholder-product.png") ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={line.image.url}
+                        alt={line.productTitle}
+                        className="size-full object-cover"
+                      />
+                    ) : (
+                      <div className="p-1 size-full flex items-center justify-center">
+                        <ProductMockup kind={line.image?.kind ?? "card"} tone="transparent" className="h-full w-full" />
+                      </div>
+                    )}
                   </div>
                   <div>
                     <div className="font-bold text-ink leading-tight">{line.productTitle}</div>

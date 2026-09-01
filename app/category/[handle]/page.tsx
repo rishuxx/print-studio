@@ -2,7 +2,7 @@ import * as React from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { categories, getCategory } from "@/lib/data/categories";
-import { getProductsInCategory } from "@/lib/data/products";
+import { getStorefrontCategory, getStorefrontAllProducts } from "@/lib/catalogue/storefront-queries";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { CategoryListingClient } from "@/components/category/category-listing-client";
 
@@ -18,21 +18,24 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { handle } = await params;
-  const category = getCategory(handle);
+  const category = await getStorefrontCategory(handle);
   if (!category) return { title: "Category Not Found" };
 
   return {
-    title: `${category.title} — Custom Printing`,
-    description: category.blurb,
+    title: `${category.title} — Custom Printing Services`,
+    description: category.blurb || `Order custom ${category.title} printing online.`,
   };
 }
 
 export default async function CategoryPage({ params }: PageProps) {
   const { handle } = await params;
-  const category = getCategory(handle);
+  const category = await getStorefrontCategory(handle);
   if (!category) notFound();
 
-  const products = getProductsInCategory(handle);
+  const allProducts = await getStorefrontAllProducts();
+  const products = allProducts.filter(
+    (p) => p.categoryHandles.includes(handle) || p.categoryHandles.includes(category.handle)
+  );
 
   return (
     <div className="shell py-8 space-y-8">

@@ -35,7 +35,7 @@ export function BusinessPrintingSection() {
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-4">
         {businessProducts.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}

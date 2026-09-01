@@ -3,9 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { registerCustomer } from "@/lib/supabase/actions";
+import { registerCustomer, signInWithGoogle } from "@/lib/supabase/actions";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { UserPlus, Mail, Lock, User, Building, Phone, ArrowRight, ShieldCheck, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { GoogleIcon } from "@/components/icons/google-icon";
 import { toast } from "sonner";
 
 export default function RegisterPage() {
@@ -20,8 +21,27 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = React.useState(false);
 
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState("");
   const [emailConfirmationRequired, setEmailConfirmationRequired] = React.useState(false);
+
+  const handleGoogleSignup = async () => {
+    setErrorMessage("");
+    setIsGoogleSubmitting(true);
+    try {
+      const res = await signInWithGoogle("/account");
+      if (!res.success || !res.url) {
+        setErrorMessage(res.error || "Could not initialize Google sign up.");
+        toast.error("Google sign up failed", { description: res.error });
+        setIsGoogleSubmitting(false);
+      } else {
+        window.location.href = res.url;
+      }
+    } catch {
+      setErrorMessage("An unexpected network error occurred while connecting with Google.");
+      setIsGoogleSubmitting(false);
+    }
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -249,13 +269,32 @@ export default function RegisterPage() {
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isGoogleSubmitting}
             className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-violet py-3 px-5 text-xs font-bold text-white shadow-lift hover:bg-violet-lift transition-all disabled:opacity-50"
           >
             <span>{isSubmitting ? "Creating Account..." : "Register Customer Account"}</span>
             <ArrowRight className="size-4" />
           </button>
         </form>
+
+        <div className="relative my-4">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-border" />
+          </div>
+          <div className="relative flex justify-center text-[0.6875rem] uppercase">
+            <span className="bg-white px-2 text-muted-foreground font-medium">Or continue with</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGoogleSignup}
+          disabled={isSubmitting || isGoogleSubmitting}
+          className="w-full inline-flex items-center justify-center gap-2.5 rounded-xl border border-border bg-white py-2.5 px-4 text-xs font-bold text-ink shadow-xs hover:bg-neutral-50 hover:border-neutral-300 transition-all disabled:opacity-50 cursor-pointer"
+        >
+          <GoogleIcon className="size-4" />
+          <span>{isGoogleSubmitting ? "Connecting to Google..." : "Sign up with Google"}</span>
+        </button>
 
         <div className="border-t border-border pt-4 text-center text-xs text-muted-foreground space-y-2">
           <div>

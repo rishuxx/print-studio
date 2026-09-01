@@ -90,12 +90,23 @@ export default function CartPage() {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border pb-4">
                   <div className="flex items-center gap-4">
                     {/* Visual mockup thumbnail */}
-                    <div className="size-16 rounded-xl border border-border bg-paper p-2 shrink-0 flex items-center justify-center">
-                      <ProductMockup
-                        kind={line.image?.kind ?? "card"}
-                        tone="transparent"
-                        className="h-full w-full"
-                      />
+                    <div className="size-16 rounded-xl border border-border bg-paper shrink-0 flex items-center justify-center overflow-hidden">
+                      {line.image?.url && !line.image.url.includes("placeholder-product.png") ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={line.image.url}
+                          alt={line.productTitle}
+                          className="size-full object-cover"
+                        />
+                      ) : (
+                        <div className="p-2 size-full flex items-center justify-center">
+                          <ProductMockup
+                            kind={line.image?.kind ?? "card"}
+                            tone="transparent"
+                            className="h-full w-full"
+                          />
+                        </div>
+                      )}
                     </div>
                     <div>
                       <Link

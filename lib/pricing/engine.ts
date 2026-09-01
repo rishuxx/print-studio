@@ -13,36 +13,99 @@ interface CalculatePriceParams {
     title: string;
     handle: string;
     categoryIds?: string[];
+    basePriceMinor?: number;
+    salePriceMinor?: number | null;
+    saleStartsAt?: string | null;
+    saleEndsAt?: string | null;
+    customizationConfig?: {
+      dimensionPricing?: {
+        enabled: boolean;
+        unit: "ft" | "inch" | "cm";
+        ratePerSqUnitMinor: number;
+      };
+    };
   };
+  variant?: {
+    id?: string;
+    sku?: string;
+    priceMinor?: number | null;
+    salePriceMinor?: number | null;
+    priceFactor?: number;
+  } | null;
   priceRecord?: DatabaseProductPrice | null;
   quantity: number;
+  selectedDimensions?: { width: number; height: number; unit?: string } | null;
+  customizationAddonsMinor?: number;
   promotions?: DatabasePromotion[];
   couponCode?: string | null;
   currentTimestamp?: string;
 }
 
 /**
- * Single Authoritative Pricing Engine
- * Evaluates Base Price -> Quantity Tiers -> Scheduled Sales -> Automatic Promotions -> Stacking -> Margin Floors
+ * Single Authoritative Dynamic Pricing Engine
+ * Evaluates: Base/Variant Price -> Dimensions -> Customizations -> Quantity Tiers -> Scheduled Sales -> Promotions -> Margin Floors
  */
 export function calculateAuthoritativePrice({
   product,
+  variant,
   priceRecord,
   quantity,
+  selectedDimensions,
+  customizationAddonsMinor = 0,
   promotions = [],
   couponCode,
   currentTimestamp = new Date().toISOString(),
 }: CalculatePriceParams): AuthoritativePriceCalculation {
   const now = new Date(currentTimestamp).getTime();
 
-  // 1. Determine Unit Base Price
-  const baseUnitPriceMinor: MoneyMinor =
-    priceRecord?.base_price_minor ?? 19900; // default ₹199
+  // 1. Determine Effective Unit Base Price (variant override or base product price)
+  let baseUnitPriceMinor: MoneyMinor =
+    variant?.priceMinor ??
+    priceRecord?.base_price_minor ??
+    product.basePriceMinor ??
+    19900; // default ₹199
+
+  if (variant?.priceFactor && variant.priceFactor > 0 && !variant.priceMinor) {
+    baseUnitPriceMinor = Math.round(baseUnitPriceMinor * variant.priceFactor);
+  }
+
+  // 2. Dimension-Based Area Multiplier (Banners, Flex, Sunboard, Frames, Acrylic Signs)
+  if (selectedDimensions && selectedDimensions.width > 0 && selectedDimensions.height > 0) {
+    const w = selectedDimensions.width;
+    const h = selectedDimensions.height;
+    const unit = (selectedDimensions.unit || "cm").toLowerCase();
+
+    let sqUnits = 1;
+    if (unit === "ft") {
+      sqUnits = w * h;
+    } else if (unit === "inch") {
+      sqUnits = (w * h) / 144; // sq ft
+    } else {
+      // cm
+      sqUnits = (w * h) / 929.03; // sq ft
+    }
+
+    sqUnits = Math.max(0.5, sqUnits);
+
+    if (product.customizationConfig?.dimensionPricing?.enabled) {
+      const rate = product.customizationConfig.dimensionPricing.ratePerSqUnitMinor;
+      baseUnitPriceMinor = Math.round(sqUnits * rate);
+    } else {
+      // Standard scalable surface adjustment (proportional to 3x2 ft standard template)
+      baseUnitPriceMinor = Math.max(10000, Math.round(baseUnitPriceMinor * (sqUnits / 6)));
+    }
+  }
+
+  // Add Customization Options Surcharge (e.g. +₹50 gift box, +₹75 special print area)
+  if (customizationAddonsMinor > 0) {
+    baseUnitPriceMinor += customizationAddonsMinor;
+  }
+
   const rawSubtotalMinor: MoneyMinor = baseUnitPriceMinor * quantity;
 
-  // 2. Evaluate Quantity Tiers
+  // 3. Evaluate Quantity Tiers
   let tierDiscountPerUnitMinor = 0;
-  let matchingTierPriceMinor: MoneyMinor | null = null;
+  let matchingTierUnitPriceMinor: number | null = null;
 
   const tiersList = priceRecord?.quantity_tiers || priceRecord?.product_quantity_tiers;
 
@@ -50,34 +113,50 @@ export function calculateAuthoritativePrice({
     const sortedTiers = [...tiersList].sort((a, b) => a.min_quantity - b.min_quantity);
     for (const tier of sortedTiers) {
       if (quantity >= tier.min_quantity && (tier.max_quantity === null || quantity <= tier.max_quantity)) {
-        matchingTierPriceMinor = tier.tier_price_minor;
+        // tier.tier_price_minor is the TOTAL price for exactly tier.min_quantity items.
+        // We calculate the precise float unit price for accurate scaling.
+        const tierUnitPrice = tier.tier_price_minor / Math.max(1, tier.min_quantity);
+        matchingTierUnitPriceMinor = tierUnitPrice;
+        
         if (tier.discount_percent && tier.discount_percent > 0) {
           tierDiscountPerUnitMinor = calculatePercentageDiscount(baseUnitPriceMinor, tier.discount_percent);
-        } else if (tier.tier_price_minor < baseUnitPriceMinor) {
-          tierDiscountPerUnitMinor = baseUnitPriceMinor - tier.tier_price_minor;
+        } else if (tierUnitPrice < baseUnitPriceMinor) {
+          tierDiscountPerUnitMinor = baseUnitPriceMinor - tierUnitPrice;
         }
         break;
       }
     }
   }
 
-  const quantityTierDiscountMinor: MoneyMinor = tierDiscountPerUnitMinor * quantity;
-  const effectiveTierUnitPriceMinor: MoneyMinor = matchingTierPriceMinor
-    ? matchingTierPriceMinor
+  const quantityTierDiscountMinor: number = tierDiscountPerUnitMinor * quantity;
+  const effectiveTierUnitPriceMinor: number = matchingTierUnitPriceMinor !== null
+    ? matchingTierUnitPriceMinor
     : baseUnitPriceMinor - tierDiscountPerUnitMinor;
 
-  // 3. Evaluate Active Promotions & Sales
+  // 4. Evaluate Scheduled Product Sale Price
+  let activeSaleApplied = false;
+  let productSaleDiscountMinor = 0;
+
+  const salePrice = variant?.salePriceMinor ?? product.salePriceMinor;
+  const saleStart = product.saleStartsAt ? new Date(product.saleStartsAt).getTime() : 0;
+  const saleEnd = product.saleEndsAt ? new Date(product.saleEndsAt).getTime() : Infinity;
+
+  if (salePrice && salePrice > 0 && salePrice < effectiveTierUnitPriceMinor) {
+    if (now >= saleStart && now <= saleEnd) {
+      activeSaleApplied = true;
+      const unitSaleDiscount = effectiveTierUnitPriceMinor - salePrice;
+      productSaleDiscountMinor = unitSaleDiscount * quantity;
+    }
+  }
+
+  // 5. Evaluate Active Promotions & Campaigns
   const appliedRules: PricingRuleDecision[] = [];
   const rejectedRules: PricingRuleDecision[] = [];
+  let promoDiscountMinor: MoneyMinor = 0;
 
-  let activeSaleApplied = false;
-  let totalPromoDiscountMinor: MoneyMinor = 0;
-
-  // Sort promotions by priority descending
   const sortedPromos = [...promotions].sort((a, b) => b.priority - a.priority);
 
   for (const promo of sortedPromos) {
-    // Check status
     if (promo.status !== "active") {
       rejectedRules.push({
         ruleId: promo.id,
@@ -90,7 +169,6 @@ export function calculateAuthoritativePrice({
       continue;
     }
 
-    // Check time window
     const start = promo.starts_at ? new Date(promo.starts_at).getTime() : 0;
     const end = promo.ends_at ? new Date(promo.ends_at).getTime() : Infinity;
     if (now < start || now > end) {
@@ -100,133 +178,106 @@ export function calculateAuthoritativePrice({
         type: promo.type,
         applied: false,
         discountMinor: 0,
-        reason: "Promotion is outside active schedule window",
+        reason: "Promotion is outside its valid active time window.",
       });
       continue;
     }
 
-    // Check coupon code matching if required
     if (promo.code) {
-      if (!couponCode || couponCode.toUpperCase() !== promo.code.toUpperCase()) {
+      if (!couponCode || couponCode.trim().toUpperCase() !== promo.code.trim().toUpperCase()) {
         rejectedRules.push({
           ruleId: promo.id,
           ruleName: promo.name,
           type: promo.type,
           applied: false,
           discountMinor: 0,
-          reason: "Coupon code does not match",
+          reason: "Coupon code does not match.",
         });
         continue;
       }
     }
 
-    // Check target applicability
-    let isTargeted = false;
-    if (promo.target_type === "all") {
-      isTargeted = true;
-    } else if (promo.target_type === "product" && promo.target_ids.includes(product.id)) {
-      isTargeted = true;
-    } else if (
-      promo.target_type === "category" &&
-      product.categoryIds &&
-      promo.target_ids.some((id) => product.categoryIds?.includes(id))
-    ) {
-      isTargeted = true;
-    }
-
-    if (!isTargeted) {
+    if (promo.min_order_value_minor && rawSubtotalMinor < promo.min_order_value_minor) {
       rejectedRules.push({
         ruleId: promo.id,
         ruleName: promo.name,
         type: promo.type,
         applied: false,
         discountMinor: 0,
-        reason: "Product not eligible for this promotion target",
+        reason: `Minimum subtotal of ₹${(promo.min_order_value_minor / 100).toFixed(2)} not met.`,
       });
       continue;
     }
 
-    // Check Stacking Rules: If an exclusive rule is already applied, reject further promos
-    if (!promo.stackable && (activeSaleApplied || totalPromoDiscountMinor > 0)) {
-      rejectedRules.push({
-        ruleId: promo.id,
-        ruleName: promo.name,
-        type: promo.type,
-        applied: false,
-        discountMinor: 0,
-        reason: "Non-stackable promotion cannot be combined with existing discounts",
-      });
-      continue;
-    }
-
-    // Calculate Discount
-    let ruleDiscountMinor = 0;
-    const currentSubtotal = effectiveTierUnitPriceMinor * quantity - totalPromoDiscountMinor;
+    let calculatedDiscount: MoneyMinor = 0;
+    const currentBase = rawSubtotalMinor - quantityTierDiscountMinor - productSaleDiscountMinor;
 
     if (promo.type === "percentage_discount") {
-      ruleDiscountMinor = calculatePercentageDiscount(currentSubtotal, promo.discount_value);
+      calculatedDiscount = calculatePercentageDiscount(currentBase, promo.discount_value);
     } else if (promo.type === "fixed_discount") {
-      ruleDiscountMinor = Math.min(currentSubtotal, Math.round(promo.discount_value * 100));
-    } else if (promo.type === "sale_price") {
-      const saleUnitPrice = Math.round(promo.discount_value * 100);
-      if (saleUnitPrice < effectiveTierUnitPriceMinor) {
-        ruleDiscountMinor = (effectiveTierUnitPriceMinor - saleUnitPrice) * quantity;
-        activeSaleApplied = true;
-      }
+      calculatedDiscount = Math.round(promo.discount_value * 100);
     }
 
-    // Cap at max discount if configured
-    if (promo.max_discount_amount_minor && ruleDiscountMinor > promo.max_discount_amount_minor) {
-      ruleDiscountMinor = promo.max_discount_amount_minor;
+    if (promo.max_discount_amount_minor && calculatedDiscount > promo.max_discount_amount_minor) {
+      calculatedDiscount = promo.max_discount_amount_minor;
     }
 
-    if (ruleDiscountMinor > 0) {
-      totalPromoDiscountMinor += ruleDiscountMinor;
+    calculatedDiscount = Math.min(calculatedDiscount, currentBase);
+
+    if (calculatedDiscount > 0) {
+      promoDiscountMinor += calculatedDiscount;
       appliedRules.push({
         ruleId: promo.id,
         ruleName: promo.name,
         type: promo.type,
         applied: true,
-        discountMinor: ruleDiscountMinor,
+        discountMinor: calculatedDiscount,
+        reason: `Applied ${promo.type} (${promo.discount_value}${promo.type === "percentage_discount" ? "%" : "₹"})`,
       });
 
-      if (!promo.stackable) {
-        // Stop evaluating further non-stackable promotions
-        break;
-      }
+      if (!promo.stackable) break;
     }
   }
 
-  // 4. Compute Final Price & Enforce Margin Floor Protection
-  let finalLinePriceMinor: MoneyMinor = Math.max(
-    0,
-    effectiveTierUnitPriceMinor * quantity - totalPromoDiscountMinor
-  );
+  // 6. Total Discounts & Margin Floor Safety Check
+  const totalDiscountMinor: MoneyMinor =
+    quantityTierDiscountMinor + productSaleDiscountMinor + promoDiscountMinor;
+  let finalSubtotalMinor: MoneyMinor = Math.max(0, rawSubtotalMinor - totalDiscountMinor);
 
-  if (priceRecord?.minimum_price_floor_minor) {
-    const minAllowedLineTotal = priceRecord.minimum_price_floor_minor * quantity;
-    if (finalLinePriceMinor < minAllowedLineTotal) {
-      finalLinePriceMinor = minAllowedLineTotal;
-    }
+  // Strict Margin Floor Protection
+  const marginFloorMinor = priceRecord?.minimum_price_floor_minor
+    ? priceRecord.minimum_price_floor_minor * quantity
+    : Math.round(rawSubtotalMinor * 0.4);
+
+  let marginFloorProtected = false;
+  if (finalSubtotalMinor < marginFloorMinor && rawSubtotalMinor >= marginFloorMinor) {
+    finalSubtotalMinor = marginFloorMinor;
+    marginFloorProtected = true;
   }
 
-  const finalUnitPriceMinor: MoneyMinor = Math.round(finalLinePriceMinor / quantity);
+  const finalUnitPriceMinor: MoneyMinor = Math.round(finalSubtotalMinor / quantity);
 
   return {
     productId: product.id,
     productTitle: product.title,
+    variantId: variant?.id || null,
     quantity,
-    currency: priceRecord?.currency || "INR",
+    currency: "INR",
     baseUnitPriceMinor,
     rawSubtotalMinor,
     quantityTierDiscountMinor,
-    effectiveTierUnitPriceMinor,
-    promotionsDiscountMinor: totalPromoDiscountMinor,
+    effectiveTierUnitPriceMinor: finalUnitPriceMinor,
+    salePriceMinor: product.salePriceMinor ?? undefined,
+    promotionsDiscountMinor: productSaleDiscountMinor + promoDiscountMinor,
     appliedRules,
     rejectedRules,
-    finalLinePriceMinor,
+    finalLinePriceMinor: finalSubtotalMinor,
     finalUnitPriceMinor,
+    effectiveUnitPriceMinor: finalUnitPriceMinor,
+    finalSubtotalMinor,
+    totalDiscountMinor,
+    marginFloorProtected,
     engineVersion: PRICING_ENGINE_VERSION,
-    calculatedAt: currentTimestamp,
+    calculatedAt: new Date().toISOString(),
   };
 }

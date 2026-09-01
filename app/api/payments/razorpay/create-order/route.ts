@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Authoritative server-side price recalculation with applied promotion/discount
-    const recalc = recalculateAuthoritativeCartTotal(lines, discount);
+    const recalc = await recalculateAuthoritativeCartTotal(lines, discount);
     if (!recalc.valid) {
       return NextResponse.json(
         { success: false, error: recalc.error || "Unable to recalculate cart pricing." },
@@ -141,7 +141,17 @@ export async function POST(request: NextRequest) {
       if (l.design?.state) {
         try {
           const parsed = JSON.parse(l.design.state);
-          if (parsed.artworkMetadata) {
+          if (parsed.storagePath) {
+            artworkSummaryObj = {
+              summary: l.design?.summary || `Artwork: ${parsed.originalFileName}`,
+              storagePath: parsed.storagePath,
+              originalFileName: parsed.originalFileName,
+              mimeType: parsed.mimeType,
+              fileSizeBytes: parsed.fileSizeBytes,
+              uploadedAt: parsed.uploadedAt,
+              requiresProof: true,
+            };
+          } else if (parsed.artworkMetadata) {
             artworkSummaryObj = {
               summary: l.design.summary,
               ...parsed.artworkMetadata,

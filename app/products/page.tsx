@@ -2,7 +2,7 @@ import * as React from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { getAllProducts } from "@/lib/data/products";
+import { getStorefrontAllProducts } from "@/lib/catalogue/storefront-queries";
 import { categories } from "@/lib/data/categories";
 import { ProductCard } from "@/components/shared/product-card";
 import { CategoryCard } from "@/components/shared/category-card";
@@ -12,8 +12,8 @@ export const metadata: Metadata = {
   description: "Browse all custom printing products, stationery, apparel, gifts, and packaging.",
 };
 
-export default function ProductsPage() {
-  const allProducts = getAllProducts();
+export default async function ProductsPage() {
+  const allProducts = await getStorefrontAllProducts();
 
   return (
     <div className="shell py-8 space-y-10">
@@ -29,7 +29,7 @@ export default function ProductsPage() {
           All Products & Categories
         </h1>
         <p className="text-xs text-muted-foreground sm:text-sm max-w-2xl">
-          Browse our complete catalogue of 160+ custom print products across 10 major printing categories.
+          Browse our complete catalogue of custom print products across major printing categories.
         </p>
       </div>
 
@@ -52,7 +52,7 @@ export default function ProductsPage() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
           {allProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}

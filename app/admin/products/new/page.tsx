@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default async function AdminNewProductPage() {
   await requireAdminAuth("/admin/products");
 
-  const { categories } = await fetchAdminCategories();
+  const categories = await fetchAdminCategories();
 
   return <AdminProductEditor initialProduct={null} categories={categories} />;
 }

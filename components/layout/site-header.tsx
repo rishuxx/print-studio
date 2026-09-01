@@ -69,7 +69,7 @@ export function SiteHeader() {
   );
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-border bg-white/95 backdrop-blur-md">
+    <header className="hidden md:block sticky top-0 z-40 w-full border-b border-border bg-white/95 backdrop-blur-md">
       {/* ── Top Utility Bar ─────────────────────────────────────────── */}
       <div className="hidden border-b border-border/60 bg-paper py-1.5 text-xs text-muted-foreground md:block">
         <div className="shell flex items-center justify-between">
