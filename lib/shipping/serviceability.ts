@@ -216,6 +216,8 @@ export async function checkPincodeServiceabilityLive(
   };
 }
 
+const etaFormatter = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" });
+
 export function checkPincodeServiceability(
   pincode: string,
   weightGrams = 500,
@@ -224,11 +226,10 @@ export function checkPincodeServiceability(
 ): ServiceabilityCheckResult {
   const cleanPin = pincode.replace(/\D/g, "").slice(0, 6);
   const isValidPin = cleanPin.length === 6 && !cleanPin.startsWith("000");
-  const now = new Date();
+  const nowMs = Date.now();
 
   const getEta = (days: number) => {
-    const d = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
-    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    return etaFormatter.format(nowMs + days * 86400000);
   };
 
   const options: CarrierServiceabilityOption[] = [
