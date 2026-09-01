@@ -35,12 +35,34 @@ export function SiteHeader() {
   const [searchFocused, setSearchFocused] = React.useState(false);
   const searchContainerRef = React.useRef<HTMLDivElement>(null);
 
-  // Compute search results directly with useMemo
-  const searchResults = React.useMemo(() => {
-    if (searchQuery.trim().length > 1) {
-      return searchProducts(searchQuery, 6);
+  const [searchResults, setSearchResults] = React.useState<any[]>([]);
+  const [isSearching, setIsSearching] = React.useState(false);
+
+  // Debounced dynamic search from database + catalog
+  React.useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
     }
-    return [];
+
+    setIsSearching(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/products/search?q=${encodeURIComponent(q)}&limit=6`);
+        if (res.ok) {
+          const data = await res.json();
+          setSearchResults(data.products || []);
+        }
+      } catch (err) {
+        console.error("Search fetch error:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 150);
+
+    return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
   const handleNavigate = React.useCallback(() => {
@@ -174,12 +196,16 @@ export function SiteHeader() {
                         </div>
                         <div className="text-right">
                           <span className="font-display text-sm font-bold text-ink">
-                            {formatMoney(product.priceFrom)}
+                            {product.priceFormatted || (product.priceFrom ? formatMoney(product.priceFrom) : "")}
                           </span>
                         </div>
                       </Link>
                     ))}
                   </div>
+                </div>
+              ) : isSearching ? (
+                <div className="py-6 text-center text-sm text-muted-foreground animate-pulse">
+                  Searching products catalog...
                 </div>
               ) : (
                 <div className="py-6 text-center text-sm text-muted-foreground">

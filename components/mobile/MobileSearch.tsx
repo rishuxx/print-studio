@@ -27,11 +27,33 @@ export function MobileSearch({ open, onOpenChange }: MobileSearchProps) {
     }
   }, [open]);
 
-  const results = React.useMemo(() => {
-    if (query.trim().length > 1) {
-      return searchProducts(query, 10);
+  const [results, setResults] = React.useState<any[]>([]);
+  const [isSearching, setIsSearching] = React.useState(false);
+
+  React.useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setResults([]);
+      setIsSearching(false);
+      return;
     }
-    return [];
+
+    setIsSearching(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/products/search?q=${encodeURIComponent(q)}&limit=10`);
+        if (res.ok) {
+          const data = await res.json();
+          setResults(data.products || []);
+        }
+      } catch (err) {
+        console.error("Mobile search error:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 150);
+
+    return () => clearTimeout(timeoutId);
   }, [query]);
 
   return (
@@ -95,12 +117,17 @@ export function MobileSearch({ open, onOpenChange }: MobileSearchProps) {
                             </div>
                           </div>
                           <span className="font-display text-sm font-bold text-ink">
-                            {formatMoney(product.priceFrom)}
+                            {product.priceFormatted || (product.priceFrom ? formatMoney(product.priceFrom) : "")}
                           </span>
                         </Link>
                       </li>
                     ))}
                   </ul>
+                ) : isSearching ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center px-4 animate-pulse">
+                    <SearchIcon className="size-12 text-violet/40 mb-4 animate-spin" />
+                    <h3 className="text-lg font-bold text-ink">Searching catalog...</h3>
+                  </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-16 text-center px-4">
                     <SearchIcon className="size-12 text-muted-foreground/30 mb-4" />

@@ -90,7 +90,8 @@ export async function recalculateAuthoritativeCartTotal(
     }
 
     // Minimum Order Quantity Validation
-    if (product.minOrderQty && line.quantity < product.minOrderQty) {
+    const effectiveQty = line.quantity * (line.tierQty || 1);
+    if (product.minOrderQty && effectiveQty < product.minOrderQty) {
       return {
         valid: false,
         subtotalPaise: 0,
@@ -132,16 +133,29 @@ export async function recalculateAuthoritativeCartTotal(
     const matchedVariant = findVariant(product, optionsMap);
 
     // Resolve quantity tier
+    const effectiveTierQty = line.tierQty || 1;
     let chosenTier = product.quantityTiers[0];
-    if (line.tierQty) {
+    
+    // Sort tiers descending to find the applicable tier based on selected quantity
+    const applicableTier = [...product.quantityTiers]
+      .sort((a, b) => b.qty - a.qty)
+      .find((t) => effectiveTierQty >= t.qty);
+
+    if (applicableTier) {
+      chosenTier = applicableTier;
+    } else if (line.tierQty) {
       const match = product.quantityTiers.find((t) => t.qty === line.tierQty);
       if (match) chosenTier = match;
     }
 
     // Calculate base batch rate
-    let unitPricePaise = chosenTier
+    const baseBatchRate = chosenTier
       ? tierPrice(chosenTier, matchedVariant).amount
       : product.priceFrom.amount;
+
+    let unitPricePaise = chosenTier
+      ? Math.round(baseBatchRate / chosenTier.qty)
+      : baseBatchRate;
 
     // Dimension multiplier for flex / banners / vinyl if specified
     const dimOption = line.selectedOptions?.find((o) => o.name === "Dimensions");
@@ -158,12 +172,20 @@ export async function recalculateAuthoritativeCartTotal(
         } else {
           sqFt = w * h;
         }
-        sqFt = Math.max(1, sqFt);
-        unitPricePaise = Math.round(unitPricePaise * (sqFt / 6));
+        sqFt = Math.max(0.5, sqFt);
+        const areaMultiplier = sqFt / 1.5;
+        unitPricePaise = Math.round(unitPricePaise * areaMultiplier);
       }
     }
 
-    let lineTotalPaise = unitPricePaise * line.quantity;
+    let lineTotalPaise = unitPricePaise * effectiveTierQty * line.quantity;
+
+    // Dimensions usually enforce a minimum order value
+    if (dimOption) {
+      const configTotal = unitPricePaise * effectiveTierQty;
+      const finalConfigTotal = Math.max(10000, configTotal);
+      lineTotalPaise = finalConfigTotal * line.quantity;
+    }
 
     // Add selected add-ons if valid
     if (line.addOns && Array.isArray(line.addOns)) {

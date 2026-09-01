@@ -1,6 +1,6 @@
 import * as React from "react";
 import type { Metadata } from "next";
-import { getSameDayProducts } from "@/lib/data/products";
+import { getStorefrontAllProducts } from "@/lib/catalogue/storefront-queries";
 import { ProductCard } from "@/components/shared/product-card";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { Zap } from "lucide-react";
@@ -11,8 +11,9 @@ export const metadata: Metadata = {
   description: "Express printing products eligible for quick turnaround and local dispatch.",
 };
 
-export default function SameDayPage() {
-  const expressProducts = getSameDayProducts(20);
+export default async function SameDayPage() {
+  const allProducts = await getStorefrontAllProducts();
+  const expressProducts = allProducts.filter((p) => p.sameDayEligible || p.badges.includes("same-day")).slice(0, 20);
 
   return (
     <div className="shell py-8 space-y-8">

@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type UserRole = "customer" | "admin";
+export type UserRole = "customer" | "admin" | "owner" | "staff";
 
 export type OrderStatus =
   | "pending"
@@ -41,6 +41,8 @@ export interface Database {
           email: string;
           phone: string | null;
           role: UserRole;
+          status: string;
+          version: number;
           created_at: string;
           updated_at: string;
         };
@@ -51,6 +53,8 @@ export interface Database {
           email: string;
           phone?: string | null;
           role?: UserRole;
+          status?: string;
+          version?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -61,10 +65,57 @@ export interface Database {
           email?: string;
           phone?: string | null;
           role?: UserRole;
+          status?: string;
+          version?: number;
           created_at?: string;
           updated_at?: string;
         };
         Relationships: [];
+      };
+      admin_audit_logs: {
+        Row: {
+          id: string;
+          actor_id: string;
+          target_id: string | null;
+          action: string;
+          details: Json;
+          ip_address: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          actor_id: string;
+          target_id?: string | null;
+          action: string;
+          details?: Json;
+          ip_address?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          actor_id?: string;
+          target_id?: string | null;
+          action?: string;
+          details?: Json;
+          ip_address?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_logs_actor_id_fkey";
+            columns: ["actor_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "admin_audit_logs_target_id_fkey";
+            columns: ["target_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       addresses: {
         Row: {

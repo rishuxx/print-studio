@@ -588,9 +588,6 @@ export async function updateOrderStatus(
   return { success: true, newStatus: result.new_status };
 }
 
-/**
- * Customer / Admin Order Cancellation Server Action
- */
 export async function requestCancelDatabaseOrder(orderId: string): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -599,7 +596,44 @@ export async function requestCancelDatabaseOrder(orderId: string): Promise<{ suc
     return { success: false, error: "Unauthorized. Please log in." };
   }
 
-  return updateOrderStatus(orderId, "cancelled");
+  // 1. Verify caller profile role
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const isStaffOrAdmin = ["owner", "admin", "staff"].includes(profile?.role || "");
+
+  // 2. Fetch order to verify ownership if not staff/admin
+  const cleanId = orderId.trim();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
+  let query = supabase.from("orders").select("id, user_id, status");
+  if (isUuid) {
+    query = query.or(`id.eq.${cleanId},order_number.eq.${cleanId}`);
+  } else {
+    query = query.eq("order_number", cleanId);
+  }
+
+  const { data: order } = await query.maybeSingle();
+  if (!order) {
+    return { success: false, error: "Order not found." };
+  }
+
+  // IDOR & Authorization Check: Customer can only cancel their own orders
+  if (!isStaffOrAdmin && order.user_id !== user.id) {
+    return { success: false, error: "Access denied. You cannot cancel orders belonging to other customers." };
+  }
+
+  // Customer cancellation rule: Only allowed before production starts
+  if (!isStaffOrAdmin && !["pending", "confirmed", "artwork_review", "proof_pending"].includes(order.status)) {
+    return {
+      success: false,
+      error: `Orders in status '${order.status}' have entered production and cannot be cancelled online. Please contact support.`,
+    };
+  }
+
+  return updateOrderStatus(order.id, "cancelled");
 }
 
 /**
@@ -624,7 +658,7 @@ export async function createArtworkSignedUrl(
     .eq("id", user.id)
     .maybeSingle();
 
-  const isAdmin = profile?.role === "admin";
+  const isStaffOrAdmin = ["owner", "admin", "staff"].includes(profile?.role || "");
 
   const cleanId = orderId ? orderId.trim() : "";
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
@@ -645,7 +679,7 @@ export async function createArtworkSignedUrl(
     return { success: false, error: "Order record not found." };
   }
 
-  if (!isAdmin && order.user_id !== user.id) {
+  if (!isStaffOrAdmin && order.user_id !== user.id) {
     return { success: false, error: "Access denied to requested print assets." };
   }
 

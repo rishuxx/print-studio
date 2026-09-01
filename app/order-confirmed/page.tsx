@@ -38,7 +38,8 @@ export default async function OrderConfirmedPage({ searchParams }: OrderConfirme
         .eq("id", user.id)
         .maybeSingle();
 
-      if (profile?.role !== "admin") {
+      const isStaffOrAdmin = ["owner", "admin", "staff"].includes(profile?.role || "");
+      if (!isStaffOrAdmin) {
         query = query.eq("user_id", user.id);
       }
     }

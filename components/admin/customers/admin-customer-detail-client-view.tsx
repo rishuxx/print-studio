@@ -237,11 +237,23 @@ export function AdminCustomerDetailClientView({ customer: initialCustomer }: Adm
 
           <div className="space-y-0.5">
             <div className="text-muted-foreground text-[0.6875rem] font-bold uppercase font-mono">Risk Status & Score</div>
-            <div className="font-display text-lg font-black text-emerald-700 capitalize flex items-center gap-1">
+            <div className={`font-display text-lg font-black capitalize flex items-center gap-1 ${
+              customer.risk_status === "normal"
+                ? "text-emerald-700"
+                : customer.risk_status === "review"
+                ? "text-amber-700"
+                : "text-rose-700"
+            }`}>
               <span>{customer.risk_status}</span>
               <span className="text-xs font-mono font-normal text-muted-foreground">({customer.customer_score}/1000)</span>
             </div>
-            <span className="text-[0.625rem] text-muted-foreground">Automated health index</span>
+            <span className="text-[0.625rem] text-muted-foreground">
+              {customer.customer_score >= 800
+                ? "High Trust · Low Risk"
+                : customer.customer_score >= 600
+                ? "Moderate Trust"
+                : "Review Required"}
+            </span>
           </div>
 
           <div className="space-y-0.5">

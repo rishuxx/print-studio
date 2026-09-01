@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdminAuth } from "@/lib/supabase/admin-guard";
+import { requirePermission } from "@/lib/auth/server-permissions";
 import {
   SaveProductSchema,
   SaveCategorySchema,
@@ -24,7 +25,7 @@ export async function saveProductAction(rawInput: SaveProductInput): Promise<{
 }> {
   try {
     // 1. Authoritative Admin Verification
-    const { user } = await requireAdminAuth("/admin/products");
+    const { user } = await requirePermission("products.manage", "/admin/products");
 
     // 2. Server-side Schema Validation
     const parsed = SaveProductSchema.safeParse({
@@ -367,7 +368,7 @@ export async function duplicateProductAction(
   productId: string
 ): Promise<{ success: boolean; newProductId?: string; error?: string }> {
   try {
-    const { user } = await requireAdminAuth("/admin/products");
+    const { user } = await requirePermission("products.manage", "/admin/products");
     const supabase = await createClient();
 
     // 1. Fetch original product with options, variants, categories
@@ -538,7 +539,7 @@ export async function deleteProductSafelyAction(
   productId: string
 ): Promise<{ success: boolean; actionTaken: "archived" | "deleted"; error?: string }> {
   try {
-    const { user } = await requireAdminAuth("/admin/products");
+    const { user } = await requirePermission("products.manage", "/admin/products");
     const supabase = await createClient();
 
     // Check if product is referenced in order_items
@@ -604,7 +605,7 @@ export async function updateProductStatusAction(
   newStatus: ProductStatus
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { user } = await requireAdminAuth("/admin/products");
+    const { user } = await requirePermission("products.manage", "/admin/products");
     const supabase = await createClient();
 
     const { data: prod, error: fetchErr } = await supabase
@@ -635,6 +636,7 @@ export async function updateProductStatusAction(
     if (newStatus === "active") {
       updates.published_at = new Date().toISOString();
       updates.archived_at = null;
+      updates.visibility = "public";
     } else if (newStatus === "archived") {
       updates.archived_at = new Date().toISOString();
       updates.visibility = "hidden";
@@ -680,7 +682,7 @@ export async function bulkProductOperationsAction(
   operation: "publish" | "pause" | "archive" | "delete"
 ): Promise<{ success: boolean; count: number; error?: string }> {
   try {
-    const { user } = await requireAdminAuth("/admin/products");
+    const { user } = await requirePermission("products.manage", "/admin/products");
     if (!productIds || productIds.length === 0) {
       return { success: false, count: 0, error: "No products selected" };
     }
@@ -708,6 +710,7 @@ export async function bulkProductOperationsAction(
     if (targetStatus === "active") {
       updates.published_at = new Date().toISOString();
       updates.archived_at = null;
+      updates.visibility = "public";
     } else if (targetStatus === "archived") {
       updates.archived_at = new Date().toISOString();
       updates.visibility = "hidden";
@@ -749,7 +752,7 @@ export async function saveCategoryAction(rawInput: SaveCategoryInput): Promise<{
   error?: string;
 }> {
   try {
-    const { user } = await requireAdminAuth("/admin/categories");
+    const { user } = await requirePermission("products.manage", "/admin/categories");
     const parsed = SaveCategorySchema.safeParse({
       ...rawInput,
       handle: normalizeHandle(rawInput.handle || rawInput.title),
@@ -844,7 +847,7 @@ export async function updateCategoryStatusAction(
   newStatus: CategoryStatus
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await requireAdminAuth("/admin/categories");
+    const { user } = await requirePermission("products.manage", "/admin/categories");
     const supabase = await createClient();
 
     const { error } = await supabase

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdminAuth } from "@/lib/supabase/admin-guard";
+import { requirePermission } from "@/lib/auth/server-permissions";
 import { getCarrierAdapter } from "./carriers/registry";
 import type { CreateShipmentInput, CanonicalShipmentStatus } from "./types";
 import crypto from "crypto";
@@ -22,7 +23,7 @@ export async function createOrderShipmentAction(
   input: CreateShipmentInput
 ): Promise<ShipmentActionResult> {
   try {
-    await requireAdminAuth("/admin/shipping");
+    await requirePermission("settings.view", "/admin/shipping");
     const supabase = await createClient();
 
     // 1. Fetch target order (accepts either Order Number like 'PRT-2026-2945' or UUID)
@@ -37,32 +38,8 @@ export async function createOrderShipmentAction(
 
     let { data: order } = await orderQuery.maybeSingle();
 
-    // Self-healing fallback if order is from frontend mock state
     if (!order) {
-      const { data: newOrder } = await supabase
-        .from("orders")
-        .insert({
-          order_number: input.order_id.startsWith("PRT-") ? input.order_id : `PRT-2026-${Date.now().toString().slice(-4)}`,
-          status: "in_production",
-          payment_status: "paid",
-          total: 500,
-          shipping_address: {
-            recipient_name: "Valued Customer",
-            phone: "9876543210",
-            address_line_1: "Rajpur Road",
-            city: "Dehradun",
-            state: "Uttarakhand",
-            postal_code: "248001",
-          },
-        })
-        .select()
-        .single();
-
-      order = newOrder;
-    }
-
-    if (!order) {
-      return { success: false, error: `Could not initialize order '${input.order_id}' in database.` };
+      return { success: false, error: `Order '${input.order_id}' not found in database.` };
     }
 
     // Check if order already has an assigned shipment (Immutable once assigned)

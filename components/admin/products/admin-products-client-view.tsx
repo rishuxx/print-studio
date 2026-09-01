@@ -29,6 +29,7 @@ import {
   deleteProductSafelyAction,
 } from "@/lib/catalogue/mutations";
 import { toast } from "sonner";
+import { UploadCloud } from "lucide-react";
 
 interface AdminProductsClientViewProps {
   products: DatabaseProduct[];
@@ -59,6 +60,8 @@ export function AdminProductsClientView({
   const [searchTerm, setSearchTerm] = React.useState(initialQuery);
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [isBulkPending, setIsBulkPending] = React.useState(false);
+  const [isImporting, setIsImporting] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const updateParams = React.useCallback(
     (newParams: Record<string, string | undefined>) => {
@@ -150,6 +153,38 @@ export function AdminProductsClientView({
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    const toastId = toast.loading("Uploading and processing Excel rate card...");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/admin/products/import", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to import");
+
+      toast.success(
+        `Import Complete! Created: ${data.report.created}, Updated: ${data.report.updated}`,
+        { id: toastId }
+      );
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message, { id: toastId });
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -171,6 +206,22 @@ export function AdminProductsClientView({
             <Layers className="size-3.5" />
             <span>Category Taxonomy</span>
           </Link>
+
+          <input
+            type="file"
+            accept=".xlsx, .xls, .csv"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isImporting}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-3.5 py-2 text-xs font-bold text-ink shadow-xs hover:bg-paper transition-colors disabled:opacity-50"
+          >
+            <UploadCloud className="size-3.5" />
+            <span>{isImporting ? "Importing..." : "Import Excel"}</span>
+          </button>
 
           <Link
             href="/admin/products/new"

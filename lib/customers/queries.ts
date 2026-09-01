@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { DatabaseCustomer, CustomerFilterParams, CustomerListResponse } from "./types";
+import { evaluateCustomerRisk } from "./risk-engine";
 
 /**
  * Normalizes email address for canonical lookups
@@ -74,6 +75,26 @@ export async function fetchAdminCustomers(
     const customerNumber = `CUS-${String(1001 + idx).padStart(6, "0")}`;
     const isB2B = Boolean(p.company_name && p.company_name.trim().length > 0);
 
+    const failedPayments = userOrders.filter((o) => o.payment_status === "failed").length;
+    const accountAgeDays = Math.max(1, Math.round((Date.now() - new Date(p.created_at).getTime()) / (1000 * 60 * 60 * 24)));
+
+    // Real Behavioral Risk Calculation
+    const riskEval = evaluateCustomerRisk({
+      orderCompletionRate: orderCount > 0 ? completedCount / orderCount : 0,
+      cancellationRate: orderCount > 0 ? cancelledCount / orderCount : 0,
+      failedPaymentCount: failedPayments,
+      totalOrders: orderCount,
+      completedOrders: completedCount,
+      lifetimeValueRupees: Math.round(lifetimeValueMinor / 100),
+      hasB2BProfile: isB2B,
+      hasGstin: Boolean(p.company_name),
+      isEmailVerified: Boolean(p.email),
+      isPhoneVerified: Boolean(p.phone),
+      accountAgeDays,
+      daysSinceLastActive: 0,
+      hasMultipleAddresses: userAddresses.length > 1,
+    });
+
     return {
       id: p.id,
       auth_user_id: p.id,
@@ -104,8 +125,8 @@ export async function fetchAdminCustomers(
       average_order_value_minor: aovMinor,
       currency: "INR",
       marketing_status: "subscribed",
-      risk_status: "normal",
-      customer_score: isB2B ? 920 : 850,
+      risk_status: riskEval.status,
+      customer_score: riskEval.score,
       notes_count: 0,
       version: 1,
       created_at: p.created_at,

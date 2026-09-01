@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdminAuth } from "@/lib/supabase/admin-guard";
+import { requirePermission } from "@/lib/auth/server-permissions";
 import {
   SaveProductPriceSchema,
   SavePromotionSchema,
@@ -22,7 +23,7 @@ export async function saveProductPriceAction(rawInput: SaveProductPriceInput): P
   error?: string;
 }> {
   try {
-    const { user } = await requireAdminAuth("/admin/pricing");
+    const { user } = await requirePermission("pricing.manage", "/admin/pricing");
     const parsed = SaveProductPriceSchema.safeParse(rawInput);
 
     if (!parsed.success) {
@@ -140,7 +141,7 @@ export async function savePromotionAction(rawInput: SavePromotionInput): Promise
   error?: string;
 }> {
   try {
-    const { user } = await requireAdminAuth("/admin/pricing");
+    const { user } = await requirePermission("pricing.manage", "/admin/pricing");
     const parsed = SavePromotionSchema.safeParse(rawInput);
 
     if (!parsed.success) {
@@ -225,7 +226,7 @@ export async function updatePromotionStatusAction(
   newStatus: PromotionStatus
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { user } = await requireAdminAuth("/admin/pricing");
+    const { user } = await requirePermission("pricing.manage", "/admin/pricing");
     const supabase = await createClient();
 
     const updates: Record<string, unknown> = {
@@ -260,7 +261,7 @@ export async function updatePromotionStatusAction(
  */
 export async function deletePromotionAction(promotionId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    await requireAdminAuth("/admin/pricing");
+    const { user } = await requirePermission("pricing.manage", "/admin/pricing");
     const supabase = await createClient();
 
     const { error } = await supabase
@@ -285,7 +286,7 @@ export async function executeBulkPriceAdjustmentAction(
   rawInput: BulkPriceAdjustmentInput
 ): Promise<{ success: boolean; updatedCount: number; blockedCount: number; error?: string }> {
   try {
-    const { user } = await requireAdminAuth("/admin/pricing");
+    const { user } = await requirePermission("pricing.manage", "/admin/pricing");
     const parsed = BulkPriceAdjustmentSchema.safeParse(rawInput);
 
     if (!parsed.success) {
@@ -374,7 +375,7 @@ export async function savePriceBookAction(rawInput: import("./validation").SaveP
   error?: string;
 }> {
   try {
-    const { user } = await requireAdminAuth("/admin/pricing");
+    const { user } = await requirePermission("pricing.manage", "/admin/pricing");
     const { SavePriceBookSchema } = await import("./validation");
     const parsed = SavePriceBookSchema.safeParse(rawInput);
 
@@ -450,7 +451,7 @@ export async function savePriceBookAction(rawInput: import("./validation").SaveP
  */
 export async function deletePriceBookAction(priceBookId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const { user } = await requireAdminAuth("/admin/pricing");
+    const { user } = await requirePermission("pricing.manage", "/admin/pricing");
     const supabase = await createClient();
 
     // First check if it's the default book

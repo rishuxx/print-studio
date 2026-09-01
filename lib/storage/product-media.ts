@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requireAdminAuth } from "@/lib/supabase/admin-guard";
+import { requirePermission } from "@/lib/auth/server-permissions";
 import type { DatabaseProductMedia } from "@/lib/catalogue/types";
 import {
   PRODUCT_MEDIA_BUCKET,
@@ -18,7 +19,7 @@ export async function uploadProductMediaAction(formData: FormData): Promise<{
   error?: string;
 }> {
   try {
-    await requireAdminAuth("/admin/products");
+    await requirePermission("products.manage", "/admin/products");
 
     const file = formData.get("file") as File | null;
     const productId = formData.get("productId") as string | null;
@@ -116,7 +117,7 @@ export async function deleteProductMediaAction(mediaId: string): Promise<{
   error?: string;
 }> {
   try {
-    await requireAdminAuth("/admin/products");
+    await requirePermission("products.manage", "/admin/products");
     const supabase = await createClient();
 
     // 1. Fetch media record to obtain storage_key

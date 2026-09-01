@@ -13,6 +13,7 @@ import {
   Truck,
   LucideIcon,
 } from "lucide-react";
+import type { Permission } from "@/lib/auth/permissions";
 
 export interface AdminNavItem {
   title: string;
@@ -22,6 +23,7 @@ export interface AdminNavItem {
   exact?: boolean;
   section?: string;
   disabled?: boolean;
+  requiredPermission?: Permission;
 }
 
 export interface AdminNavSection {
@@ -38,6 +40,7 @@ export const ADMIN_NAVIGATION: AdminNavSection[] = [
         href: "/admin",
         icon: LayoutDashboard,
         exact: true,
+        requiredPermission: "dashboard.view",
       },
     ],
   },
@@ -48,36 +51,43 @@ export const ADMIN_NAVIGATION: AdminNavSection[] = [
         title: "Orders",
         href: "/admin/orders",
         icon: Package,
+        requiredPermission: "orders.view",
       },
       {
         title: "Products",
         href: "/admin/products",
         icon: Layers,
+        requiredPermission: "products.view",
       },
       {
         title: "Categories",
         href: "/admin/categories",
         icon: FolderTree,
+        requiredPermission: "products.view",
       },
       {
         title: "Pricing Engine",
         href: "/admin/pricing",
         icon: IndianRupee,
+        requiredPermission: "pricing.view",
       },
       {
         title: "Payments",
         href: "/admin/payments",
         icon: CreditCard,
+        requiredPermission: "payments.view",
       },
       {
         title: "Customers",
         href: "/admin/customers",
         icon: Users,
+        requiredPermission: "customers.view",
       },
       {
         title: "Shipments & Tracking",
         href: "/admin/shipping",
         icon: Truck,
+        requiredPermission: "settings.view", // assuming settings.view for shipping
       },
     ],
   },
@@ -89,12 +99,14 @@ export const ADMIN_NAVIGATION: AdminNavSection[] = [
         href: "/admin/production",
         icon: Printer,
         badge: "Phase 10H",
+        requiredPermission: "orders.view",
       },
       {
         title: "Content & SEO",
         href: "/admin/content",
         icon: FileText,
         badge: "Phase 10I",
+        requiredPermission: "dashboard.view",
       },
     ],
   },
@@ -105,18 +117,19 @@ export const ADMIN_NAVIGATION: AdminNavSection[] = [
         title: "Admin Users",
         href: "/admin/users",
         icon: Users,
-        badge: "Phase 10J",
+        requiredPermission: "users.view",
       },
       {
         title: "Audit Log",
         href: "/admin/audit-log",
         icon: ShieldAlert,
-        badge: "Phase 10K",
+        requiredPermission: "users.view", // only owner/admin
       },
       {
         title: "Store Settings",
         href: "/admin/settings",
         icon: Sliders,
+        requiredPermission: "settings.view",
       },
     ],
   },

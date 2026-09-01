@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { LogOut, ExternalLink, ShieldCheck } from "lucide-react";
 import { ADMIN_NAVIGATION, type AdminNavItem } from "@/lib/admin/navigation";
 import { AdminPageHelpButton } from "@/components/admin/admin-page-help-button";
+import { type Permission } from "@/lib/auth/permissions";
+import { UserRole } from "@/lib/supabase/database.types";
 import { siteConfig } from "@/lib/site-config";
 import { logoutCustomer } from "@/lib/supabase/actions";
 import { createClient } from "@/lib/supabase/client";
@@ -14,7 +16,8 @@ import { cn } from "@/lib/utils";
 interface AdminSidebarProps {
   adminEmail: string;
   adminName: string;
-  adminRole: string;
+  adminRole: UserRole;
+  allowedPermissions: string[];
   onNavigate?: () => void;
   className?: string;
 }
@@ -23,6 +26,7 @@ export function AdminSidebar({
   adminEmail,
   adminName,
   adminRole,
+  allowedPermissions,
   onNavigate,
   className,
 }: AdminSidebarProps) {
@@ -84,61 +88,71 @@ export function AdminSidebar({
 
         {/* Navigation Sections */}
         <div className="flex-1 px-4 py-6 space-y-6">
-          {ADMIN_NAVIGATION.map((section, sIdx) => (
-            <div key={section.title || sIdx} className="space-y-1.5">
-              {section.title && (
-                <div className="px-3 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/80 font-mono">
-                  {section.title}
-                </div>
-              )}
+          {ADMIN_NAVIGATION.map((section, idx) => {
+            // Filter items based on permission
+            const allowedItems = section.items.filter((item) => {
+              if (!item.requiredPermission) return true;
+              return allowedPermissions.includes(item.requiredPermission as string);
+            });
 
-              <nav className="space-y-1" aria-label={section.title}>
-                {section.items.map((item) => {
-                  const active = isItemActive(item);
-                  const Icon = item.icon;
+            if (allowedItems.length === 0) return null;
 
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={onNavigate}
-                      className={cn(
-                        "group flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-all",
-                        active
-                          ? "bg-violet text-white shadow-sm font-bold"
-                          : "text-ink hover:bg-paper hover:text-violet"
-                      )}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Icon
-                          className={cn(
-                            "size-4 shrink-0 transition-colors",
-                            active
-                              ? "text-white"
-                              : "text-muted-foreground group-hover:text-violet"
-                          )}
-                        />
-                        <span>{item.title}</span>
-                      </div>
+            return (
+              <div key={section.title || idx} className="space-y-1.5">
+                {section.title && (
+                  <div className="px-3 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/80 font-mono">
+                    {section.title}
+                  </div>
+                )}
 
-                      {item.badge && (
-                        <span
-                          className={cn(
-                            "rounded-md px-1.5 py-0.5 text-[0.5625rem] font-mono font-medium tracking-tight",
-                            active
-                              ? "bg-white/20 text-white"
-                              : "bg-paper text-muted-foreground border border-border/60"
-                          )}
-                        >
-                          {item.badge}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-          ))}
+                <nav className="space-y-1" aria-label={section.title}>
+                  {allowedItems.map((item) => {
+                    const active = isItemActive(item);
+                    const Icon = item.icon;
+
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={onNavigate}
+                        className={cn(
+                          "group flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition-all",
+                          active
+                            ? "bg-violet text-white shadow-sm font-bold"
+                            : "text-ink hover:bg-paper hover:text-violet"
+                        )}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Icon
+                            className={cn(
+                              "size-4 shrink-0 transition-colors",
+                              active
+                                ? "text-white"
+                                : "text-muted-foreground group-hover:text-violet"
+                            )}
+                          />
+                          <span>{item.title}</span>
+                        </div>
+
+                        {item.badge && (
+                          <span
+                            className={cn(
+                              "rounded-md px-1.5 py-0.5 text-[0.5625rem] font-mono font-medium tracking-tight",
+                              active
+                                ? "bg-white/20 text-white"
+                                : "bg-paper text-muted-foreground border border-border/60"
+                            )}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </div>
+            );
+          })}
         </div>
       </div>
 

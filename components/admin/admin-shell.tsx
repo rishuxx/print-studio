@@ -1,11 +1,13 @@
 import * as React from "react";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { AdminHeader } from "@/components/admin/admin-header";
+import { UserRole } from "@/lib/supabase/database.types";
 
 interface AdminShellProps {
   adminEmail: string;
   adminName: string;
-  adminRole: string;
+  adminRole: UserRole;
+  allowedPermissions: string[];
   children: React.ReactNode;
 }
 
@@ -13,6 +15,7 @@ export function AdminShell({
   adminEmail,
   adminName,
   adminRole,
+  allowedPermissions,
   children,
 }: AdminShellProps) {
   return (
@@ -23,7 +26,7 @@ export function AdminShell({
           adminEmail={adminEmail}
           adminName={adminName}
           adminRole={adminRole}
-          className="w-72"
+          allowedPermissions={allowedPermissions}
         />
       </div>
 
@@ -33,6 +36,7 @@ export function AdminShell({
           adminEmail={adminEmail}
           adminName={adminName}
           adminRole={adminRole}
+          allowedPermissions={allowedPermissions}
         />
 
         <main className="flex-1 p-4 sm:p-8 max-w-7xl w-full mx-auto">

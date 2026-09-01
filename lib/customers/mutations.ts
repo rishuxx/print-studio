@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdminAuth } from "@/lib/supabase/admin-guard";
+import { requirePermission } from "@/lib/auth/server-permissions";
 import {
   SaveCustomerProfileSchema,
   SaveAddressSchema,
@@ -30,7 +31,7 @@ export async function saveCustomerProfileAction(rawInput: SaveCustomerProfileInp
   error?: string;
 }> {
   try {
-    const { user } = await requireAdminAuth("/admin/customers");
+    const { user } = await requirePermission("customers.view", "/admin/customers");
     const parsed = SaveCustomerProfileSchema.safeParse(rawInput);
 
     if (!parsed.success) {
@@ -97,7 +98,7 @@ export async function saveCustomerAddressAction(rawInput: SaveAddressInput): Pro
   error?: string;
 }> {
   try {
-    const { user } = await requireAdminAuth("/admin/customers");
+    const { user } = await requirePermission("customers.view", "/admin/customers");
     const parsed = SaveAddressSchema.safeParse(rawInput);
 
     if (!parsed.success) {
@@ -198,7 +199,7 @@ export async function addCustomerNoteAction(rawInput: SaveNoteInput): Promise<{
   error?: string;
 }> {
   try {
-    const { user, profile } = await requireAdminAuth("/admin/customers");
+    const { user, profile } = await requirePermission("customers.view", "/admin/customers");
     const parsed = SaveNoteSchema.safeParse(rawInput);
 
     if (!parsed.success) {
@@ -256,7 +257,7 @@ export async function updateAccountControlsAction(rawInput: UpdateAccountControl
   error?: string;
 }> {
   try {
-    const { user } = await requireAdminAuth("/admin/customers");
+    const { user } = await requirePermission("customers.view", "/admin/customers");
     const parsed = UpdateAccountControlsSchema.safeParse(rawInput);
 
     if (!parsed.success) {
@@ -312,7 +313,7 @@ export async function saveB2BProfileAction(rawInput: SaveB2BProfileInput): Promi
   error?: string;
 }> {
   try {
-    const { user } = await requireAdminAuth("/admin/customers");
+    const { user } = await requirePermission("customers.view", "/admin/customers");
     const parsed = SaveB2BProfileSchema.safeParse(rawInput);
 
     if (!parsed.success) {
@@ -385,7 +386,7 @@ export async function mergeCustomerAction(rawInput: CustomerMergeInput): Promise
   error?: string;
 }> {
   try {
-    const { user } = await requireAdminAuth("/admin/customers");
+    const { user } = await requirePermission("customers.view", "/admin/customers");
     const parsed = CustomerMergeSchema.safeParse(rawInput);
 
     if (!parsed.success) {
@@ -470,7 +471,7 @@ export async function createPrivacyRequestAction(rawInput: PrivacyRequestInput):
   error?: string;
 }> {
   try {
-    const { user } = await requireAdminAuth("/admin/customers");
+    const { user } = await requirePermission("customers.view", "/admin/customers");
     const parsed = PrivacyRequestSchema.safeParse(rawInput);
 
     if (!parsed.success) {

@@ -8,13 +8,22 @@ import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { ADMIN_NAVIGATION } from "@/lib/admin/navigation";
 import { AdminPageHelpButton } from "@/components/admin/admin-page-help-button";
 
+import { type Permission } from "@/lib/auth/permissions";
+import { UserRole } from "@/lib/supabase/database.types";
+
 interface AdminHeaderProps {
   adminEmail: string;
   adminName: string;
-  adminRole: string;
+  adminRole: UserRole;
+  allowedPermissions: string[];
 }
 
-export function AdminHeader({ adminEmail, adminName, adminRole }: AdminHeaderProps) {
+export function AdminHeader({
+  adminEmail,
+  adminName,
+  adminRole,
+  allowedPermissions,
+}: AdminHeaderProps) {
   const pathname = usePathname();
   const [mobileDrawerOpen, setMobileDrawerOpen] = React.useState(false);
 
@@ -162,6 +171,7 @@ export function AdminHeader({ adminEmail, adminName, adminRole }: AdminHeaderPro
               adminEmail={adminEmail}
               adminName={adminName}
               adminRole={adminRole}
+              allowedPermissions={allowedPermissions}
               onNavigate={() => setMobileDrawerOpen(false)}
               className="w-full border-r-0"
             />

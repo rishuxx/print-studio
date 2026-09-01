@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requireAdminAuth } from "@/lib/supabase/admin-guard";
+import { requirePermission } from "@/lib/auth/server-permissions";
 import type {
   DatabaseAttributeDefinition,
   DatabaseCategoryAttributeTemplate,
@@ -87,7 +88,7 @@ export async function saveAttributeDefinitionAction(payload: {
   error?: string;
 }> {
   try {
-    await requireAdminAuth("/admin/categories");
+    await requirePermission("products.manage", "/admin/categories");
     const supabase = await createClient();
 
     const cleanCode = payload.code.toLowerCase().trim().replace(/[^a-z0-9_]/g, "_");
@@ -146,7 +147,7 @@ export async function deleteAttributeDefinitionAction(
   attributeId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await requireAdminAuth("/admin/categories");
+    await requirePermission("products.manage", "/admin/categories");
     const supabase = await createClient();
 
     const { error } = await supabase
@@ -172,7 +173,7 @@ export async function assignCategoryAttributeTemplateAction(
   attributeIds: string[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await requireAdminAuth("/admin/categories");
+    await requirePermission("products.manage", "/admin/categories");
     const supabase = await createClient();
 
     // 1. Delete existing templates for category

@@ -1216,7 +1216,7 @@ export function AdminProductEditor({
                         <td className="px-4 py-2.5">
                           <input
                             type="number"
-                            value={v.price_minor !== null ? Math.round(v.price_minor / 100) : Math.round(basePriceMinor / 100)}
+                            value={v.price_minor != null ? Math.round(v.price_minor / 100) : Math.round(basePriceMinor / 100)}
                             onChange={(e) => {
                               const next = [...variants];
                               next[vIdx].price_minor = e.target.value

@@ -36,16 +36,9 @@ export async function processPaymentRefund(
     return { success: false, error: "Unauthorized. Please log in." };
   }
 
-  // 1. Authorization: verify caller is admin
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profile?.role !== "admin") {
-    return { success: false, error: "Forbidden. Admin authorization required for refunds." };
-  }
+  // 1. Authorization: verify caller has payments.refund permission
+  const { requirePermission } = await import("@/lib/auth/server-permissions");
+  const { profile } = await requirePermission("payments.refund", "/admin/payments");
 
   // 2. Fetch payment record
   const { data: payment, error: payErr } = await supabase
@@ -198,6 +191,21 @@ export async function processPaymentRefund(
     status: "refund_processed",
     title: `Refund Processed (₹${(params.amountMinor / 100).toFixed(2)})`,
     description: `Refund ID ${refund.id} processed. Reason: ${params.reason}. Total Refunded: ₹${(newTotalRefundedMinor / 100).toFixed(2)}.`,
+  });
+
+  // 9. Record system-level admin audit log
+  await supabase.from("admin_audit_logs").insert({
+    actor_id: user.id,
+    target_id: payment.order_id,
+    action: "payment_refunded",
+    details: {
+      paymentId: payment.id,
+      refundId: refund.id,
+      amountMinor: params.amountMinor,
+      reason: params.reason,
+      newTotalRefundedMinor,
+      isFullRefund,
+    },
   });
 
   return {

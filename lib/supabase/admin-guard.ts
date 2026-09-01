@@ -6,7 +6,7 @@ import type { Database } from "@/lib/supabase/database.types";
 export type AdminUser = {
   id: string;
   email?: string;
-  role: "admin";
+  role: "owner" | "admin" | "staff";
   fullName?: string;
 };
 
@@ -32,12 +32,20 @@ export const requireAdminAuth = cache(async (redirectPath: string = "/"): Promis
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("id, email, full_name, role, created_at, updated_at")
+    .select("*")
     .eq("id", user.id)
     .maybeSingle();
 
-  if (error || !profile || profile.role !== "admin") {
+  if (error || !profile) {
     redirect("/");
+  }
+
+  if (!["owner", "admin", "staff"].includes(profile.role)) {
+    redirect("/");
+  }
+
+  if (profile.status === "suspended") {
+    redirect("/suspended");
   }
 
   return { user, profile: profile as Database["public"]["Tables"]["profiles"]["Row"] };

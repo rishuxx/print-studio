@@ -1,11 +1,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { ChevronRight, Gift } from "lucide-react";
-import { getProductsInCategory } from "@/lib/data/products";
+import { getStorefrontAllProducts } from "@/lib/catalogue/storefront-queries";
 import { ProductCard } from "@/components/shared/product-card";
 
-export function PersonalisedSection() {
-  const gifts = getProductsInCategory("personalised-gifts").slice(0, 4);
+export async function PersonalisedSection() {
+  const allProducts = await getStorefrontAllProducts();
+  const gifts = allProducts.filter((p) => p.categoryHandles.includes("personalised-gifts") || p.categoryHandles.includes("photo-gifts-mugs-albums")).slice(0, 4);
 
   return (
     <section className="shell">

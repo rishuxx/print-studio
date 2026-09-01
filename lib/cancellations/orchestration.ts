@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCustomerSafeReasonMessage } from "./reasons";
 import { createRazorpayRefund } from "@/lib/payments/razorpay-server";
 import { requireAdminAuth } from "@/lib/supabase/admin-guard";
+import { requirePermission } from "@/lib/auth/server-permissions";
 import { revalidatePath } from "next/cache";
 import type { CancelOrderParams, CancelOrderResult } from "./types";
 
@@ -115,7 +116,7 @@ export async function canCancelOrder(orderId: string) {
 export async function executeOrderCancellationAndRefund(
   params: CancelOrderParams
 ): Promise<CancelOrderResult> {
-  const { user } = await requireAdminAuth("/admin/orders");
+  const { user } = await requirePermission("orders.manage", "/admin/orders");
   const supabase = await createClient();
 
   const validation = await canCancelOrder(params.orderId);

@@ -1,4 +1,11 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+
+function getPublicClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY! || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
 import { getProduct as getStaticProduct, getAllProducts as getStaticAllProducts } from "@/lib/data/products";
 import { getCategory as getStaticCategory, categories as staticCategories } from "@/lib/data/categories";
 import type { Product, ProductImage, ProductOption, ProductVariant, QuantityTier, BadgeKind } from "@/lib/commerce/types";
@@ -86,7 +93,68 @@ export function mapDatabaseProductToStorefront(dbProduct: any, priceTiers: any[]
     ];
   }
 
-  const categoryHandles = (dbProduct.categories || []).map((c: any) => c.handle || c.category_id || "general");
+  const CATEGORY_MAP: Record<string, string[]> = {
+    "business-cards-visiting-cards": ["visiting-cards"],
+    "business-cards-visiting-ca": ["visiting-cards"],
+    "visiting-cards": ["visiting-cards"],
+    "stationery-office-essentials": ["stationery-stamps"],
+    "stationery-office-essentia": ["stationery-stamps"],
+    "stationery-stamps": ["stationery-stamps"],
+    "pens": ["stationery-stamps"],
+    "apparel-t-shirts-polos-winterwear": ["apparel"],
+    "apparel-t-shirts-polos-wi": ["apparel"],
+    "apparel-caps-bags": ["apparel"],
+    "apparel": ["apparel"],
+    "stickers-labels-decals": ["labels-packaging"],
+    "labels-stickers-packaging": ["labels-packaging"],
+    "packaging-boxes": ["labels-packaging"],
+    "labels-packaging": ["labels-packaging"],
+    "signage-banners-standees": ["signage"],
+    "signs-posters-marketing-materials": ["signage"],
+    "signs-posters-marketing-m": ["signage"],
+    "signage": ["signage"],
+    "drinkware-bottles-sippers-mugs": ["decor-drinkware", "personalised-gifts"],
+    "drinkware-bottles-sippers": ["decor-drinkware", "personalised-gifts"],
+    "decor-drinkware": ["decor-drinkware"],
+    "photo-gifts-mugs-albums": ["personalised-gifts", "decor-drinkware"],
+    "personalised-gifts": ["personalised-gifts"],
+  };
+
+  const rawCatHandles = (dbProduct.categories || []).map((c: any) => c.handle || c.category_id || "general");
+  const expandedCatHandles = new Set<string>();
+  rawCatHandles.forEach((h: string) => {
+    expandedCatHandles.add(h);
+    if (CATEGORY_MAP[h]) {
+      CATEGORY_MAP[h].forEach((parent) => expandedCatHandles.add(parent));
+    }
+  });
+
+  // Infer primary category from title if needed
+  const lowerTitle = (dbProduct.title || "").toLowerCase();
+  if (lowerTitle.includes("visiting card") || lowerTitle.includes("business card") || lowerTitle.includes("cards")) {
+    expandedCatHandles.add("visiting-cards");
+  }
+  if (lowerTitle.includes("t-shirt") || lowerTitle.includes("hoodie") || lowerTitle.includes("polo") || lowerTitle.includes("jacket") || lowerTitle.includes("sweatshirt") || lowerTitle.includes("cap")) {
+    expandedCatHandles.add("apparel");
+  }
+  if (lowerTitle.includes("stamp") || lowerTitle.includes("letterhead") || lowerTitle.includes("notebook") || lowerTitle.includes("pen") || lowerTitle.includes("flyer") || lowerTitle.includes("envelope") || lowerTitle.includes("booklet") || lowerTitle.includes("diary")) {
+    expandedCatHandles.add("stationery-stamps");
+  }
+  if (lowerTitle.includes("sticker") || lowerTitle.includes("label") || lowerTitle.includes("box") || lowerTitle.includes("packaging") || lowerTitle.includes("pouch") || lowerTitle.includes("bag") || lowerTitle.includes("decal") || lowerTitle.includes("tape")) {
+    expandedCatHandles.add("labels-packaging");
+  }
+  if (lowerTitle.includes("standee") || lowerTitle.includes("banner") || lowerTitle.includes("signage") || lowerTitle.includes("board") || lowerTitle.includes("poster") || lowerTitle.includes("canopy") || lowerTitle.includes("acrylic sign")) {
+    expandedCatHandles.add("signage");
+  }
+  if (lowerTitle.includes("bottle") || lowerTitle.includes("mug") || lowerTitle.includes("sipper") || lowerTitle.includes("flask") || lowerTitle.includes("coaster") || lowerTitle.includes("tumbler")) {
+    expandedCatHandles.add("decor-drinkware");
+    expandedCatHandles.add("personalised-gifts");
+  }
+  if (lowerTitle.includes("gift") || lowerTitle.includes("hamper") || lowerTitle.includes("frame") || lowerTitle.includes("album") || lowerTitle.includes("photo") || lowerTitle.includes("canvas") || lowerTitle.includes("calendar")) {
+    expandedCatHandles.add("personalised-gifts");
+  }
+
+  const categoryHandles = Array.from(expandedCatHandles);
   const badges: BadgeKind[] = [];
   if (dbProduct.is_featured) badges.push("popular");
   if (dbProduct.same_day_eligible) badges.push("same-day");
@@ -116,7 +184,7 @@ export function mapDatabaseProductToStorefront(dbProduct: any, priceTiers: any[]
     priceFrom: baseCalc.finalUnitPrice,
     compareAtFrom: baseCalc.compareAtPrice,
     quantityTiers,
-    priceUnit: `per ${dbProduct.unit || "pieces"}`,
+    priceUnit: dbProduct.unit ? (dbProduct.unit.startsWith("per ") ? dbProduct.unit : `per ${dbProduct.unit}`) : "per piece",
     specs: [
       { label: "SKU", value: dbProduct.sku },
       { label: "Dispatch", value: `${dbProduct.turnaround_days || 3} Working Days` },
@@ -154,7 +222,7 @@ export function mapDatabaseProductToStorefront(dbProduct: any, priceTiers: any[]
  */
 export async function getStorefrontProduct(handle: string): Promise<Product | undefined> {
   try {
-    const supabase = await createClient();
+    const supabase = getPublicClient();
 
     // 1. Fetch from PostgreSQL
     const { data: dbProduct } = await supabase
@@ -217,7 +285,7 @@ export async function getStorefrontProduct(handle: string): Promise<Product | un
  */
 export async function getStorefrontCategory(handle: string) {
   try {
-    const supabase = await createClient();
+    const supabase = getPublicClient();
     const { data: cat } = await supabase
       .from("categories")
       .select("*")
@@ -236,7 +304,7 @@ export async function getStorefrontCategory(handle: string) {
  */
 export async function getStorefrontAllProducts(): Promise<Product[]> {
   try {
-    const supabase = await createClient();
+    const supabase = getPublicClient();
     const { data: dbProducts } = await supabase
       .from("products")
       .select(
@@ -263,12 +331,31 @@ export async function getStorefrontAllProducts(): Promise<Product[]> {
           })
         );
 
-      // Merge with static catalog handles to ensure full 165+ items coverage
-      const staticProds = getStaticAllProducts();
-      const dbHandles = new Set(dbMapped.map((p) => p.handle));
-      const remainingStatic = staticProds.filter((p) => !dbHandles.has(p.handle));
+      // Deduplicate DB products by normalized title, prioritizing products with updated real prices
+      const seenByTitle = new Map<string, Product>();
+      for (const p of dbMapped) {
+        const normTitle = p.title.toLowerCase().replace(/[^a-z0-9]+/g, "");
+        if (!seenByTitle.has(normTitle)) {
+          seenByTitle.set(normTitle, p);
+        } else {
+          const existing = seenByTitle.get(normTitle)!;
+          if (existing.priceFrom.amount === 19900 && p.priceFrom.amount !== 19900) {
+            seenByTitle.set(normTitle, p);
+          }
+        }
+      }
+      const uniqueDb = Array.from(seenByTitle.values());
 
-      return [...dbMapped, ...remainingStatic];
+      // Merge with static catalog handles to ensure full coverage
+      const staticProds = getStaticAllProducts();
+      const uniqueHandles = new Set(uniqueDb.map((p) => p.handle));
+      const remainingStatic = staticProds.filter((p) => {
+        if (uniqueHandles.has(p.handle)) return false;
+        const norm = p.title.toLowerCase().replace(/[^a-z0-9]+/g, "");
+        return !seenByTitle.has(norm);
+      });
+
+      return [...uniqueDb, ...remainingStatic];
     }
   } catch (err) {
     console.error("Failed to fetch all storefront products:", err);
@@ -282,7 +369,7 @@ export async function getStorefrontAllProducts(): Promise<Product[]> {
  */
 export async function getStorefrontFeaturedProducts(): Promise<Product[]> {
   try {
-    const supabase = await createClient();
+    const supabase = getPublicClient();
     const { data: dbProducts } = await supabase
       .from("products")
       .select(
@@ -320,7 +407,7 @@ export async function getStorefrontFeaturedProducts(): Promise<Product[]> {
   }
   // Fallback to static mock data
   const staticProds = getStaticAllProducts();
-  return staticProds.filter((p) => p.isFeatured || p.categoryHandles.includes("marketing-materials")).slice(0, 8);
+  return staticProds.filter((p: any) => p.isFeatured || p.categoryHandles?.includes("marketing-materials")).slice(0, 8);
 }
 
 /**
@@ -328,7 +415,7 @@ export async function getStorefrontFeaturedProducts(): Promise<Product[]> {
  */
 export async function getStorefrontReviews(productId: string): Promise<any[]> {
   try {
-    const supabase = await createClient();
+    const supabase = getPublicClient();
     const { data: reviews } = await supabase
       .from("product_reviews")
       .select(`

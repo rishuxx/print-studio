@@ -358,6 +358,7 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
       variantTitle: matchedVariant?.title || "Standard",
       quantity: 1,
       tierQty: selectedTierQty,
+      sameDayEligible: product.sameDayEligible || false,
       priceUnit: product.priceUnit,
       unitPrice: { amount: secureUnitPaise, currencyCode: "INR" as const },
       compareAtUnitPrice: secureCompareAtPaise
@@ -722,7 +723,7 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
               </span>
               {compareAtUnitPaise && compareAtUnitPaise > rawUnitPaise && (
                 <span className="font-mono text-xs text-muted-foreground line-through">
-                  ₹{((compareAtUnitPaise * (selectedTier?.qty || 1)) / 100).toFixed(2)}
+                  ₹{((compareAtUnitPaise * selectedTierQty) / 100).toFixed(2)}
                 </span>
               )}
             </div>

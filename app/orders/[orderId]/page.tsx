@@ -29,9 +29,9 @@ export default async function OrderDetailsPage({ params, searchParams }: OrderPa
     .eq("id", user.id)
     .maybeSingle();
 
-  const isAdmin = profile?.role === "admin";
+  const isStaffOrAdmin = ["owner", "admin", "staff"].includes(profile?.role || "");
 
-  // Load from PostgreSQL with strict user isolation (unless admin)
+  // Load from PostgreSQL with strict user isolation (unless staff/admin/owner)
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
 
   let query = supabase
@@ -44,8 +44,8 @@ export default async function OrderDetailsPage({ params, searchParams }: OrderPa
     query = query.eq("order_number", orderId);
   }
 
-  // If not admin, strictly enforce user_id match
-  if (!isAdmin) {
+  // If not staff/admin/owner, strictly enforce user_id match
+  if (!isStaffOrAdmin) {
     query = query.eq("user_id", user.id);
   }
 

@@ -284,6 +284,55 @@ export async function fetchAdminProducts(
     query = query.eq("is_featured", filter.isFeatured === true);
   }
 
+  // Category Filter
+  if (filter.categoryHandle && filter.categoryHandle !== "ALL") {
+    const { data: matchedCats } = await supabase
+      .from("categories")
+      .select("id")
+      .eq("handle", filter.categoryHandle);
+
+    if (matchedCats && matchedCats.length > 0) {
+      const catIds = matchedCats.map((c) => c.id);
+      const { data: linkRows } = await supabase
+        .from("product_category_links")
+        .select("product_id")
+        .in("category_id", catIds);
+
+      const productIds = (linkRows || []).map((l) => l.product_id);
+      if (productIds.length > 0) {
+        query = query.in("id", productIds);
+      } else {
+        const { data: categoryRows } = await supabase
+          .from("categories")
+          .select("id, handle, title")
+          .order("sort_order", { ascending: true });
+
+        return {
+          products: [],
+          totalCount: 0,
+          page,
+          pageSize,
+          totalPages: 0,
+          categories: categoryRows || [],
+        };
+      }
+    } else {
+      const { data: categoryRows } = await supabase
+        .from("categories")
+        .select("id, handle, title")
+        .order("sort_order", { ascending: true });
+
+      return {
+        products: [],
+        totalCount: 0,
+        page,
+        pageSize,
+        totalPages: 0,
+        categories: categoryRows || [],
+      };
+    }
+  }
+
   // Text Search across title, SKU, handle
   if (filter.q && filter.q.trim()) {
     const term = filter.q.trim();

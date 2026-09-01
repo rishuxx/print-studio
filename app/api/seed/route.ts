@@ -1,11 +1,19 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
+import { requireAdminAuth } from "@/lib/supabase/admin-guard";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Seed route disabled in production." }, { status: 403 });
+  }
+
+  try {
+    await requireAdminAuth("/admin");
+  } catch {
+    return NextResponse.json({ error: "Unauthorized. Admin access required." }, { status: 401 });
+  }
+
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("price_books")

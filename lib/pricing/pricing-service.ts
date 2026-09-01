@@ -39,7 +39,7 @@ export const PricingService = {
         saleStartsAt: params.product.sale_starts_at,
         saleEndsAt: params.product.sale_ends_at,
         customizationConfig: params.product.customization_config as any,
-        personalization_config: params.product.personalization_config as any,
+        personalization_config: (params.product as any).personalization_config,
       },
       variant: params.variant
         ? {

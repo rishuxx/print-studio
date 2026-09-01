@@ -1,12 +1,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { ArrowRight, Briefcase, ChevronRight } from "lucide-react";
-import { getProductsInCategory } from "@/lib/data/products";
+import { getStorefrontAllProducts } from "@/lib/catalogue/storefront-queries";
 import { ProductCard } from "@/components/shared/product-card";
 
-export function BusinessPrintingSection() {
-  const cards = getProductsInCategory("visiting-cards").slice(0, 2);
-  const stationery = getProductsInCategory("stationery-stamps").slice(0, 2);
+export async function BusinessPrintingSection() {
+  const allProducts = await getStorefrontAllProducts();
+  const cards = allProducts.filter((p) => p.categoryHandles.includes("visiting-cards")).slice(0, 2);
+  const stationery = allProducts.filter((p) => p.categoryHandles.includes("stationery-stamps") || p.categoryHandles.includes("stationery-office-essentials")).slice(0, 2);
   const businessProducts = [...cards, ...stationery];
 
   return (

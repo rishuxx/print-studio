@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdminAuth } from "@/lib/supabase/admin-guard";
+import { requirePermission } from "@/lib/auth/server-permissions";
 import { SaveBusinessSettingsSchema, type SaveBusinessSettingsInput } from "./validation";
 
 export interface SaveSettingsResult {
@@ -20,7 +21,7 @@ export async function saveBusinessSettingsAction(
 ): Promise<SaveSettingsResult> {
   try {
     // 1. Authorize: Admin role verified on server
-    const { user } = await requireAdminAuth("/admin/settings");
+    const { user, profile } = await requirePermission("settings.view", "/admin/settings");
 
     // 2. Validate with Zod
     const parsed = SaveBusinessSettingsSchema.safeParse(rawInput);

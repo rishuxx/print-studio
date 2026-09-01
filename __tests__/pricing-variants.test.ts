@@ -196,7 +196,7 @@ describe("Pricing Engine & Commerce Control System Test Suite", () => {
   });
 
   describe("2. Server-Side Cart & Checkout Validation", () => {
-    it("enforces minimum order quantity requirements", () => {
+    it("errors if missing required artwork or proof step", async () => {
       const lineBelowMoq = {
         productId: "standard-visiting-cards",
         productHandle: "standard-visiting-cards",
@@ -204,12 +204,12 @@ describe("Pricing Engine & Commerce Control System Test Suite", () => {
         selectedOptions: [],
       };
 
-      const recalc = recalculateAuthoritativeCartTotal([lineBelowMoq as any]);
+      const recalc = await recalculateAuthoritativeCartTotal([lineBelowMoq as any]);
       assert.equal(recalc.valid, false);
       assert.match(recalc.error || "", /Invalid item quantity/);
     });
 
-    it("accepts valid product and calculates authoritative totals", () => {
+    it("accepts valid product and calculates authoritative totals", async () => {
       const lineWithArtwork = {
         productId: "standard-visiting-cards",
         productHandle: "standard-visiting-cards",
@@ -222,7 +222,7 @@ describe("Pricing Engine & Commerce Control System Test Suite", () => {
         },
       };
 
-      const recalc = recalculateAuthoritativeCartTotal([lineWithArtwork as any]);
+      const recalc = await recalculateAuthoritativeCartTotal([lineWithArtwork as any]);
       assert.equal(recalc.valid, true);
       assert.ok(recalc.totalPaise > 0);
       assert.ok(recalc.subtotalPaise > 0);
