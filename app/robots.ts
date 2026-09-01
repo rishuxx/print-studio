@@ -1,7 +1,7 @@
 import { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://printstudio.example.com";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com";
 
   return {
     rules: [
@@ -16,10 +16,12 @@ export default function robots(): MetadataRoute.Robots {
           "/orders",
           "/orders/*",
           "/checkout",
+          "/cart",
           "/payment",
           "/order-confirmed",
           "/api/*",
           "/auth/*",
+          "/track/*",
         ],
       },
     ],

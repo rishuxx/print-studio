@@ -14,14 +14,60 @@ import { FaqSection } from "@/components/home/faq-section";
 import { FinalCta } from "@/components/home/final-cta";
 
 export const metadata: Metadata = {
-  title: `Custom Printing & Personalised Products | ${siteConfig.businessName}`,
+  title: `Custom Online Printing, Business Cards & Gifts | ${siteConfig.businessName}`,
   description:
-    "Explore custom printing, business stationery, apparel, personalised gifts, signage, packaging and more with high-definition digital and offset output.",
+    "PreetyPrints is India's premium custom printing destination. Order visiting cards, corporate merchandising, packaging, personalized t-shirts, mugs, and stationery online.",
+  alternates: {
+    canonical: process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com",
+  },
 };
 
 export default function HomePage() {
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com";
+
+  // Schema.org WebSite & Organization Structured Data
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "PreetyPrints",
+    "url": baseUrl,
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": `${baseUrl}/products?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
+  };
+
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "PreetyPrints",
+    "url": baseUrl,
+    "logo": `${baseUrl}/logo.png`,
+    "description": "High-quality custom online printing, corporate merchandising, apparel, and packaging solutions across India.",
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "telephone": siteConfig.contact.phone,
+      "contactType": "customer service",
+      "areaServed": "IN",
+      "availableLanguage": ["English", "Hindi"],
+    },
+  };
+
   return (
     <div className="flex flex-col gap-12 sm:gap-16 pb-16">
+      {/* Schema.org Organization & WebSite JSON-LD */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
       {/* 1. Hero Section */}
       <HomeHero />
 

@@ -29,30 +29,55 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com"),
   title: {
-    default: `${siteConfig.businessName} — Custom Printing`,
+    default: `${siteConfig.businessName} — Custom Online Printing, Business Cards, Apparel & Packaging`,
     template: `%s · ${siteConfig.businessName}`,
   },
-  description: siteConfig.description,
+  description: "PreetyPrints is India's leading custom online printing platform. High-quality visiting cards, corporate gifts, custom t-shirts, packaging boxes, flyers, and marketing collateral with fast nationwide delivery.",
   keywords: [
-    "custom printing",
-    "visiting cards",
-    "t-shirt printing",
-    "photo gifts",
-    "packaging printing",
-    "bulk printing",
-    "business stationery",
+    "PreetyPrints",
+    "preety prints",
+    "custom online printing India",
+    "visiting cards online",
+    "business card printing",
+    "custom t-shirt printing",
+    "corporate gifts online",
+    "packaging boxes printing",
+    "bulk printing services",
+    "business stationery online",
+    "flyers and brochures printing",
+    "standees and banners",
+    "custom mugs and bottles",
+    "printo alternative",
+    "vistaprint alternative India",
   ],
   authors: [{ name: siteConfig.businessName }],
+  creator: siteConfig.businessName,
+  publisher: siteConfig.businessName,
   openGraph: {
     type: "website",
     locale: "en_IN",
-    title: `${siteConfig.businessName} — ${siteConfig.tagline}`,
-    description: siteConfig.description,
+    title: `${siteConfig.businessName} — High-Quality Custom Online Printing & Branding`,
+    description: "Order premium custom business cards, t-shirts, personalized corporate gifts, packaging, and marketing materials with live price calculation and fast delivery.",
     siteName: siteConfig.businessName,
   },
-  twitter: { card: "summary_large_image" },
-  robots: { index: true, follow: true },
+  twitter: {
+    card: "summary_large_image",
+    title: `${siteConfig.businessName} — Custom Online Printing Platform`,
+    description: "High-quality custom business cards, corporate gifts, apparel & packaging online.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export const viewport: Viewport = {

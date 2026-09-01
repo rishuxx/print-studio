@@ -22,11 +22,36 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { handle } = await params;
   const decodedHandle = decodeURIComponent(handle).toLowerCase().replace(/\s+/g, '-');
   const product = await getStorefrontProduct(decodedHandle);
-  if (!product) return { title: "Product Not Found" };
+  if (!product) return { title: "Product Not Found · PreetyPrints" };
+
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com";
+  const canonicalUrl = `${baseUrl}/product/${product.handle}`;
+  const primaryImage = product.images[0]?.url || `${baseUrl}/og-image.jpg`;
 
   return {
-    title: `${product.title} — Custom Online Printing`,
-    description: product.description || product.subtitle,
+    title: `${product.title} — Custom Printing Online | PreetyPrints`,
+    description: product.description || product.subtitle || `Order custom ${product.title} online with live instant price calculation and express delivery across India.`,
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      title: `${product.title} — Premium Custom Printing | PreetyPrints`,
+      description: product.subtitle || product.description,
+      url: canonicalUrl,
+      images: [
+        {
+          url: primaryImage,
+          alt: product.title,
+        },
+      ],
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${product.title} | PreetyPrints`,
+      description: product.subtitle || product.description,
+      images: [primaryImage],
+    },
   };
 }
 
@@ -36,9 +61,63 @@ export default async function ProductPage({ params }: PageProps) {
   const product = await getStorefrontProduct(decodedHandle);
   if (!product) notFound();
 
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com";
+
   // Find primary category for breadcrumbs & related products
   const primaryCategoryHandle = product.categoryHandles[0] ?? "visiting-cards";
   const category = await getStorefrontCategory(primaryCategoryHandle);
+
+  // Authoritative representative starting price in INR (converted from paise)
+  const startingPriceInr = (product.priceFrom.amount / 100).toFixed(2);
+
+  // Schema.org Product Structured Data (JSON-LD)
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.title,
+    "description": product.description || product.subtitle,
+    "image": product.images.map((img) => img.url),
+    "sku": product.variants[0]?.sku || `PRN-${product.id}`,
+    "brand": {
+      "@type": "Brand",
+      "name": "PreetyPrints",
+    },
+    "offers": {
+      "@type": "Offer",
+      "url": `${baseUrl}/product/${product.handle}`,
+      "priceCurrency": "INR",
+      "price": startingPriceInr,
+      "priceValidUntil": "2027-12-31",
+      "availability": "https://schema.org/InStock",
+      "itemCondition": "https://schema.org/NewCondition",
+    },
+  };
+
+  // Schema.org BreadcrumbList Structured Data (JSON-LD)
+  const breadcrumbsJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": baseUrl,
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": category?.title ?? "Catalogue",
+        "item": `${baseUrl}/category/${primaryCategoryHandle}`,
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": product.title,
+        "item": `${baseUrl}/product/${product.handle}`,
+      },
+    ],
+  };
 
   // Sibling related products
   const allProducts = await getStorefrontAllProducts();
@@ -55,6 +134,15 @@ export default async function ProductPage({ params }: PageProps) {
 
   return (
     <div className="shell py-8 space-y-12">
+      {/* Schema.org Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbsJsonLd) }}
+      />
       {/* 1. Breadcrumbs */}
       <Breadcrumbs
         items={[

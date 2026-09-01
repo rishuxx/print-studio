@@ -19,11 +19,28 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { handle } = await params;
   const category = await getStorefrontCategory(handle);
-  if (!category) return { title: "Category Not Found" };
+  if (!category) return { title: "Category Not Found · PreetyPrints" };
+
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com";
+  const canonicalUrl = `${baseUrl}/category/${category.handle}`;
 
   return {
-    title: `${category.title} — Custom Printing Services`,
-    description: category.blurb || `Order custom ${category.title} printing online.`,
+    title: `${category.title} Printing Online — Custom ${category.title} | PreetyPrints`,
+    description: category.blurb || `Order custom ${category.title} online with live volume discounting and express delivery across India.`,
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      title: `${category.title} Printing Online | PreetyPrints`,
+      description: category.blurb || `Order custom ${category.title} online.`,
+      url: canonicalUrl,
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${category.title} Printing | PreetyPrints`,
+      description: category.blurb,
+    },
   };
 }
 
@@ -32,6 +49,34 @@ export default async function CategoryPage({ params }: PageProps) {
   const category = await getStorefrontCategory(handle);
   if (!category) notFound();
 
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com";
+
+  // Schema.org BreadcrumbList Structured Data (JSON-LD)
+  const breadcrumbsJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": baseUrl,
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Products",
+        "item": `${baseUrl}/products`,
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": category.title,
+        "item": `${baseUrl}/category/${category.handle}`,
+      },
+    ],
+  };
+
   const allProducts = await getStorefrontAllProducts();
   const products = allProducts.filter(
     (p) => p.categoryHandles.includes(handle) || p.categoryHandles.includes(category.handle)
@@ -39,6 +84,11 @@ export default async function CategoryPage({ params }: PageProps) {
 
   return (
     <div className="shell py-8 space-y-8">
+      {/* Schema.org Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbsJsonLd) }}
+      />
       <Breadcrumbs
         items={[
           { label: "Home", href: "/" },

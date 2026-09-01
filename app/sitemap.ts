@@ -3,7 +3,7 @@ import { getStorefrontAllProducts } from "@/lib/catalogue/storefront-queries";
 import { categories } from "@/lib/data/categories";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://printstudio.example.com";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com";
   const now = new Date();
 
   // 1. Static storefront pages
