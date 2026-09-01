@@ -266,10 +266,168 @@ export async function fetchAdminCustomers(
 }
 
 /**
- * Fetches single customer 360-degree profile directly from live Supabase tables (profiles, orders, addresses).
+ * Fetches single customer 360-degree profile directly from live Supabase tables (profiles, orders, addresses)
+ * using direct, indexed single-customer queries instead of scanning the full table.
  */
 export async function fetchCustomerById(customerId: string): Promise<DatabaseCustomer | null> {
-  const listRes = await fetchAdminCustomers();
-  const match = listRes.customers.find((c) => c.id === customerId);
-  return match || null;
+  const supabase = await createClient();
+
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", customerId)
+    .maybeSingle();
+
+  if (error || !profile) return null;
+
+  const [{ data: orders }, { data: addresses }] = await Promise.all([
+    supabase
+      .from("orders")
+      .select("id, order_number, user_id, status, payment_status, total, created_at")
+      .eq("user_id", customerId)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("addresses")
+      .select("*")
+      .eq("user_id", customerId),
+  ]);
+
+  const userOrders = orders || [];
+  const userAddresses = addresses || [];
+
+  const paidOrders = userOrders.filter(
+    (o) => o.payment_status === "paid" || o.payment_status === "authorized" || o.status === "delivered" || o.status === "in_production"
+  );
+  const totalPaidRupees = paidOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+  const lifetimeValueMinor = Math.round(totalPaidRupees * 100);
+
+  const completedCount = userOrders.filter((o) => o.status === "delivered").length;
+  const cancelledCount = userOrders.filter((o) => o.status === "cancelled").length;
+  const orderCount = userOrders.length;
+  const aovMinor = orderCount > 0 ? Math.round(lifetimeValueMinor / orderCount) : 0;
+
+  const firstOrderAt = userOrders.length > 0 ? userOrders[userOrders.length - 1].created_at : null;
+  const lastOrderAt = userOrders.length > 0 ? userOrders[0].created_at : null;
+
+  const isB2B = Boolean(profile.company_name && profile.company_name.trim().length > 0);
+  const failedPayments = userOrders.filter((o) => o.payment_status === "failed").length;
+  const accountAgeDays = Math.max(1, Math.round((Date.now() - new Date(profile.created_at).getTime()) / (1000 * 60 * 60 * 24)));
+
+  const riskEval = evaluateCustomerRisk({
+    orderCompletionRate: orderCount > 0 ? completedCount / orderCount : 0,
+    cancellationRate: orderCount > 0 ? cancelledCount / orderCount : 0,
+    failedPaymentCount: failedPayments,
+    totalOrders: orderCount,
+    completedOrders: completedCount,
+    lifetimeValueRupees: Math.round(lifetimeValueMinor / 100),
+    hasB2BProfile: isB2B,
+    hasGstin: Boolean(profile.company_name),
+    isEmailVerified: Boolean(profile.email),
+    isPhoneVerified: Boolean(profile.phone),
+    accountAgeDays,
+    daysSinceLastActive: 0,
+    hasMultipleAddresses: userAddresses.length > 1,
+  });
+
+  return {
+    id: profile.id,
+    auth_user_id: profile.id,
+    customer_number: `CUS-${profile.id.slice(0, 8).toUpperCase()}`,
+    customer_type: isB2B ? "business" : "individual",
+    account_status: "active",
+    first_name: profile.full_name?.split(" ")[0] || profile.full_name || "Customer",
+    last_name: profile.full_name?.split(" ").slice(1).join(" ") || "",
+    display_name: profile.full_name || profile.email || "Customer",
+    email: profile.email || "",
+    normalized_email: normalizeEmail(profile.email || ""),
+    phone: profile.phone,
+    normalized_phone: normalizePhone(profile.phone),
+    company_name: profile.company_name,
+    gstin: null,
+    tax_profile: { taxExempt: false, gstinVerified: isB2B },
+    email_verified_at: profile.created_at,
+    phone_verified_at: profile.phone ? profile.created_at : null,
+    last_login_at: profile.updated_at,
+    first_order_at: firstOrderAt,
+    last_order_at: lastOrderAt,
+    order_count: orderCount,
+    completed_order_count: completedCount,
+    cancelled_order_count: cancelledCount,
+    lifetime_value_minor: lifetimeValueMinor,
+    paid_value_minor: lifetimeValueMinor,
+    refunded_value_minor: 0,
+    average_order_value_minor: aovMinor,
+    currency: "INR",
+    marketing_status: "subscribed",
+    risk_status: riskEval.status,
+    customer_score: riskEval.score,
+    notes_count: 0,
+    version: 1,
+    created_at: profile.created_at,
+    updated_at: profile.updated_at,
+    addresses: userAddresses.map((a) => ({
+      id: a.id,
+      customer_id: profile.id,
+      address_type: "both",
+      recipient_name: a.full_name,
+      company_name: profile.company_name,
+      address_line_1: a.line1,
+      address_line_2: a.line2,
+      landmark: a.landmark,
+      city: a.city,
+      state: a.state,
+      postal_code: a.pincode,
+      country_code: "IN",
+      phone: a.phone,
+      is_default_shipping: a.is_default,
+      is_default_billing: a.is_default,
+      is_verified: true,
+      version: 1,
+      created_at: a.created_at,
+      updated_at: a.updated_at,
+    })),
+    business_profile: isB2B
+      ? {
+          customer_id: profile.id,
+          legal_name: profile.company_name || profile.full_name,
+          trade_name: profile.company_name,
+          gstin: null,
+          business_type: "Private Limited",
+          industry: "Commercial Printing",
+          billing_email: profile.email,
+          billing_phone: profile.phone,
+          credit_terms: "prepaid",
+          credit_limit_minor: 500000,
+          outstanding_balance_minor: 0,
+          purchase_order_required: false,
+          approval_status: "approved",
+          version: 1,
+          created_at: profile.created_at,
+          updated_at: profile.updated_at,
+        }
+      : null,
+    notes: [],
+    activity_events: [
+      {
+        id: `act-${profile.id}-created`,
+        customer_id: profile.id,
+        event_type: "account_created",
+        event_source: "storefront_auth",
+        actor_type: "customer",
+        actor_id: profile.id,
+        summary: `Account registered on Print Studio platform (${profile.email})`,
+        created_at: profile.created_at,
+      },
+      ...userOrders.map((o) => ({
+        id: `act-order-${o.id}`,
+        customer_id: profile.id,
+        event_type: "order_created",
+        event_source: "checkout",
+        actor_type: "customer" as const,
+        actor_id: profile.id,
+        summary: `Placed print order #${o.order_number} for ₹${o.total} (${o.status})`,
+        created_at: o.created_at,
+      })),
+    ],
+  };
 }
