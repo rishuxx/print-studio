@@ -11,6 +11,7 @@ import { EmailProviderAdapter } from "./providers/email-provider";
 import { WhatsAppProviderAdapter } from "./providers/whatsapp-provider";
 import { PushProviderAdapter } from "./providers/push-provider";
 import { InAppProviderAdapter } from "./providers/in-app-provider";
+import { getSiteUrl } from "@/lib/site-url";
 
 export class NotificationService {
   private static emailProvider = new EmailProviderAdapter();
@@ -102,7 +103,7 @@ export class NotificationService {
         businessName: siteConfig.businessName,
         supportEmail: siteConfig.contact.email,
         supportPhone: siteConfig.contact.phone,
-        siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com",
+        siteUrl: getSiteUrl(),
       };
 
       // 3. Dispatch Channel: EMAIL

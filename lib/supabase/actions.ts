@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import type { Database } from "@/lib/supabase/database.types";
 import { logSecurityEvent } from "@/lib/auth/audit-logger";
+import { getSiteUrl, getAbsoluteUrl } from "@/lib/site-url";
 
 export type AuthActionResult = {
   success: boolean;
@@ -22,18 +23,9 @@ export type AuthActionResult = {
 export async function signInWithGoogle(redirectTo?: string | null): Promise<AuthActionResult> {
   const supabase = await createClient();
   const headerList = await headers();
-  const host = headerList.get("x-forwarded-host") || headerList.get("host") || "";
-  const proto = headerList.get("x-forwarded-proto") || "http";
+  const callbackBase = getAbsoluteUrl("/auth/callback", { headers: headerList });
+  const callbackUrl = new URL(callbackBase);
 
-  let origin = process.env.NEXT_PUBLIC_SITE_URL || `${proto}://${host}`;
-  if (origin.includes("0.0.0.0")) {
-    origin = origin.replace("0.0.0.0", "localhost");
-  }
-  if (!origin || origin.startsWith("://")) {
-    origin = "http://localhost:3000";
-  }
-
-  const callbackUrl = new URL("/auth/callback", origin);
   if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
     callbackUrl.searchParams.set("next", redirectTo);
   }
@@ -72,13 +64,14 @@ export async function registerCustomer(formData: {
   companyName?: string;
 }): Promise<AuthActionResult> {
   const supabase = await createClient();
-  const origin = (await headers()).get("origin") || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const headerList = await headers();
+  const callbackUrl = getAbsoluteUrl("/auth/callback", { headers: headerList });
 
   const { data, error } = await supabase.auth.signUp({
     email: formData.email.trim(),
     password: formData.password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback`,
+      emailRedirectTo: callbackUrl,
       data: {
         full_name: formData.fullName.trim(),
         phone: formData.phone?.trim() || null,
@@ -238,10 +231,11 @@ export async function logoutCustomer() {
  */
 export async function forgotPassword(email: string): Promise<AuthActionResult> {
   const supabase = await createClient();
-  const origin = (await headers()).get("origin") || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const headerList = await headers();
+  const resetUrl = getAbsoluteUrl("/reset-password", { headers: headerList });
 
   const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-    redirectTo: `${origin}/reset-password`,
+    redirectTo: resetUrl,
   });
 
   if (error) {
@@ -733,8 +727,8 @@ export async function updateOrderStatus(
             orderNumber: orderRef,
             orderId: targetUuid,
             orderTotal,
-            artworkReviewUrl: `${process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com"}/orders/${targetUuid}#proof`,
-            orderTrackingUrl: `${process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com"}/orders/${targetUuid}`,
+            artworkReviewUrl: getAbsoluteUrl(`/orders/${targetUuid}#proof`),
+            orderTrackingUrl: getAbsoluteUrl(`/orders/${targetUuid}`),
           },
           customIdempotencyKey: `ord_status_${targetUuid}_${targetStatus}_${Date.now()}`,
           isTest: true,

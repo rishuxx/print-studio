@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { getAbsoluteUrl } from "./site-url";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -99,8 +100,5 @@ export function discountPct(mrpPaise: number, pricePaise: number) {
 }
 
 export function absoluteUrl(path: string) {
-  const base =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ??
-    "http://localhost:3000";
-  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+  return getAbsoluteUrl(path);
 }

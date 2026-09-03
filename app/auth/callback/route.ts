@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveUserRole } from "@/lib/auth/resolve-user-role";
 import { logSecurityEvent } from "@/lib/auth/audit-logger";
 import { NextResponse, type NextRequest } from "next/server";
+import { getSiteUrl } from "@/lib/site-url";
 
 /**
  * Route handler for Supabase Auth OAuth (Google) and email verification callbacks.
@@ -12,17 +13,7 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const next = searchParams.get("next");
 
-  // Determine a safe origin (avoid 0.0.0.0 which causes browser ERR_ADDRESS_INVALID)
-  const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "";
-  const proto = request.headers.get("x-forwarded-proto") || "http";
-  
-  let origin = process.env.NEXT_PUBLIC_SITE_URL || `${proto}://${host}`;
-  if (origin.includes("0.0.0.0")) {
-    origin = origin.replace("0.0.0.0", "localhost");
-  }
-  if (!origin || origin.startsWith("://")) {
-    origin = "http://localhost:3000";
-  }
+  const origin = getSiteUrl({ headers: request.headers });
 
   if (code) {
     const supabase = await createClient();

@@ -1,9 +1,10 @@
 import { MetadataRoute } from "next";
 import { getStorefrontAllProducts } from "@/lib/catalogue/storefront-queries";
 import { categories } from "@/lib/data/categories";
+import { getSiteUrl } from "@/lib/site-url";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com";
+  const baseUrl = getSiteUrl();
   const now = new Date();
 
   // 1. Static storefront pages
