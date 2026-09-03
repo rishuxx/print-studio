@@ -7,6 +7,7 @@ import { logoutCustomer } from "@/lib/supabase/actions";
 import { useOrderStore } from "@/lib/order-store";
 import { User, LogIn, LogOut, Package, UserCheck, ChevronDown } from "lucide-react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 export function HeaderAuthButton() {
   const [user, setUser] = React.useState<SupabaseUser | null>(null);
@@ -81,18 +82,20 @@ export function HeaderAuthButton() {
   const displayName = (user.user_metadata?.full_name as string) || user.email?.split("@")[0] || "Account";
 
   return (
-    <div className="relative hidden sm:block" ref={menuRef}>
-      <button
-        type="button"
-        onClick={() => setMenuOpen(!menuOpen)}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-paper px-3 py-2 text-xs font-bold text-ink hover:border-violet transition-all"
-      >
-        <UserCheck className="size-3.5 text-violet" />
-        <span className="max-w-24 truncate">{displayName}</span>
-        <ChevronDown className="size-3 text-muted-foreground" />
-      </button>
+    <div className="flex items-center gap-2 sm:gap-3">
+      <NotificationBell />
+      <div className="relative hidden sm:block" ref={menuRef}>
+        <button
+          type="button"
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-paper px-3 py-2 text-xs font-bold text-ink hover:border-violet transition-all h-10"
+        >
+          <UserCheck className="size-3.5 text-violet" />
+          <span className="max-w-24 truncate">{displayName}</span>
+          <ChevronDown className="size-3 text-muted-foreground" />
+        </button>
 
-      {menuOpen && (
+        {menuOpen && (
         <div className="absolute right-0 mt-2 w-48 rounded-2xl border border-border bg-white p-2 shadow-lift z-50 text-xs space-y-1 animate-in fade-in zoom-in-95 duration-150">
           <div className="px-3 py-2 border-b border-border/60">
             <div className="font-bold text-ink truncate">{displayName}</div>
@@ -160,6 +163,7 @@ export function HeaderAuthButton() {
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 }

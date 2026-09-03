@@ -10,11 +10,13 @@ import { renderNotificationTemplate } from "./templates";
 import { EmailProviderAdapter } from "./providers/email-provider";
 import { WhatsAppProviderAdapter } from "./providers/whatsapp-provider";
 import { PushProviderAdapter } from "./providers/push-provider";
+import { InAppProviderAdapter } from "./providers/in-app-provider";
 
 export class NotificationService {
   private static emailProvider = new EmailProviderAdapter();
   private static whatsAppProvider = new WhatsAppProviderAdapter();
   private static pushProvider = new PushProviderAdapter();
+  private static inAppProvider = new InAppProviderAdapter();
 
   /**
    * Authoritative server-side entry point to trigger notification events.
@@ -131,7 +133,21 @@ export class NotificationService {
         results.push(waRes);
       }
 
-      const dispatchedCount = results.filter((r) => r.status === "SENT" || r.status === "NOT_CONFIGURED").length;
+      // 5. Dispatch Channel: IN_APP (Always if we have a userId)
+      if (effectiveUserId) {
+        const inAppRes = await this.sendChannelNotification({
+          channel: "IN_APP",
+          recipient: effectiveUserId, // Recipient is user_id for in_app
+          eventType: params.eventType,
+          orderId: params.orderId || order?.id || null,
+          userId: effectiveUserId,
+          context: templateContext,
+          customIdempotencyKey: params.idempotencyKey,
+        });
+        results.push(inAppRes);
+      }
+
+      const dispatchedCount = results.filter((r) => r.status === "SENT" || r.status === "NOT_CONFIGURED" || r.status === "DELIVERED").length;
       return {
         success: true,
         dispatchedCount,
@@ -206,6 +222,12 @@ export class NotificationService {
           subject: rendered.subject || null,
           context_summary: params.context.orderNumber || null,
         },
+        title: rendered.subject, // Store rendered subject as title for IN_APP
+        body: rendered.bodyText, // Store rendered text as body for IN_APP
+        category: "order", // Currently grouping most as order.
+        priority: "normal",
+        resource_type: params.orderId ? "order" : null,
+        resource_id: params.orderId || null,
       })
       .select("id")
       .maybeSingle();
@@ -223,6 +245,8 @@ export class NotificationService {
         ? this.emailProvider
         : params.channel === "WHATSAPP"
         ? this.whatsAppProvider
+        : params.channel === "IN_APP"
+        ? this.inAppProvider
         : this.pushProvider;
 
     let attempt = 0;

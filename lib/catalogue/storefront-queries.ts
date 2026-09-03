@@ -305,6 +305,46 @@ export async function getStorefrontCategory(handle: string) {
 }
 
 /**
+ * Fetch a limited number of related products directly from the DB without downloading the full catalogue.
+ */
+export async function getStorefrontRelatedProducts(
+  primaryCategoryHandle: string,
+  excludeHandle: string,
+  limit: number = 4
+): Promise<Product[]> {
+  try {
+    const supabase = getPublicClient();
+
+    const { data } = await supabase
+      .from("products")
+      .select(
+        `
+        id, handle, title, subtitle, product_type, unit, min_order_qty, 
+        turnaround_days, same_day_eligible, base_price_minor, 
+        compare_at_price_minor, badges, category_handles,
+        media:product_media(url)
+      `
+      )
+      .eq("status", "active")
+      .eq("visibility", "public")
+      .contains("category_handles", [primaryCategoryHandle])
+      .neq("handle", excludeHandle)
+      .limit(limit);
+
+    if (!data) return [];
+
+    return data.map((p: any) => mapDatabaseProductToStorefront({
+      ...p,
+      categories: p.category_handles ? p.category_handles.map((h: string) => ({ handle: h })) : [],
+      variants: [],
+    }));
+  } catch (e) {
+    console.error("Failed to fetch related products:", e);
+    return [];
+  }
+}
+
+/**
  * Fetch all products for storefront catalog
  */
 export async function getStorefrontAllProducts(): Promise<Product[]> {
@@ -367,6 +407,42 @@ export async function getStorefrontAllProducts(): Promise<Product[]> {
   }
 
   return getStaticAllProducts();
+}
+
+import { fetchPublicCatalogue } from "./queries";
+import type { PublicCatalogueFilter } from "./types";
+
+/**
+ * Fetch filtered catalogue and map to storefront products
+ */
+export async function getStorefrontCatalogue(filter: PublicCatalogueFilter) {
+  try {
+    const { products, totalCount, page, pageSize, totalPages, categories } = await fetchPublicCatalogue(filter);
+    
+    const mappedProducts = products.map((p: any) => {
+       const mapped = mapDatabaseProductToStorefront(p);
+       return mapped;
+    });
+
+    return {
+      products: mappedProducts,
+      totalCount,
+      page,
+      pageSize,
+      totalPages,
+      categories
+    };
+  } catch (err) {
+    console.error("Failed to fetch storefront catalogue:", err);
+    return {
+      products: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: 48,
+      totalPages: 0,
+      categories: []
+    };
+  }
 }
 
 /**

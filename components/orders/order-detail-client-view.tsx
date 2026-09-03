@@ -28,6 +28,11 @@ type DbOrder = Database["public"]["Tables"]["orders"]["Row"] & {
   order_events?: Database["public"]["Tables"]["order_events"]["Row"][];
 };
 
+import type { ArtworkAssetRecord } from "@/lib/artwork/types";
+import type { ResolutionRequestRecord } from "@/lib/resolutions/types";
+import { OrderArtworkCard } from "./order-artwork-card";
+import { OrderResolutionCard } from "@/components/resolutions/order-resolution-card";
+
 interface OrderDetailClientViewProps {
   orderId: string;
   initialTab: "tracking" | "invoice";
@@ -35,6 +40,8 @@ interface OrderDetailClientViewProps {
   shipments?: ShippingShipment[];
   cancellation?: Record<string, unknown> | null;
   refunds?: Array<Record<string, unknown>>;
+  artworkAssets?: ArtworkAssetRecord[];
+  resolution?: ResolutionRequestRecord | null;
 }
 
 export function OrderDetailClientView({
@@ -44,6 +51,8 @@ export function OrderDetailClientView({
   shipments = [],
   cancellation,
   refunds = [],
+  artworkAssets = [],
+  resolution = null,
 }: OrderDetailClientViewProps) {
   const router = useRouter();
   const isHydrated = useSyncExternalStoreHydration();
@@ -255,10 +264,29 @@ export function OrderDetailClientView({
       {/* TAB 1: TRACKING */}
       {activeTab === "tracking" && (
         <div className="space-y-6 no-print">
+          {/* Artwork & Digital Proof Review Section */}
+          <OrderArtworkCard
+            orderId={dbOrder.id}
+            orderNumber={dbOrder.order_number}
+            assets={artworkAssets}
+            items={items}
+            onRefresh={() => router.refresh()}
+          />
+
           {/* Live Carrier Shipments & Waybills */}
           {shipments && shipments.length > 0 && (
             <CustomerShipmentCard shipments={shipments} />
           )}
+
+          {/* Returns, Replacements & Post-Delivery Resolutions Section */}
+          <OrderResolutionCard
+            orderId={dbOrder.id}
+            orderNumber={dbOrder.order_number}
+            orderStatus={dbOrder.status}
+            items={items}
+            existingResolution={resolution}
+            onRefresh={() => router.refresh()}
+          />
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
             <div className="lg:col-span-7 space-y-6">

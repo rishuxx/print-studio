@@ -1,7 +1,7 @@
 import * as React from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getStorefrontProduct, getStorefrontCategory, getStorefrontAllProducts, getStorefrontReviews } from "@/lib/catalogue/storefront-queries";
+import { getStorefrontProduct, getStorefrontCategory, getStorefrontRelatedProducts, getStorefrontReviews } from "@/lib/catalogue/storefront-queries";
 import { getAllProducts } from "@/lib/data/products";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { CatalogBadge } from "@/components/ui/badge";
@@ -120,14 +120,7 @@ export default async function ProductPage({ params }: PageProps) {
   };
 
   // Sibling related products
-  const allProducts = await getStorefrontAllProducts();
-  let relatedProducts = allProducts.filter((p) => product.relatedHandles.includes(p.handle));
-
-  if (relatedProducts.length === 0) {
-    relatedProducts = allProducts
-      .filter((p) => p.categoryHandles.includes(primaryCategoryHandle) && p.handle !== product.handle)
-      .slice(0, 4);
-  }
+  let relatedProducts = await getStorefrontRelatedProducts(primaryCategoryHandle, product.handle, 4);
 
   // Reviews
   const reviews = await getStorefrontReviews(product.id);

@@ -33,14 +33,26 @@ type DbOrderFull = Database["public"]["Tables"]["orders"]["Row"] & {
   order_events?: Database["public"]["Tables"]["order_events"]["Row"][];
 };
 
+import type { ArtworkAssetRecord } from "@/lib/artwork/types";
+import type { ProductionJobRecord } from "@/lib/production/types";
+import type { ResolutionRequestRecord } from "@/lib/resolutions/types";
+import { AdminArtworkReviewCard } from "./admin-artwork-review-card";
+import { AdminProductionJobsSection } from "@/components/production/admin-production-jobs-section";
+
 interface AdminOrderDetailClientViewProps {
   dbOrder: DbOrderFull;
   existingShipments?: ShippingShipment[];
+  artworkAssets?: ArtworkAssetRecord[];
+  productionJobs?: ProductionJobRecord[];
+  resolution?: ResolutionRequestRecord | null;
 }
 
 export function AdminOrderDetailClientView({
   dbOrder,
   existingShipments = [],
+  artworkAssets = [],
+  productionJobs = [],
+  resolution = null,
 }: AdminOrderDetailClientViewProps) {
   const router = useRouter();
   const [isTransitioning, setIsTransitioning] = React.useState(false);
@@ -325,6 +337,45 @@ export function AdminOrderDetailClientView({
             </div>
           </div>
 
+          {/* Pre-Press Quality Control & Digital Proofing Card */}
+          <AdminArtworkReviewCard
+            orderId={dbOrder.id}
+            assets={artworkAssets}
+            onRefresh={() => router.refresh()}
+          />
+
+          {/* Manufacturing Jobs & Production Work Orders */}
+          <AdminProductionJobsSection
+            orderId={dbOrder.id}
+            orderNumber={dbOrder.order_number}
+            orderStatus={dbOrder.status}
+            jobs={productionJobs}
+            onRefresh={() => router.refresh()}
+          />
+
+          {/* Returns & Post-Delivery Resolution Ticket Banner */}
+          {resolution && (
+            <div className="rounded-2xl border border-violet/30 bg-violet/5 p-6 shadow-sm space-y-3">
+              <div className="flex items-center justify-between border-b border-violet/20 pb-3">
+                <div className="flex items-center gap-2">
+                  <RotateCcw className="size-4 text-violet" />
+                  <h2 className="font-bold text-sm text-ink uppercase font-mono tracking-wider">
+                    Active Resolution Ticket #{resolution.requestNumber}
+                  </h2>
+                </div>
+                <Link
+                  href={`/admin/resolutions/${resolution.id}`}
+                  className="rounded-lg bg-violet px-3 py-1 text-xs font-bold text-white hover:bg-violet/90 transition-colors"
+                >
+                  Open Decision Center →
+                </Link>
+              </div>
+              <p className="text-xs text-ink leading-relaxed">
+                <strong>Reported Issue ({resolution.type.toUpperCase()}):</strong> {resolution.customerDescription}
+              </p>
+            </div>
+          )}
+
           {/* Ordered Line Items */}
           <div className="rounded-2xl border border-border bg-white p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-3">
@@ -337,7 +388,16 @@ export function AdminOrderDetailClientView({
 
             <div className="divide-y divide-border/60">
               {items.map((line) => {
-                const opts = (line.selected_options as Array<{ name: string; value: string }>) || [];
+                // Handle both legacy array and enriched configuration snapshot objects
+                const rawOpts = line.selected_options as any;
+                const optsList: Array<{ name: string; value: string }> = Array.isArray(rawOpts)
+                  ? rawOpts
+                  : Array.isArray(rawOpts?.options)
+                    ? rawOpts.options
+                    : [];
+                const configSnapshot = rawOpts?.configurationSnapshot || null;
+                const prodSpec = configSnapshot?.productionSpecification || null;
+
                 const artwork = (line.artwork_summary as {
                   summary?: string;
                   storagePath?: string;
@@ -347,9 +407,16 @@ export function AdminOrderDetailClientView({
                 }) || null;
 
                 return (
-                  <div key={line.id} className="py-4 space-y-2 text-xs">
+                  <div key={line.id} className="py-4 space-y-2.5 text-xs">
                     <div className="flex items-center justify-between">
-                      <div className="font-bold text-ink text-sm">{line.product_title}</div>
+                      <div className="font-bold text-ink text-sm flex items-center gap-2">
+                        <span>{line.product_title}</span>
+                        {configSnapshot?.configHash && (
+                          <span className="font-mono text-[0.625rem] bg-violet-wash text-violet-deep px-2 py-0.5 rounded border border-violet/20">
+                            {configSnapshot.configHash}
+                          </span>
+                        )}
+                      </div>
                       <div className="font-mono font-bold text-ink">₹{line.line_price}</div>
                     </div>
 
@@ -358,13 +425,48 @@ export function AdminOrderDetailClientView({
                       {line.sku && ` · SKU: ${line.sku}`}
                     </div>
 
-                    {opts.length > 0 && (
+                    {optsList.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 pt-1">
-                        {opts.map((opt, oIdx) => (
+                        {optsList.map((opt, oIdx) => (
                           <span key={oIdx} className="rounded bg-paper border border-border px-2 py-0.5 text-[0.6875rem] text-ink">
                             {opt.name}: <strong>{opt.value}</strong>
                           </span>
                         ))}
+                      </div>
+                    )}
+
+                    {/* Production Print Job Specification Ticket */}
+                    {prodSpec && (
+                      <div className="rounded-xl border border-border/80 bg-paper/60 p-3 space-y-1.5 font-mono text-[0.6875rem]">
+                        <div className="font-bold text-ink uppercase tracking-wider text-[0.625rem] flex items-center justify-between">
+                          <span>Job Ticket Specifications</span>
+                          <span className="text-muted-foreground">Turnaround: {prodSpec.turnaroundDays}d {prodSpec.sameDayReady ? "· Express" : ""}</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-muted-foreground pt-1">
+                          {prodSpec.substrate && (
+                            <div>Substrate: <span className="font-semibold text-ink">{prodSpec.substrate}</span></div>
+                          )}
+                          {prodSpec.gsm && (
+                            <div>GSM: <span className="font-semibold text-ink">{prodSpec.gsm}</span></div>
+                          )}
+                          {prodSpec.finish && (
+                            <div>Finish: <span className="font-semibold text-ink">{prodSpec.finish}</span></div>
+                          )}
+                          {prodSpec.corners && (
+                            <div>Corners: <span className="font-semibold text-ink">{prodSpec.corners}</span></div>
+                          )}
+                          {prodSpec.sides && (
+                            <div>Sides: <span className="font-semibold text-ink">{prodSpec.sides}</span></div>
+                          )}
+                          {prodSpec.dimensions?.formatted && (
+                            <div>Dimensions: <span className="font-semibold text-ink">{prodSpec.dimensions.formatted}</span></div>
+                          )}
+                        </div>
+                        {prodSpec.specialInstructions && (
+                          <div className="pt-1 text-ink border-t border-border/40 mt-1">
+                            <span className="text-muted-foreground">Instructions:</span> {prodSpec.specialInstructions}
+                          </div>
+                        )}
                       </div>
                     )}
 

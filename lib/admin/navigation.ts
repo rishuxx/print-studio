@@ -13,6 +13,7 @@ import {
   Truck,
   Bell,
   MessageSquare,
+  RotateCcw,
   LucideIcon,
 } from "lucide-react";
 import type { Permission } from "@/lib/auth/permissions";
@@ -91,16 +92,21 @@ export const ADMIN_NAVIGATION: AdminNavSection[] = [
         icon: Truck,
         requiredPermission: "settings.view", // assuming settings.view for shipping
       },
+      {
+        title: "Returns & Resolutions",
+        href: "/admin/resolutions",
+        icon: RotateCcw,
+        requiredPermission: "orders.view",
+      },
     ],
   },
   {
     title: "Manufacturing & Content",
     items: [
       {
-        title: "Artwork & Production",
+        title: "Production & Press Queue",
         href: "/admin/production",
         icon: Printer,
-        badge: "Phase 10H",
         requiredPermission: "orders.view",
       },
       {

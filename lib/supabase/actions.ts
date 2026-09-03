@@ -598,6 +598,18 @@ export async function updateOrderStatus(
     return { success: false, error: "Unauthorized. Admin or Owner privileges required." };
   }
 
+  // 2.5 Hard Production Guard Check: If moving to in_production, verify all artwork assets are approved
+  if (targetStatus === "in_production") {
+    const { verifyOrderProductionLock } = await import("@/lib/artwork/production-guard");
+    const lockCheck = await verifyOrderProductionLock(targetUuid);
+    if (!lockCheck.canProceedToProduction) {
+      return {
+        success: false,
+        error: lockCheck.message,
+      };
+    }
+  }
+
   // 3. Update Order Status and auto-mark payment_status = captured if confirming paid order
   const updatePayload: Record<string, unknown> = {
     status: targetStatus,
@@ -615,6 +627,16 @@ export async function updateOrderStatus(
 
   if (updateErr) {
     return { success: false, error: updateErr.message || "Failed to update order status in PostgreSQL." };
+  }
+
+  // 3.5 Auto-initialize production jobs for each item when moving into in_production
+  if (targetStatus === "in_production") {
+    try {
+      const { spawnProductionJobsForOrder } = await import("@/lib/production/job-service");
+      await spawnProductionJobsForOrder(targetUuid, user.id);
+    } catch (jobErr) {
+      console.error("[Production Job Spawn Error]:", jobErr);
+    }
   }
 
   // 4. Record authoritative timeline audit event

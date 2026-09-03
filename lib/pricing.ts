@@ -324,18 +324,20 @@ export function cartIsSameDayEligible(lines: CartLine[]): boolean {
   return lines.length > 0 && lines.every((l) => l.sameDayEligible);
 }
 
-/** Stable line id: identical product + variant + tier + design collapses. */
+/** Stable line id: identical product + variant + tier + configuration + design collapses. */
 export function makeLineId(input: {
   productId: string;
   variantId: string;
   tierQty: number | null;
   designHash?: string | null;
   addOnIds: string[];
+  configHash?: string | null;
 }): string {
   return [
     input.productId,
     input.variantId,
     input.tierQty ?? "u",
+    input.configHash ?? "nc",
     input.designHash ?? "nd",
     input.addOnIds.slice().sort().join("+") || "na",
   ].join("::");

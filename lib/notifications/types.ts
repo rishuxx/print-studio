@@ -3,14 +3,16 @@
  * Project: PreetyPrints (Phase 11F)
  */
 
-export type NotificationChannel = "EMAIL" | "WHATSAPP" | "PUSH";
+export type NotificationChannel = "EMAIL" | "WHATSAPP" | "PUSH" | "IN_APP";
 
 export type NotificationStatus =
   | "PENDING"
   | "SENT"
   | "FAILED_RETRYABLE"
+  | "NOT_CONFIGURED"
   | "FAILED_PERMANENT"
-  | "NOT_CONFIGURED";
+  | "DELIVERED"
+  | "READ";
 
 export type NotificationEventType =
   | "ORDER_PLACED"
@@ -64,9 +66,17 @@ export interface NotificationRecord {
   error_message?: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
-  sent_at?: string | null;
-  delivered_at?: string | null;
-  failed_at?: string | null;
+  sent_at: string | null;
+  delivered_at: string | null;
+  failed_at: string | null;
+  read_at?: string | null;
+  title?: string | null;
+  body?: string | null;
+  category?: string | null;
+  priority?: "low" | "normal" | "high" | "urgent" | null;
+  resource_type?: string | null;
+  resource_id?: string | null;
+  is_archived?: boolean;
 }
 
 export interface CustomerNotificationPreferences {

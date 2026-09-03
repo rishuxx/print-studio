@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Search,
   ShoppingBag,
@@ -28,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { useStoreSettings } from "@/lib/settings/settings-context";
 
 export function SiteHeader() {
+  const router = useRouter();
   const settings = useStoreSettings();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [activeMegaCategory, setActiveMegaCategory] = React.useState<string | null>(null);
@@ -162,9 +164,29 @@ export function SiteHeader() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setSearchFocused(true)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && searchQuery.trim()) {
+                  e.preventDefault();
+                  router.push(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
+                  setSearchFocused(false);
+                }
+              }}
               placeholder="Search visiting cards, t-shirts, mugs, stamps, packaging..."
               className="h-11 w-full rounded-xl border border-border bg-paper/60 pl-10 pr-4 text-sm text-ink placeholder:text-muted-foreground focus:border-violet focus:bg-white focus:outline-none transition-all"
             />
+            {/* View all results button */}
+            {searchFocused && searchQuery.trim().length > 1 && (
+              <button 
+                type="button"
+                onClick={() => {
+                  router.push(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
+                  setSearchFocused(false);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded bg-violet px-2 py-1 text-[10px] font-bold text-white uppercase tracking-wider hover:bg-violet-600 transition-colors"
+              >
+                Go
+              </button>
+            )}
           </div>
 
           {/* Search Dropdown Modal */}

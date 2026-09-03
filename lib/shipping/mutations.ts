@@ -52,6 +52,16 @@ export async function createOrderShipmentAction(
       };
     }
 
+    // Phase 12G Hard Shipping Gate: Ensure all manufacturing jobs are complete and passed QC
+    const { verifyOrderShippingGate } = await import("@/lib/production/shipping-gate");
+    const shippingGate = await verifyOrderShippingGate(order.id);
+    if (!shippingGate.canProceedToShipping) {
+      return {
+        success: false,
+        error: shippingGate.error || "Order cannot be dispatched: Production jobs are still in progress.",
+      };
+    }
+
     // 2. Fetch carrier record (with automatic self-healing fallback)
     const { data: existingCarrier } = await supabase
       .from("shipping_carriers")
@@ -205,11 +215,18 @@ export async function createOrderShipmentAction(
       is_customer_visible: true,
     });
 
-    // 7. Update parent order status to in_production/shipped
+    // 7. Update parent order status to shipped and append timeline event
     await supabase
       .from("orders")
-      .update({ status: "in_production", updated_at: new Date().toISOString() })
+      .update({ status: "shipped", updated_at: new Date().toISOString() })
       .eq("id", order.id);
+
+    await supabase.from("order_events").insert({
+      order_id: order.id,
+      status: "shipped",
+      title: "Handed over to Logistics Partner",
+      description: `Consignment manifested with ${carrier.name} (AWB #${carrierRes.awbNumber}). Dispatched for delivery.`,
+    });
 
     // 8. Authoritative Notification Dispatch
     const { NotificationService } = await import("@/lib/notifications/notification-service");
@@ -300,6 +317,22 @@ export async function refreshShipmentTrackingAction(
         updated_at: new Date().toISOString(),
       })
       .eq("id", shipment.id);
+
+    // Synchronize parent order status when terminal / doorstep milestones are reached
+    if (trackingRes.canonicalStatus === "delivered" || trackingRes.canonicalStatus === "out_for_delivery") {
+      await supabase
+        .from("orders")
+        .update({ status: trackingRes.canonicalStatus, updated_at: new Date().toISOString() })
+        .eq("id", shipment.order_id);
+
+      const { NotificationService } = await import("@/lib/notifications/notification-service");
+      await NotificationService.dispatchEvent({
+        eventType: trackingRes.canonicalStatus === "delivered" ? "SHIPMENT_DELIVERED" : "SHIPMENT_OUT_FOR_DELIVERY",
+        orderId: shipment.order_id,
+        trackingNumber: shipment.awb_number,
+        idempotencyKey: `poll_${trackingRes.canonicalStatus}_${shipment.id}`,
+      });
+    }
 
     revalidatePath("/admin/shipping");
     revalidatePath(`/admin/shipping/${shipmentId}`);

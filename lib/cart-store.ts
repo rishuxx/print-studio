@@ -45,6 +45,7 @@ export const useCartStore = create<CartStoreState>()(
             productId: rawLine.productId,
             variantId: rawLine.variantId,
             tierQty: rawLine.tierQty,
+            configHash: rawLine.configHash || (rawLine.selectedOptions ? JSON.stringify(rawLine.selectedOptions) : "nc"),
             designHash: rawLine.design ? rawLine.design.summary : "nd",
             addOnIds: rawLine.addOns.map((a) => a.id),
           });
@@ -94,6 +95,7 @@ export const useCartStore = create<CartStoreState>()(
             productId: updatedLine.productId,
             variantId: updatedLine.variantId,
             tierQty: updatedLine.tierQty,
+            configHash: updatedLine.configHash || (updatedLine.selectedOptions ? JSON.stringify(updatedLine.selectedOptions) : "nc"),
             designHash: updatedLine.design ? updatedLine.design.summary : "nd",
             addOnIds: updatedLine.addOns.map((a) => a.id),
           });

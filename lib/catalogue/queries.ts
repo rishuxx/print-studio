@@ -5,6 +5,7 @@ import { autoSeedAttributesIfEmpty } from "./attributes";
 import type {
   AdminProductListFilter,
   AdminProductListResult,
+  PublicCatalogueFilter,
   DatabaseProduct,
   DatabaseCategory,
   DatabaseCatalogAuditLog,
@@ -249,7 +250,8 @@ export async function fetchAdminProducts(
   await autoSyncStaticCatalogueIfEmpty();
 
   const page = Math.max(1, filter.page || 1);
-  const pageSize = Math.max(1, Math.min(100, filter.pageSize || 50));
+  // Clamp page size to max 48 for safety
+  const pageSize = Math.max(1, Math.min(48, filter.pageSize || 48));
   const offset = (page - 1) * pageSize;
 
   let query = supabase.from("products").select(
@@ -333,14 +335,28 @@ export async function fetchAdminProducts(
     }
   }
 
-  // Text Search across title, SKU, handle
+  // Text Search across search_vector
+  let hasSearch = false;
   if (filter.q && filter.q.trim()) {
-    const term = filter.q.trim();
-    query = query.or(`title.ilike.%${term}%,sku.ilike.%${term}%,handle.ilike.%${term}%`);
+    // Truncate to prevent abusive massive queries
+    let term = filter.q.trim().substring(0, 100);
+    // Replace consecutive spaces with single space
+    term = term.replace(/\s+/g, " ");
+    
+    if (term.length > 0) {
+      hasSearch = true;
+      // Use PostgREST textSearch which translates to websearch_to_tsquery
+      query = query.textSearch("search_vector", term, {
+        type: "websearch",
+        config: "english"
+      });
+    }
   }
 
   // Sorting
-  switch (filter.sort) {
+  const effectiveSort = filter.sort || (hasSearch ? "relevance" : "newest");
+  
+  switch (effectiveSort) {
     case "oldest":
       query = query.order("created_at", { ascending: true });
       break;
@@ -352,6 +368,16 @@ export async function fetchAdminProducts(
       break;
     case "sort_order":
       query = query.order("sort_order", { ascending: true });
+      break;
+    case "relevance":
+      if (hasSearch) {
+        // Supabase JS doesn't natively expose ts_rank ordering easily,
+        // so we order by sort_order as a stable fallback. Real relevance sorting
+        // requires an RPC which we can adopt if needed.
+        query = query.order("sort_order", { ascending: true }).order("created_at", { ascending: false });
+      } else {
+        query = query.order("created_at", { ascending: false });
+      }
       break;
     case "newest":
     default:
@@ -388,6 +414,126 @@ export async function fetchAdminProducts(
     categories: (p.categories || []).map((c: any) => c.category).filter(Boolean),
     media: (p.media || []).sort((a: any, b: any) => a.sort_order - b.sort_order),
     variants: p.variants || [],
+  }));
+
+  return {
+    products,
+    totalCount,
+    page,
+    pageSize,
+    totalPages,
+    categories: categoryRows || [],
+  };
+}
+
+/**
+ * Fetch filtered, paginated products for the storefront/public views.
+ * Forces status = active and visibility = public.
+ */
+export async function fetchPublicCatalogue(
+  filter: PublicCatalogueFilter = {}
+): Promise<AdminProductListResult> {
+  const supabase = await createClient();
+  const page = Math.max(1, filter.page || 1);
+  const pageSize = Math.max(1, Math.min(48, filter.pageSize || 48));
+  const offset = (page - 1) * pageSize;
+
+  let query = supabase.from("products").select(
+    `
+      id, handle, title, subtitle, product_type, unit, min_order_qty, 
+      turnaround_days, same_day_eligible, base_price_minor, 
+      compare_at_price_minor, badges, category_handles,
+      media:product_media(url)
+    `,
+    { count: "estimated" }
+  );
+
+  query = query.eq("status", "active").eq("visibility", "public");
+
+  // Category Filter using the new GIN indexed category_handles array
+  if (filter.categoryHandle && filter.categoryHandle !== "ALL") {
+    query = query.contains("category_handles", [filter.categoryHandle]);
+  }
+
+  // Text Search across search_vector
+  let hasSearch = false;
+  if (filter.q && filter.q.trim()) {
+    let term = filter.q.trim().substring(0, 100);
+    term = term.replace(/\s+/g, " ");
+    
+    if (term.length > 0) {
+      hasSearch = true;
+      query = query.textSearch("search_vector", term, {
+        type: "websearch",
+        config: "english"
+      });
+    }
+  }
+
+  // Sorting
+  const effectiveSort = filter.sort || (hasSearch ? "relevance" : "newest");
+  
+  switch (effectiveSort) {
+    case "oldest":
+      query = query.order("created_at", { ascending: true });
+      break;
+    case "price_asc":
+      query = query.order("base_price_minor", { ascending: true });
+      break;
+    case "price_desc":
+      query = query.order("base_price_minor", { ascending: false });
+      break;
+    case "title_asc":
+      query = query.order("title", { ascending: true });
+      break;
+    case "title_desc":
+      query = query.order("title", { ascending: false });
+      break;
+    case "sort_order":
+      query = query.order("sort_order", { ascending: true });
+      break;
+    case "relevance":
+      if (!hasSearch) {
+        query = query.order("sort_order", { ascending: true }).order("created_at", { ascending: false });
+      } else {
+        query = query.order("sort_order", { ascending: true });
+      }
+      break;
+    case "newest":
+    default:
+      query = query.order("created_at", { ascending: false });
+      break;
+  }
+
+  const { data: rawProducts, count, error } = await query.range(offset, offset + pageSize - 1);
+
+  if (error) {
+    return {
+      products: [],
+      totalCount: 0,
+      page,
+      pageSize,
+      totalPages: 0,
+      categories: [],
+      error: error.message,
+    };
+  }
+
+  // Fetch all active categories for filtering dropdown
+  const { data: categoryRows } = await supabase
+    .from("categories")
+    .select("id, handle, title")
+    .order("sort_order", { ascending: true });
+
+  const totalCount = count || 0;
+  const totalPages = Math.ceil(totalCount / pageSize);
+
+  // Normalize products to match DB schema shape (with dummy fields for the ones we stripped out)
+  const products: DatabaseProduct[] = (rawProducts || []).map((p: any) => ({
+    ...p,
+    media: (p.media || []),
+    categories: p.category_handles ? p.category_handles.map((h: string) => ({ handle: h })) : [],
+    variants: [],
   }));
 
   return {

@@ -285,6 +285,52 @@ export interface DesignPayload {
   templateId?: string;
 }
 
+export interface ConfigurationOptionValueSnapshot {
+  id?: string;
+  name: string;
+  value: string;
+  label?: string;
+  priceModifierMinor?: number;
+}
+
+export interface PrintJobSpecification {
+  substrate?: string;
+  gsm?: string;
+  finish?: string;
+  corners?: string;
+  sides?: "single" | "double" | string;
+  dimensions?: {
+    width: number;
+    height: number;
+    unit: "inch" | "ft" | "cm" | "mm";
+    formatted: string;
+  };
+  orientation?: "portrait" | "landscape" | "square";
+  specialInstructions?: string;
+  artworkRequired: boolean;
+  artworkAttached: boolean;
+  turnaroundDays: number;
+  sameDayReady: boolean;
+}
+
+export interface ConfigurationSnapshot {
+  schemaVersion: number;
+  configHash: string;
+  productId: string;
+  variantId: string;
+  selectedOptions: ConfigurationOptionValueSnapshot[];
+  dimensions?: {
+    width: number;
+    height: number;
+    unit: "inch" | "ft" | "cm" | "mm";
+  };
+  isPersonalized?: boolean;
+  needsDesignAssistance?: boolean;
+  specialInstructions?: string;
+  productionSpecification: PrintJobSpecification;
+  timestamp: string;
+}
+
 export interface CartLine {
   /** Stable line id — same product+variant+design collapses into one line. */
   id: string;
@@ -311,6 +357,8 @@ export interface CartLine {
   turnaroundDays: number;
   sameDayEligible: boolean;
   customizable: boolean;
+  configHash?: string;
+  configurationSnapshot?: ConfigurationSnapshot;
 }
 
 export interface CartAddOn {

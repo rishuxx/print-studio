@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Zap, ArrowRight, Star } from "lucide-react";
 import type { Product } from "@/lib/commerce/types";
 import { formatMoney } from "@/lib/pricing";
@@ -40,11 +41,13 @@ export function ProductCard({ product, className, compact = false }: ProductCard
         className="relative block aspect-[4/3] w-full overflow-hidden bg-paper"
       >
         {primaryImage.url && !primaryImage.url.includes("placeholder-product.png") ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={primaryImage.url}
             alt={primaryImage.altText || product.title}
-            className="size-full object-cover group-hover:scale-105 transition-transform duration-500"
+            fill
+            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+            loading="lazy"
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
           <ProductMockup

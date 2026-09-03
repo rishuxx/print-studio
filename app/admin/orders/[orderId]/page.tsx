@@ -55,13 +55,27 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
     );
   }
 
-  // Fetch assigned shipments for this order
+  // Fetch assigned shipments, artwork assets, production jobs, and resolutions for this order
   const { fetchOrderShipments } = await import("@/lib/shipping/queries");
-  const shipments = await fetchOrderShipments(dbOrder.id);
+  const { fetchOrderArtworkAssetsAction } = await import("@/lib/artwork/actions");
+  const { fetchOrderProductionJobsAction } = await import("@/lib/production/actions");
+  const { fetchOrderResolutionAction } = await import("@/lib/resolutions/actions");
+  const [shipments, artworkRes, jobsRes, resRes] = await Promise.all([
+    fetchOrderShipments(dbOrder.id),
+    fetchOrderArtworkAssetsAction(dbOrder.id),
+    fetchOrderProductionJobsAction(dbOrder.id),
+    fetchOrderResolutionAction(dbOrder.id),
+  ]);
 
   return (
     <div className="space-y-6">
-      <AdminOrderDetailClientView dbOrder={dbOrder} existingShipments={shipments} />
+      <AdminOrderDetailClientView
+        dbOrder={dbOrder}
+        existingShipments={shipments}
+        artworkAssets={artworkRes.assets || []}
+        productionJobs={jobsRes.jobs || []}
+        resolution={resRes.resolution || null}
+      />
     </div>
   );
 }

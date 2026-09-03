@@ -1,7 +1,8 @@
 import { getStorefrontProduct } from "@/lib/catalogue/storefront-queries";
 import { findVariant, tierPrice } from "@/lib/pricing";
 import { FLAT_SHIPPING, FREE_SHIPPING_THRESHOLD, GST_RATE, GST_MODE } from "@/lib/site-config";
-import type { SelectedOption } from "@/lib/commerce/types";
+import type { SelectedOption, ConfigurationSnapshot } from "@/lib/commerce/types";
+import { validateProductConfiguration } from "@/lib/catalogue/configuration-validator";
 
 export interface RecalculationResult {
   valid: boolean;
@@ -35,6 +36,8 @@ export async function recalculateAuthoritativeCartTotal(
     claimedLinePrice?: number;
     design?: { state?: string; summary?: string };
     artworkFile?: { storagePath?: string; originalFileName?: string };
+    configurationSnapshot?: ConfigurationSnapshot;
+    configHash?: string;
   }>,
   discount?: { percent: number; code?: string } | null
 ): Promise<RecalculationResult> {
@@ -123,13 +126,38 @@ export async function recalculateAuthoritativeCartTotal(
       }
     }
 
-    // Resolve variant
+    // Resolve variant and run authoritative option compatibility validation
     const optionsMap: Record<string, string> = {};
     if (Array.isArray(line.selectedOptions)) {
       line.selectedOptions.forEach((opt) => {
         optionsMap[opt.name] = opt.value;
       });
     }
+
+    const configValidation = validateProductConfiguration(
+      product,
+      {
+        productId: product.id,
+        quantity: line.quantity,
+        tierQty: line.tierQty ?? null,
+        selectedOptions: line.selectedOptions || [],
+      },
+      []
+    );
+
+    if (!configValidation.valid) {
+      return {
+        valid: false,
+        subtotalPaise: 0,
+        discountPaise: 0,
+        taxPaise: 0,
+        shippingPaise: 0,
+        totalPaise: 0,
+        totalRupees: 0,
+        error: `Configuration error for '${product.title}': ${configValidation.errors[0]}`,
+      };
+    }
+
     const matchedVariant = findVariant(product, optionsMap);
 
     // Resolve quantity tier

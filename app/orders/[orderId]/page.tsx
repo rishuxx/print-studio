@@ -55,18 +55,26 @@ export default async function OrderDetailsPage({ params, searchParams }: OrderPa
   let shipments: import("@/lib/shipping/types").ShippingShipment[] = [];
   let cancellationData: Record<string, unknown> | null = null;
   let refundsData: Array<Record<string, unknown>> = [];
+  let artworkAssets: import("@/lib/artwork/types").ArtworkAssetRecord[] = [];
+  let resolutionData: import("@/lib/resolutions/types").ResolutionRequestRecord | null = null;
 
   if (dbOrder?.id) {
     const { fetchOrderShipments } = await import("@/lib/shipping/queries");
-    const [shipmentRes, cancRes, refundsRes] = await Promise.all([
+    const { fetchOrderArtworkAssetsAction } = await import("@/lib/artwork/actions");
+    const { fetchOrderResolutionAction } = await import("@/lib/resolutions/actions");
+    const [shipmentRes, cancRes, refundsRes, artworkRes, resRes] = await Promise.all([
       fetchOrderShipments(dbOrder.id),
       supabase.from("order_cancellations").select("*").eq("order_id", dbOrder.id).maybeSingle(),
       supabase.from("payment_refunds").select("*").eq("order_id", dbOrder.id).order("created_at", { ascending: false }),
+      fetchOrderArtworkAssetsAction(dbOrder.id),
+      fetchOrderResolutionAction(dbOrder.id),
     ]);
 
     shipments = shipmentRes;
     cancellationData = cancRes.data || null;
     refundsData = refundsRes.data || [];
+    artworkAssets = artworkRes.assets || [];
+    resolutionData = resRes.resolution || null;
   }
 
   return (
@@ -88,6 +96,8 @@ export default async function OrderDetailsPage({ params, searchParams }: OrderPa
         shipments={shipments}
         cancellation={cancellationData}
         refunds={refundsData}
+        artworkAssets={artworkAssets || []}
+        resolution={resolutionData}
       />
     </div>
   );

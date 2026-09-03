@@ -136,6 +136,8 @@ export async function POST(request: NextRequest) {
       linePrice: { amount: number };
       selectedOptions?: unknown;
       design?: { state?: string; summary?: string };
+      configurationSnapshot?: unknown;
+      configHash?: string;
     }) => {
       let artworkSummaryObj: Record<string, unknown> | null = null;
       if (l.design?.state) {
@@ -165,6 +167,14 @@ export async function POST(request: NextRequest) {
         artworkSummaryObj = { summary: l.design.summary };
       }
 
+      // Preserve rich configuration snapshot and options
+      const finalSelectedOptions = {
+        options: Array.isArray(l.selectedOptions) ? l.selectedOptions : [],
+        configHash: l.configHash || null,
+        configurationSnapshot: l.configurationSnapshot || null,
+        capturedAt: new Date().toISOString(),
+      };
+
       return {
         order_id: internalOrderId,
         product_id: l.productId,
@@ -173,7 +183,7 @@ export async function POST(request: NextRequest) {
         quantity: l.quantity,
         unit_price: l.unitPrice.amount / 100,
         line_price: l.linePrice.amount / 100,
-        selected_options: (l.selectedOptions as Database["public"]["Tables"]["order_items"]["Insert"]["selected_options"]) ?? [],
+        selected_options: finalSelectedOptions as unknown as Database["public"]["Tables"]["order_items"]["Insert"]["selected_options"],
         artwork_summary: (artworkSummaryObj as Database["public"]["Tables"]["order_items"]["Insert"]["artwork_summary"]) ?? null,
       };
     });

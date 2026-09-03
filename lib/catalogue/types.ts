@@ -308,10 +308,12 @@ export interface AdminProductListFilter {
   isFeatured?: boolean | "ALL";
   productType?: string | "ALL";
   badge?: string | "ALL";
-  sort?: "newest" | "oldest" | "title_asc" | "title_desc" | "sort_order" | "price_asc" | "price_desc";
+  sort?: "newest" | "oldest" | "title_asc" | "title_desc" | "sort_order" | "price_asc" | "price_desc" | "relevance";
   page?: number;
   pageSize?: number;
 }
+
+export interface PublicCatalogueFilter extends AdminProductListFilter {}
 
 export interface AdminProductListResult {
   products: DatabaseProduct[];

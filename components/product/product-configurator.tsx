@@ -6,6 +6,7 @@ import type { Product, ProductOption, QuantityTier } from "@/lib/commerce/types"
 import { formatMoney, tierPrice, tierCompareAtPrice, findVariant } from "@/lib/pricing";
 import { useCartStore } from "@/lib/cart-store";
 import { createClient } from "@/lib/supabase/client";
+import { getLiveProductPriceAction } from "@/lib/actions/cart-actions";
 import {
   ARTWORK_BUCKET,
   MAX_ARTWORK_SIZE_MB,
@@ -26,6 +27,8 @@ import {
   Loader2,
   Ruler,
   RotateCcw,
+  AlertCircle,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -81,7 +84,7 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
     };
   }, [product.id, router]);
 
-  // 1. Manage selected product options (Paper, Finish, Size, Colour, Frame, Glass, etc.)
+  // 1. Manage selected product options
   const [selectedOptions, setSelectedOptions] = React.useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     product.options.forEach((opt) => {
@@ -169,72 +172,120 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
   const [needsDesignAssistance, setNeedsDesignAssistance] = React.useState(false);
   const [designInstructions, setDesignInstructions] = React.useState("");
 
-  // Match Variant
+  // 6. Server-authoritative live price state & validation errors
+  const [isCalculatingPrice, setIsCalculatingPrice] = React.useState(false);
+  const [validationErrors, setValidationErrors] = React.useState<string[]>([]);
+  const [serverPricePaise, setServerPricePaise] = React.useState<number>(() => product.priceFrom.amount);
+  const [serverUnitPricePaise, setServerUnitPricePaise] = React.useState<number>(() => product.priceFrom.amount);
+  const [serverCompareAtPaise, setServerCompareAtPaise] = React.useState<number | null>(
+    () => product.compareAtFrom?.amount || null
+  );
+
+  // Match Variant based on current selections
   const matchedVariant = findVariant(product, selectedOptions);
 
-  // Calculate Square Footage / Area Multiplier
-  let areaMultiplier = 1;
-  if (isDimensionBased) {
-    let sqFt = 1;
-    if (dimensionUnit === "ft") {
-      sqFt = customWidth * customHeight;
-    } else if (dimensionUnit === "inch") {
-      sqFt = (customWidth * customHeight) / 144;
-    } else {
-      // cm
-      sqFt = (customWidth * customHeight) / 929.03;
-    }
-    sqFt = Math.max(0.5, sqFt);
-    areaMultiplier = sqFt / 1.5; // normalized ratio
-  }
+  // Request sequencing counter to prevent race conditions from out-of-order responses
+  const requestSeqRef = React.useRef(0);
 
-  let lineTotalPaise = 0;
-  let rawUnitPaise = 0;
-  
-  // Find the exact applicable tier based on selected quantity
-  const applicableTier = [...product.quantityTiers]
-    .sort((a, b) => b.qty - a.qty)
-    .find((t) => selectedTierQty >= t.qty) || product.quantityTiers[0];
+  // Debounced server-side price recalculation & configuration validation
+  React.useEffect(() => {
+    const currentSeq = ++requestSeqRef.current;
+    setIsCalculatingPrice(true);
 
-  if (applicableTier) {
-    // Determine exact unit price for this tier
-    // Note: the backend uses tier_price_minor / min_quantity for the unit price at that tier.
-    // So we fetch the unit price at this tier and multiply by actual selected quantity.
-    rawUnitPaise = Math.round(applicableTier.price.amount / applicableTier.qty);
-  } else {
-    rawUnitPaise = product.priceFrom.amount;
-  }
-  
-  if (product.personalizationConfig?.enabled) {
-    if (isPersonalized) {
-      rawUnitPaise += product.personalizationConfig.personalizationFeeMinor || 0;
-    }
-  }
+    const timer = setTimeout(async () => {
+      try {
+        const optionsList = Object.entries(selectedOptions).map(([name, value]) => ({
+          name,
+          value,
+        }));
 
-  if (isDimensionBased) {
-    // If dimension based, the area multiplier affects the total and unit price
-    const adjustedTotal = Math.max(10000, Math.round(rawUnitPaise * (selectedTierQty || 1) * areaMultiplier));
-    lineTotalPaise = adjustedTotal;
-    rawUnitPaise = adjustedTotal / (selectedTierQty || 1);
-  } else {
-    lineTotalPaise = rawUnitPaise * (selectedTierQty || 1);
-  }
+        const dimensionsPayload = isDimensionBased
+          ? {
+              width: customWidth,
+              height: customHeight,
+              unit: dimensionUnit,
+            }
+          : null;
 
-  // Add Flat Design fee if asked designer
-  if (product.personalizationConfig?.enabled && needsDesignAssistance) {
-    lineTotalPaise += product.personalizationConfig.designFeeMinor || 0;
-  }
+        const res = await getLiveProductPriceAction(
+          product.id,
+          selectedTierQty,
+          matchedVariant?.id,
+          isPersonalized,
+          needsDesignAssistance,
+          {
+            selectedOptions: optionsList,
+            dimensions: dimensionsPayload,
+            specialInstructions: designInstructions,
+            tierQty: selectedTierQty,
+          }
+        );
 
-  const compareAtUnitPaise = applicableTier
-    ? tierCompareAtPrice(applicableTier, matchedVariant)?.amount ? (tierCompareAtPrice(applicableTier, matchedVariant)!.amount / applicableTier.qty) : null
-    : product.compareAtFrom?.amount || null;
+        // Discard stale responses
+        if (currentSeq !== requestSeqRef.current) return;
 
-  // Handle Option Click
+        if (res.success && res.pricePaise !== undefined) {
+          setServerPricePaise(res.pricePaise);
+          setServerUnitPricePaise(res.unitPricePaise || Math.round(res.pricePaise / Math.max(1, selectedTierQty)));
+          setServerCompareAtPaise(res.compareAtPaise ?? null);
+          setValidationErrors([]);
+        } else {
+          setValidationErrors(res.errors || [res.error || "Configuration combination is currently unavailable."]);
+        }
+      } catch {
+        if (currentSeq === requestSeqRef.current) {
+          setValidationErrors(["Unable to connect to live pricing server."]);
+        }
+      } finally {
+        if (currentSeq === requestSeqRef.current) {
+          setIsCalculatingPrice(false);
+        }
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [
+    product.id,
+    selectedOptions,
+    selectedTierQty,
+    isDimensionBased,
+    customWidth,
+    customHeight,
+    dimensionUnit,
+    isPersonalized,
+    needsDesignAssistance,
+    designInstructions,
+    matchedVariant?.id,
+  ]);
+
+  // Handle Option Click with dependency auto-adjustment
   const handleOptionSelect = (optionName: string, value: string) => {
-    setSelectedOptions((prev) => ({
-      ...prev,
-      [optionName]: value,
-    }));
+    setSelectedOptions((prev) => {
+      const updated = { ...prev, [optionName]: value };
+
+      // Dependency Rule: Circular shape cannot have Rounded Corners
+      if (optionName.toLowerCase() === "shape" && value.toLowerCase().includes("circle")) {
+        const cornerKey = Object.keys(updated).find((k) => k.toLowerCase().includes("corner"));
+        if (cornerKey && updated[cornerKey]?.toLowerCase().includes("rounded")) {
+          updated[cornerKey] = "Standard Square";
+        }
+      }
+
+      // Dependency Rule: Velvet/Anti-scratch finish requires heavy GSM
+      if (
+        (optionName.toLowerCase().includes("finish") || optionName.toLowerCase().includes("lamination")) &&
+        (value.toLowerCase().includes("velvet") || value.toLowerCase().includes("anti-scratch"))
+      ) {
+        const gsmKey = Object.keys(updated).find((k) => k.toLowerCase().includes("gsm"));
+        if (gsmKey && (updated[gsmKey]?.includes("130") || updated[gsmKey]?.includes("170"))) {
+          const gsmOpt = product.options.find((o) => o.name === gsmKey);
+          const higherGsm = gsmOpt?.values.find((v) => v.includes("300") || v.includes("350"));
+          if (higherGsm) updated[gsmKey] = higherGsm;
+        }
+      }
+
+      return updated;
+    });
   };
 
   // Handle Artwork Upload to Supabase Storage
@@ -311,6 +362,13 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
       return;
     }
 
+    if (validationErrors.length > 0) {
+      toast.error("Please fix configuration errors before adding to cart.", {
+        description: validationErrors[0],
+      });
+      return;
+    }
+
     // 2. Prepare Selected Options Array
     const optionsArray = Object.entries(selectedOptions).map(([name, value]) => ({
       name,
@@ -324,38 +382,47 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
       });
     }
 
-    // 3. SECURE PRICE VALIDATION (Thread Issue Fix)
-    // Always fetch the true live price from the backend immediately before dispatching to cart
-    // This entirely prevents a stale client from ever capturing an outdated price.
-    const loadingToast = toast.loading("Validating price and adding to cart...");
-    const { getLiveProductPriceAction } = await import("@/lib/actions/cart-actions");
-    
+    // 3. SECURE AUTHORITATIVE SERVER PRICE & CANONICAL SNAPSHOT VALIDATION
+    const loadingToast = toast.loading("Verifying product specifications with pricing engine...");
+
+    const dimensionsPayload = isDimensionBased
+      ? {
+          width: customWidth,
+          height: customHeight,
+          unit: dimensionUnit,
+        }
+      : null;
+
     const livePriceCheck = await getLiveProductPriceAction(
       product.id,
       selectedTierQty,
       matchedVariant?.id,
       isPersonalized,
-      needsDesignAssistance
+      needsDesignAssistance,
+      {
+        selectedOptions: optionsArray,
+        dimensions: dimensionsPayload,
+        specialInstructions: designInstructions,
+        tierQty: selectedTierQty,
+      }
     );
 
     toast.dismiss(loadingToast);
 
     if (!livePriceCheck.success || !livePriceCheck.pricePaise) {
-      toast.error(livePriceCheck.error || "This product configuration is currently unavailable.");
-      // Refresh the page silently to force UI into correct state
-      router.refresh();
+      toast.error(livePriceCheck.error || "This configuration is currently unavailable.");
       return;
     }
 
-    const secureUnitPaise = livePriceCheck.pricePaise;
+    const secureUnitPaise = livePriceCheck.unitPricePaise || Math.round(livePriceCheck.pricePaise / Math.max(1, selectedTierQty));
     const secureCompareAtPaise = livePriceCheck.compareAtPaise || null;
 
     const linePayload = {
       productId: product.id,
       productHandle: product.handle,
       productTitle: product.title,
-      variantId: matchedVariant?.id || `var-${product.id}`,
-      variantTitle: matchedVariant?.title || "Standard",
+      variantId: livePriceCheck.matchedVariantId || matchedVariant?.id || `var-${product.id}`,
+      variantTitle: livePriceCheck.matchedVariantTitle || matchedVariant?.title || "Standard",
       quantity: 1,
       tierQty: selectedTierQty,
       sameDayEligible: product.sameDayEligible || false,
@@ -380,9 +447,8 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
         : null,
       turnaroundDays: product.turnaroundDays,
       customizable: product.customizable,
-      isPersonalized,
-      needsDesignAssistance,
-      designInstructions,
+      configHash: livePriceCheck.canonicalSnapshot?.configHash,
+      configurationSnapshot: livePriceCheck.canonicalSnapshot,
     };
 
     if (existingLine && editLineId) {
@@ -398,6 +464,21 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
 
   return (
     <div className="space-y-6">
+      {/* Validation Error Banner if combinations are incompatible */}
+      {validationErrors.length > 0 && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-xs text-red-800 space-y-1">
+          <div className="flex items-center gap-1.5 font-bold">
+            <AlertCircle className="size-4 text-red-600 shrink-0" />
+            <span>Option Combination Warning</span>
+          </div>
+          {validationErrors.map((err, i) => (
+            <div key={i} className="pl-5 text-red-700">
+              • {err}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* 1. Dynamic Product Options (Paper, Finish, Size, Colour, Frame Material, Glass, etc.) */}
       {product.options.map((option) => (
         <div key={option.name} className="space-y-2.5">
@@ -413,13 +494,27 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
               const isSelected = selectedOptions[option.name] === val;
               const isColorOption = option.name.toLowerCase().includes("colo");
 
+              // Determine if an option value is disabled by dependency rules
+              let isDisabled = false;
+              if (
+                option.name.toLowerCase().includes("corner") &&
+                val.toLowerCase().includes("rounded") &&
+                selectedOptions["Shape"]?.toLowerCase().includes("circle")
+              ) {
+                isDisabled = true;
+              }
+
               return (
                 <button
                   key={val}
                   type="button"
+                  disabled={isDisabled}
                   onClick={() => handleOptionSelect(option.name, val)}
+                  aria-pressed={isSelected}
                   className={`relative flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition-all ${
-                    isSelected
+                    isDisabled
+                      ? "opacity-40 cursor-not-allowed bg-paper border-border text-muted-foreground line-through"
+                      : isSelected
                       ? "border-violet bg-violet-wash text-violet ring-2 ring-violet/20 font-bold"
                       : "border border-border bg-white text-ink hover:bg-paper"
                   }`}
@@ -482,6 +577,7 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
               <input
                 type="number"
                 min={1}
+                max={500}
                 value={customWidth}
                 onChange={(e) => setCustomWidth(Math.max(1, Number(e.target.value)))}
                 className="w-full rounded-xl border border-border bg-white px-3 py-1.5 font-mono text-xs font-bold text-ink focus:border-violet focus:outline-none"
@@ -494,6 +590,7 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
               <input
                 type="number"
                 min={1}
+                max={500}
                 value={customHeight}
                 onChange={(e) => setCustomHeight(Math.max(1, Number(e.target.value)))}
                 className="w-full rounded-xl border border-border bg-white px-3 py-1.5 font-mono text-xs font-bold text-ink focus:border-violet focus:outline-none"
@@ -503,14 +600,14 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
         </div>
       )}
 
-      {/* 3. Quantity Volume Tiers - Dynamic Slider */}
+      {/* 3. Quantity Volume Tiers - Interactive Selector */}
       <div className="space-y-4 rounded-2xl border border-border bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between text-xs">
           <span className="font-bold text-ink">Select Quantity & Save</span>
-          {applicableTier && applicableTier.qty > 1 && (
-             <span className="inline-flex rounded bg-marigold-wash text-marigold-deep px-2 py-0.5 text-[10px] font-bold">
-               Volume Discount Applied!
-             </span>
+          {product.quantityTiers.length > 1 && (
+            <span className="inline-flex rounded bg-marigold-wash text-marigold-deep px-2 py-0.5 text-[10px] font-bold">
+              Volume Discount Enabled
+            </span>
           )}
         </div>
 
@@ -522,7 +619,7 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
           >
             -
           </button>
-          
+
           <div className="relative flex-1">
             <input
               type="range"
@@ -543,104 +640,111 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
             +
           </button>
         </div>
-        
+
         <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
-           <div className="flex-1">
-             <label className="text-[11px] text-muted-foreground block mb-1">Direct Input</label>
-             <div className="relative">
-               <input 
-                 type="number"
-                 min={1}
-                 max={200}
-                 value={selectedTierQty}
-                 onChange={(e) => {
-                    const val = Number(e.target.value);
-                    if (val > 0 && val <= 200) setSelectedTierQty(val);
-                 }}
-                 onBlur={(e) => {
-                    const val = Number(e.target.value);
-                    if (val <= 0) setSelectedTierQty(1);
-                    if (val > 200) setSelectedTierQty(200);
-                 }}
-                 className="w-full rounded-xl border border-border bg-white px-3 py-2 font-mono text-sm font-bold text-ink focus:border-violet focus:outline-none"
-               />
-               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-bold">
-                 {product.priceUnit}
-               </span>
-             </div>
-           </div>
-           
-           <div className="flex-1 text-right">
-              <div className="text-[11px] text-muted-foreground">Current Unit Price</div>
-              <div className="font-mono text-lg font-bold text-violet">
-                ₹{(rawUnitPaise / 100).toFixed(2)}
-              </div>
-           </div>
+          <div className="flex-1">
+            <label className="text-[11px] text-muted-foreground block mb-1">Direct Quantity</label>
+            <div className="relative">
+              <input
+                type="number"
+                min={1}
+                max={200}
+                value={selectedTierQty}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  if (val > 0 && val <= 200) setSelectedTierQty(val);
+                }}
+                onBlur={() => {
+                  if (selectedTierQty <= 0) setSelectedTierQty(1);
+                  if (selectedTierQty > 200) setSelectedTierQty(200);
+                }}
+                className="w-full rounded-xl border border-border bg-white px-3 py-2 font-mono text-sm font-bold text-ink focus:border-violet focus:outline-none"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-bold">
+                {product.priceUnit}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex-1 text-right">
+            <div className="text-[11px] text-muted-foreground">Unit Rate</div>
+            <div className="font-mono text-lg font-bold text-violet flex items-center justify-end gap-1.5">
+              {isCalculatingPrice ? (
+                <Loader2 className="size-4 animate-spin text-muted-foreground" />
+              ) : (
+                <span>₹{(serverUnitPricePaise / 100).toFixed(2)}</span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* 4. Personalization Configuration */}
       {product.personalizationConfig?.enabled && (
-         <div className="rounded-2xl border border-border bg-white p-4 space-y-4 shadow-sm">
-           <div className="flex items-center gap-2 text-ink mb-2">
-             <Paintbrush className="size-4 text-violet" />
-             <h3 className="font-display text-sm font-bold">Personalization Options</h3>
-           </div>
-           
-           <div className="grid grid-cols-2 gap-3">
-             <button
-                type="button"
-                onClick={() => setIsPersonalized(false)}
-                className={`p-3 text-left rounded-xl border transition-all ${
-                  !isPersonalized ? "border-violet bg-violet-wash ring-2 ring-violet/20" : "border-border bg-paper hover:bg-gray-50"
-                }`}
-             >
-                <div className="font-bold text-xs text-ink">Standard</div>
-                <div className="text-[10px] text-muted-foreground mt-0.5">No personalization</div>
-             </button>
-             
-             <button
-                type="button"
-                onClick={() => setIsPersonalized(true)}
-                className={`p-3 text-left rounded-xl border transition-all ${
-                  isPersonalized ? "border-violet bg-violet-wash ring-2 ring-violet/20" : "border-border bg-paper hover:bg-gray-50"
-                }`}
-             >
-                <div className="font-bold text-xs text-ink">Personalized</div>
-                <div className="text-[10px] text-muted-foreground mt-0.5">
-                  +₹{(product.personalizationConfig.personalizationFeeMinor / 100).toFixed(2)}/unit
-                </div>
-             </button>
-           </div>
-           
-           {isPersonalized && (
-              <div className="mt-4 pt-4 border-t border-border space-y-3">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                     type="checkbox"
-                     checked={needsDesignAssistance}
-                     onChange={(e) => setNeedsDesignAssistance(e.target.checked)}
-                     className="rounded border-border text-violet focus:ring-violet"
-                  />
-                  <span className="text-xs font-bold text-ink">Need Design Assistance?</span>
-                  {product.personalizationConfig.designFeeMinor > 0 && (
-                     <span className="text-[10px] font-mono text-violet bg-violet-wash px-1.5 py-0.5 rounded">
-                       +₹{(product.personalizationConfig.designFeeMinor / 100).toFixed(2)}
-                     </span>
-                  )}
-                </label>
-                
-                {needsDesignAssistance && (
-                   <textarea
-                     placeholder="Tell our designers what you need (colors, text, fonts, style)..."
-                     value={designInstructions}
-                     onChange={(e) => setDesignInstructions(e.target.value)}
-                     className="w-full h-24 rounded-xl border border-border bg-white p-3 text-xs text-ink focus:border-violet focus:outline-none resize-none"
-                   />
-                )}
+        <div className="rounded-2xl border border-border bg-white p-4 space-y-4 shadow-sm">
+          <div className="flex items-center gap-2 text-ink mb-2">
+            <Paintbrush className="size-4 text-violet" />
+            <h3 className="font-display text-sm font-bold">Personalization Options</h3>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setIsPersonalized(false)}
+              className={`p-3 text-left rounded-xl border transition-all ${
+                !isPersonalized
+                  ? "border-violet bg-violet-wash ring-2 ring-violet/20"
+                  : "border-border bg-paper hover:bg-gray-50"
+              }`}
+            >
+              <div className="font-bold text-xs text-ink">Standard</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">No personalization</div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsPersonalized(true)}
+              className={`p-3 text-left rounded-xl border transition-all ${
+                isPersonalized
+                  ? "border-violet bg-violet-wash ring-2 ring-violet/20"
+                  : "border-border bg-paper hover:bg-gray-50"
+              }`}
+            >
+              <div className="font-bold text-xs text-ink">Personalized</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                +₹{(product.personalizationConfig.personalizationFeeMinor / 100).toFixed(2)}/unit
               </div>
-           )}
-         </div>
+            </button>
+          </div>
+
+          {isPersonalized && (
+            <div className="mt-4 pt-4 border-t border-border space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={needsDesignAssistance}
+                  onChange={(e) => setNeedsDesignAssistance(e.target.checked)}
+                  className="rounded border-border text-violet focus:ring-violet"
+                />
+                <span className="text-xs font-bold text-ink">Need Design Assistance?</span>
+                {product.personalizationConfig.designFeeMinor > 0 && (
+                  <span className="text-[10px] font-mono text-violet bg-violet-wash px-1.5 py-0.5 rounded">
+                    +₹{(product.personalizationConfig.designFeeMinor / 100).toFixed(2)}
+                  </span>
+                )}
+              </label>
+
+              {needsDesignAssistance && (
+                <textarea
+                  placeholder="Describe your design specifications (colors, copy, typography)..."
+                  value={designInstructions}
+                  onChange={(e) => setDesignInstructions(e.target.value)}
+                  className="w-full h-24 rounded-xl border border-border bg-white p-3 text-xs text-ink focus:border-violet focus:outline-none resize-none"
+                />
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* 5. Artwork Upload & Pre-Press Requirements */}
@@ -705,25 +809,28 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
           </label>
         )}
 
-        {/* Digital Soft-Proof Assurance */}
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground pt-1 border-t border-border">
           <ShieldCheck className="size-3.5 text-violet shrink-0" />
           <span>Digital PDF Soft-Proof sent for customer approval prior to print run.</span>
         </div>
       </div>
 
-      {/* 5. Pricing Summary & Add To Cart CTA */}
+      {/* 6. Pricing Summary & Add To Cart CTA */}
       <div className="rounded-2xl border border-border bg-paper p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-[11px] text-muted-foreground">Total Price (incl. GST)</div>
             <div className="flex items-baseline gap-2">
               <span className="font-display text-2xl font-black text-ink">
-                ₹{(lineTotalPaise / 100).toFixed(2)}
+                {isCalculatingPrice ? (
+                  <span className="text-muted-foreground animate-pulse text-lg">Calculating...</span>
+                ) : (
+                  `₹${(serverPricePaise / 100).toFixed(2)}`
+                )}
               </span>
-              {compareAtUnitPaise && compareAtUnitPaise > rawUnitPaise && (
+              {serverCompareAtPaise && serverCompareAtPaise > serverPricePaise && (
                 <span className="font-mono text-xs text-muted-foreground line-through">
-                  ₹{((compareAtUnitPaise * selectedTierQty) / 100).toFixed(2)}
+                  ₹{(serverCompareAtPaise / 100).toFixed(2)}
                 </span>
               )}
             </div>
@@ -731,7 +838,7 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
 
           <div className="text-right text-[11px] text-muted-foreground">
             <span className="font-mono font-bold text-ink">
-              ₹{(rawUnitPaise / 100).toFixed(2)}
+              ₹{(serverUnitPricePaise / 100).toFixed(2)}
             </span>{" "}
             / unit
           </div>
@@ -740,7 +847,8 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
         <button
           type="button"
           onClick={handleAddToCart}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet py-3.5 text-sm font-bold text-white shadow-sheet hover:bg-violet-lift transition-all"
+          disabled={validationErrors.length > 0}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet py-3.5 text-sm font-bold text-white shadow-sheet hover:bg-violet-lift transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span>{existingLine ? "Update Cart Configuration" : "Add to Cart"}</span>
           <ArrowRight className="size-4" />

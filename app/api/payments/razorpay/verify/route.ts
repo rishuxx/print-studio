@@ -104,6 +104,19 @@ export async function POST(request: NextRequest) {
       description: `Payment of ₹${order.total} successfully captured via Razorpay. Reference: ${razorpay_payment_id}.`,
     });
 
+    // 6. Authoritative Notification Dispatch
+    try {
+      const { NotificationService } = await import("@/lib/notifications/notification-service");
+      await NotificationService.dispatchEvent({
+        eventType: "PAYMENT_SUCCESS",
+        orderId: internalOrderId,
+        amountMinor: Math.round(Number(order.total) * 100),
+        idempotencyKey: `rzp_verify_${internalOrderId}_${razorpay_payment_id}`,
+      });
+    } catch (notifyErr) {
+      console.error("[Notification Dispatch Warning]:", notifyErr);
+    }
+
     return NextResponse.json({
       success: true,
       verified: true,
