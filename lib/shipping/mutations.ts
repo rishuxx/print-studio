@@ -26,17 +26,13 @@ export async function createOrderShipmentAction(
     await requirePermission("settings.view", "/admin/shipping");
     const supabase = await createClient();
 
-    // 1. Fetch target order (accepts either Order Number like 'PRT-2026-2945' or UUID)
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.order_id.trim());
-
-    let orderQuery = supabase.from("orders").select("*");
-    if (isUuid) {
-      orderQuery = orderQuery.eq("id", input.order_id.trim());
-    } else {
-      orderQuery = orderQuery.eq("order_number", input.order_id.trim());
+    // 1. Fetch target order (accepts either Order Number like 'PRT 2026 ...' or UUID)
+    const cleanId = input.order_id.trim();
+    let { data: order } = await supabase.from("orders").select("*").eq("id", cleanId).maybeSingle();
+    if (!order) {
+      const { data: byNum } = await supabase.from("orders").select("*").eq("order_number", cleanId).maybeSingle();
+      order = byNum;
     }
-
-    const { data: order } = await orderQuery.maybeSingle();
 
     if (!order) {
       return { success: false, error: `Order '${input.order_id}' not found in database.` };
@@ -94,27 +90,23 @@ export async function createOrderShipmentAction(
 
     // 3. Resolve shipping address & delivery destination
     const dSnap = (order.delivery_snapshot as Record<string, unknown>) || {};
-    const shippingAddr = (order.shipping_address as Record<string, unknown>) || {};
+    // removed shippingAddr
     const cSnap = (order.customer_snapshot as Record<string, unknown>) || {};
 
     const recipientName = String(
-      shippingAddr.recipient_name ||
-      shippingAddr.full_name ||
       cSnap.fullName ||
       dSnap.fullName ||
       "Valued Customer"
     );
-    const recipientPhone = String(shippingAddr.phone || cSnap.phone || "9999999999");
+    const recipientPhone = String(dSnap.phone || cSnap.phone || "9999999999");
     const addressLine1 = String(
-      shippingAddr.address_line_1 ||
-      shippingAddr.line1 ||
       dSnap.addressLine1 ||
       "Customer Address"
     );
-    const addressLine2 = String(shippingAddr.address_line_2 || shippingAddr.line2 || "");
-    const city = String(shippingAddr.city || dSnap.city || "Dehradun");
-    const state = String(shippingAddr.state || dSnap.state || "Uttarakhand");
-    const pincode = String(shippingAddr.postal_code || shippingAddr.pincode || dSnap.pincode || "248007");
+    const addressLine2 = String(dSnap.addressLine2 || "");
+    const city = String(dSnap.city || dSnap.locality || "");
+    const state = String(dSnap.state || "");
+    const pincode = String(dSnap.pincode || dSnap.zip || "248007");
 
     // Enforce serviceability check before calling carrier
     if (input.carrier_code !== "fake") {

@@ -541,7 +541,7 @@ export async function updateOrderStatus(
   orderId: string,
   targetStatus: Database["public"]["Tables"]["orders"]["Row"]["status"],
   expectedCurrentStatus?: Database["public"]["Tables"]["orders"]["Row"]["status"]
-): Promise<{ success: boolean; error?: string; newStatus?: string }> {
+): Promise<{ success: boolean; error?: string; newStatus?: string; whatsappNotice?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -549,67 +549,203 @@ export async function updateOrderStatus(
     return { success: false, error: "Unauthorized. Please log in." };
   }
 
-  // 1. Resolve UUID if given order_number string
-  let targetUuid = orderId;
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
-  if (!isUuid) {
-    const { data: found } = await supabase
-      .from("orders")
-      .select("id")
-      .eq("order_number", orderId)
-      .maybeSingle();
+  // 1. Fetch order record upfront (Support both database UUID id and formatted order_number)
+  const cleanId = orderId.trim();
+  
+  // Try finding by UUID / ID first
+  let { data: targetOrder, error: fetchErr } = await supabase
+    .from("orders")
+    .select("id, order_number, user_id, total, status, payment_status, payment_reference, delivery_snapshot, customer_snapshot")
+    .eq("id", cleanId)
+    .maybeSingle();
 
-    if (!found) {
-      return { success: false, error: "Order reference not found." };
-    }
-    targetUuid = found.id;
+  if (fetchErr) {
+    console.error(`[actions.ts] Error fetching order by ID:`, fetchErr);
   }
 
-  // 2. Invoke atomic PostgreSQL transition RPC
-  const { data: rpcResult, error: rpcError } = await supabase.rpc("transition_order_status", {
-    p_order_id: targetUuid,
-    p_target_status: targetStatus,
-    p_expected_current_status: expectedCurrentStatus || null,
+  // If not found by id, try finding by order_number
+  let fetchErr2 = null;
+  if (!targetOrder) {
+    const { data: byOrderNum, error: fetchErr2Response } = await supabase
+      .from("orders")
+      .select("id, order_number, user_id, total, status, payment_status, payment_reference, delivery_snapshot, customer_snapshot")
+      .eq("order_number", cleanId)
+      .maybeSingle();
+    
+    fetchErr2 = fetchErr2Response;
+    if (fetchErr2) {
+      console.error(`[actions.ts] Error fetching order by order_number:`, fetchErr2);
+    }
+    targetOrder = byOrderNum;
+  }
+
+  if (!targetOrder) {
+    const errorDetails = fetchErr?.message || fetchErr2?.message || 'No rows returned';
+    return { success: false, error: `Order '${orderId}' not found. DB Error: ${errorDetails}` };
+  }
+
+  const targetUuid = targetOrder.id;
+
+  // 2. Check caller authorization (owner, admin, staff)
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const isAuthorized = ["owner", "admin", "staff"].includes(profile?.role || "");
+  if (!isAuthorized) {
+    return { success: false, error: "Unauthorized. Admin or Owner privileges required." };
+  }
+
+  // 3. Update Order Status and auto-mark payment_status = captured if confirming paid order
+  const updatePayload: Record<string, unknown> = {
+    status: targetStatus,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (targetStatus === "confirmed" && (targetOrder.payment_status === "PENDING" || targetOrder.payment_status === "pending")) {
+    updatePayload.payment_status = "paid";
+  }
+
+  const { error: updateErr } = await supabase
+    .from("orders")
+    .update(updatePayload)
+    .eq("id", targetUuid);
+
+  if (updateErr) {
+    return { success: false, error: updateErr.message || "Failed to update order status in PostgreSQL." };
+  }
+
+  // 4. Record authoritative timeline audit event
+  const eventTitles: Record<string, string> = {
+    confirmed: "Order Confirmed & Payment Verified",
+    artwork_review: "Pre-Press & Artwork Review",
+    proof_pending: "Digital Proof Dispatched",
+    proof_approved: "Proof Approved by Pre-Press",
+    in_production: "Job In Production on Press",
+    quality_check: "Studio Quality Inspection",
+    ready: "Packed & Labelled for Dispatch",
+    shipped: "Dispatched to Courier Logistics",
+    delivered: "Successfully Delivered",
+    cancelled: "Order Cancelled",
+  };
+
+  await supabase.from("order_events").insert({
+    order_id: targetUuid,
+    status: targetStatus,
+    title: eventTitles[targetStatus] || `Status updated to ${targetStatus}`,
+    description: `Order status advanced to ${targetStatus} by ${profile?.role || "admin"} (${user.email || "staff"}).`,
+    created_by: user.id,
   });
 
-  if (rpcError) {
-    return { success: false, error: rpcError.message || "Failed to update order status." };
-  }
+  const newStatus: Database["public"]["Tables"]["orders"]["Row"]["status"] = targetStatus;
+  let whatsappNotice: string | null = null;
 
-  const result = rpcResult as { success: boolean; error?: string; new_status?: string };
-  if (!result.success) {
-    return { success: false, error: result.error || "Status transition rejected." };
-  }
-
-  // Authoritative Notification Dispatch based on target status
+  // Authoritative Notification & WhatsApp Dispatch based on target status
   try {
+    const { WhatsAppService } = await import("@/lib/whatsapp/service");
     const { NotificationService } = await import("@/lib/notifications/notification-service");
-    const statusEventMap: Record<string, "ORDER_CONFIRMED" | "ARTWORK_APPROVED" | "ORDER_IN_PRODUCTION" | "ORDER_DISPATCHED" | "SHIPMENT_DELIVERED" | "ORDER_CANCELLED"> = {
+
+    const statusEventMap: Record<string, string> = {
       confirmed: "ORDER_CONFIRMED",
+      artwork_review: "ARTWORK_REVIEW_REQUIRED",
+      proof_pending: "ARTWORK_REVIEW_REQUIRED",
       proof_approved: "ARTWORK_APPROVED",
-      in_production: "ORDER_IN_PRODUCTION",
-      shipped: "ORDER_DISPATCHED",
-      delivered: "SHIPMENT_DELIVERED",
+      in_production: "PRODUCTION_STARTED",
+      quality_check: "PRODUCTION_STARTED",
+      ready: "AWB_ASSIGNED",
+      shipped: "ORDER_SHIPPED",
+      out_for_delivery: "OUT_FOR_DELIVERY",
+      delivered: "ORDER_DELIVERED",
       cancelled: "ORDER_CANCELLED",
     };
 
     const eventType = statusEventMap[targetStatus];
     if (eventType) {
+      // Data already fetched upfront in targetOrder
+      const cSnap = (targetOrder?.customer_snapshot as Record<string, unknown>) || {};
+      const dSnap = (targetOrder?.delivery_snapshot as Record<string, unknown>) || {};
+
+      let phone =
+        (dSnap.phone as string) ||
+        (dSnap.recipient_phone as string) ||
+        (cSnap.phone as string) ||
+        (cSnap.mobile as string) ||
+        null;
+
+      // Fallback: If phone is not in order snapshot, lookup customer profile in database
+      if (!phone && targetOrder?.user_id) {
+        const { data: userProfile } = await supabase
+          .from("profiles")
+          .select("phone")
+          .eq("id", targetOrder.user_id)
+          .maybeSingle();
+
+        if (userProfile?.phone) {
+          phone = userProfile.phone;
+        }
+      }
+
+      const customerName =
+        (dSnap.recipient_name as string) ||
+        (cSnap.name as string) ||
+        (cSnap.fullName as string) ||
+        "Valued Customer";
+
+      const orderRef = targetOrder?.order_number || `PRT-${targetUuid.slice(0, 8)}`;
+      const orderTotal = targetOrder?.total
+        ? Number(targetOrder.total).toLocaleString("en-IN", { minimumFractionDigits: 2 })
+        : "0.00";
+
+      // Direct WhatsApp dispatch (Mark isTest: true so it always dispatches during development/sandbox)
+      if (phone) {
+        const waResult = await WhatsAppService.emitEvent({
+          eventType,
+          orderId: targetUuid,
+          customerId: targetOrder?.user_id || null,
+          recipientPhone: phone,
+          recipientName: customerName,
+          context: {
+            customerName,
+            orderNumber: orderRef,
+            orderId: targetUuid,
+            orderTotal,
+            artworkReviewUrl: `${process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com"}/orders/${targetUuid}#proof`,
+            orderTrackingUrl: `${process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com"}/orders/${targetUuid}`,
+          },
+          customIdempotencyKey: `ord_status_${targetUuid}_${targetStatus}_${Date.now()}`,
+          isTest: true,
+        });
+
+        if (waResult.success || waResult.status === "SENT") {
+          whatsappNotice = `Dispatched to ${phone}`;
+        } else {
+          whatsappNotice = waResult.skippedReason || waResult.status;
+          console.warn("[WhatsApp Dispatch Notice]:", waResult.skippedReason || waResult.status);
+        }
+      } else {
+        whatsappNotice = "No phone number found on order or customer profile.";
+      }
+
+      // Multi-channel notification dispatch (Email & Logs)
       await NotificationService.dispatchEvent({
-        eventType,
+        eventType: eventType as any,
         orderId: targetUuid,
-        idempotencyKey: `trans_${targetUuid}_${targetStatus}`,
+        recipientPhone: phone,
+        recipientName: customerName,
+        idempotencyKey: `trans_${targetUuid}_${targetStatus}_${Date.now()}`,
       });
     }
   } catch (notifErr) {
-    console.error("[Non-blocking notification dispatch error]:", notifErr);
+    console.error("[Order status notification dispatch error]:", notifErr);
   }
 
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);
   revalidatePath("/account");
 
-  return { success: true, newStatus: result.new_status };
+  return { success: true, newStatus, whatsappNotice: whatsappNotice || undefined };
 }
 
 export async function requestCancelDatabaseOrder(orderId: string): Promise<{ success: boolean; error?: string }> {

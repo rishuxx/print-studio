@@ -82,6 +82,15 @@ export function renderNotificationTemplate(
         ctaLabel: "Retry Payment",
       };
 
+    case "ARTWORK_REVIEW_REQUIRED":
+    case "ARTWORK_SUBMITTED":
+      return {
+        subject: `Artwork Proof Ready for Review: #${orderRef} — ${brand}`,
+        bodyText: `Hello ${name},\n\nYour digital print proof for order #${orderRef} is ready for review. Please inspect bleed margins and layout at: ${orderUrl}`,
+        ctaUrl: orderUrl,
+        ctaLabel: "Review Artwork",
+      };
+
     case "ARTWORK_APPROVED":
       return {
         subject: `Artwork Approved: #${orderRef} — ${brand}`,

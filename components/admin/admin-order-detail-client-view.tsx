@@ -115,7 +115,9 @@ export function AdminOrderDetailClientView({
       const res = await updateOrderStatus(dbOrder.id, selectedNextStatus, currentStatus);
       if (res.success) {
         toast.success("Order status updated successfully!", {
-          description: `Transitioned from ${currentMeta?.label} → ${nextMeta?.label}`,
+          description: res.whatsappNotice
+            ? `Transitioned to ${nextMeta?.label}. WhatsApp: ${res.whatsappNotice}`
+            : `Transitioned from ${currentMeta?.label} → ${nextMeta?.label}`,
         });
         setSelectedNextStatus("");
         router.refresh();

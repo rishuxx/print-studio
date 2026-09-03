@@ -20,22 +20,23 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
   const supabase = await createClient();
 
   // 2. Fetch full order joined with order_items and order_events from PostgreSQL
-  // Check whether orderId is a UUID or an order_number string
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
-
-  let query = supabase
+  const cleanId = orderId.trim();
+  let { data: dbOrder } = await supabase
     .from("orders")
-    .select("*, order_items(*), order_events(*)");
+    .select("*, order_items(*), order_events(*)")
+    .eq("id", cleanId)
+    .maybeSingle();
 
-  if (isUuid) {
-    query = query.or(`id.eq.${orderId},order_number.eq.${orderId}`);
-  } else {
-    query = query.eq("order_number", orderId);
+  if (!dbOrder) {
+    const { data: byNum } = await supabase
+      .from("orders")
+      .select("*, order_items(*), order_events(*)")
+      .eq("order_number", cleanId)
+      .maybeSingle();
+    dbOrder = byNum;
   }
 
-  const { data: dbOrder, error } = await query.maybeSingle();
-
-  if (error || !dbOrder) {
+  if (!dbOrder) {
     return (
       <div className="shell py-12 max-w-xl mx-auto text-center space-y-4">
         <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-paper text-muted-foreground">

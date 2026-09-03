@@ -32,6 +32,30 @@ export function DirectDispatchCard({
   const [isAssigning, setIsAssigning] = React.useState(false);
   const [liveServiceability, setLiveServiceability] = React.useState<ReturnType<typeof checkPincodeServiceability> | null>(null);
   const [isLoadingRates, setIsLoadingRates] = React.useState(false);
+  const [logoError, setLogoError] = React.useState(false);
+
+  const getCarrierLogoUrl = () => {
+    if (existingAwb && carrierName) {
+      const name = carrierName.toLowerCase();
+      if (name.includes("delhivery")) return "https://www.google.com/s2/favicons?domain=delhivery.com&sz=128";
+      if (name.includes("shiprocket")) return "https://www.google.com/s2/favicons?domain=shiprocket.in&sz=128";
+      if (name.includes("blue dart") || name.includes("bluedart")) return "https://www.google.com/s2/favicons?domain=bluedart.com&sz=128";
+      return null;
+    }
+    
+    switch (selectedCarrier) {
+      case "delhivery": return "https://www.google.com/s2/favicons?domain=delhivery.com&sz=128";
+      case "shiprocket": return "https://www.google.com/s2/favicons?domain=shiprocket.in&sz=128";
+      case "bluedart": return "https://www.google.com/s2/favicons?domain=bluedart.com&sz=128";
+      default: return null;
+    }
+  };
+
+  const carrierLogoUrl = getCarrierLogoUrl();
+
+  React.useEffect(() => {
+    setLogoError(false);
+  }, [carrierLogoUrl]);
 
   // Compute immediate client baseline fallback (All 6-digit valid Indian pins are baseline serviceable)
   const baseline = React.useMemo(() => {
@@ -104,10 +128,21 @@ export function DirectDispatchCard({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
         <div className="flex items-center gap-3">
-          <div className={`flex size-10 items-center justify-center rounded-xl text-white shadow-xs ${
+          <div className={`flex size-10 flex-shrink-0 items-center justify-center rounded-xl overflow-hidden shadow-xs ${
             existingAwb ? "bg-emerald-600" : "bg-violet"
           }`}>
-            <Truck className="size-5" />
+            {carrierLogoUrl && !logoError ? (
+              <div className="w-full h-full bg-white flex items-center justify-center p-1.5">
+                <img 
+                  src={carrierLogoUrl} 
+                  alt="Carrier Logo" 
+                  className="w-full h-full object-contain"
+                  onError={() => setLogoError(true)}
+                />
+              </div>
+            ) : (
+              <Truck className="size-5 text-white" />
+            )}
           </div>
           <div>
             <div className="flex items-center gap-2">

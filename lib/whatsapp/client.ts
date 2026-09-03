@@ -121,8 +121,10 @@ export class MetaWhatsAppClient {
     // Build components
     const components: Array<Record<string, unknown>> = [];
 
-    // 1. Header component (if present)
-    if (params.headerParameters && params.headerParameters.length > 0) {
+    const isHelloWorld = params.templateName.trim().toLowerCase() === "hello_world";
+
+    // 1. Header component (if present and not hello_world)
+    if (!isHelloWorld && params.headerParameters && params.headerParameters.length > 0) {
       components.push({
         type: "header",
         parameters: params.headerParameters.map((p) => {
@@ -134,8 +136,8 @@ export class MetaWhatsAppClient {
       });
     }
 
-    // 2. Body component (variable parameters)
-    if (params.bodyParameters && params.bodyParameters.length > 0) {
+    // 2. Body component (variable parameters, if not hello_world)
+    if (!isHelloWorld && params.bodyParameters && params.bodyParameters.length > 0) {
       components.push({
         type: "body",
         parameters: params.bodyParameters.map((paramVal) => ({
@@ -145,8 +147,8 @@ export class MetaWhatsAppClient {
       });
     }
 
-    // 3. Button component (if present)
-    if (params.buttonParameters && params.buttonParameters.length > 0) {
+    // 3. Button component (if present and not hello_world)
+    if (!isHelloWorld && params.buttonParameters && params.buttonParameters.length > 0) {
       for (const btn of params.buttonParameters) {
         components.push({
           type: "button",
@@ -167,9 +169,9 @@ export class MetaWhatsAppClient {
       to: params.to,
       type: "template",
       template: {
-        name: params.templateName,
+        name: isHelloWorld ? "hello_world" : params.templateName,
         language: {
-          code: params.languageCode || "en",
+          code: isHelloWorld ? "en_US" : (params.languageCode || "en"),
         },
         components: components.length > 0 ? components : undefined,
       },

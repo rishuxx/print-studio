@@ -129,6 +129,13 @@ export interface AuthoritativePriceCalculation {
   finalSubtotalMinor: MoneyMinor;
   totalDiscountMinor: MoneyMinor;
   marginFloorProtected?: boolean;
+  taxableValueMinor: MoneyMinor;
+  gstAmountMinor: MoneyMinor;
+  gstRatePercent: number;
+  cgstAmountMinor: MoneyMinor;
+  sgstAmountMinor: MoneyMinor;
+  igstAmountMinor: MoneyMinor;
+  isGstInclusive: boolean;
   engineVersion: string;
   calculatedAt: string;
 }

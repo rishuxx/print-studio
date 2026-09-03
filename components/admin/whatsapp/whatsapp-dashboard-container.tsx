@@ -12,6 +12,7 @@ import {
   saveWhatsAppConfigAction,
   testWhatsAppConnectionAction,
   sendWhatsAppTestAction,
+  updateWhatsAppTemplateAction,
   updateWhatsAppTriggerAction,
   retryWhatsAppOutboxMessageAction,
   resendWhatsAppOutboxMessageAction,
@@ -55,7 +56,7 @@ export function WhatsAppDashboardContainer({
 
   // State
   const [config, setConfig] = useState<WhatsAppConfigRecord>(initialConfig);
-  const [templates] = useState<WhatsAppTemplateRecord[]>(initialTemplates);
+  const [templates, setTemplates] = useState<WhatsAppTemplateRecord[]>(initialTemplates);
   const [triggers, setTriggers] = useState<WhatsAppTriggerRecord[]>(initialTriggers);
   const [logs, setLogs] = useState<WhatsAppOutboxRecord[]>(initialLogs);
   const [metrics] = useState<WhatsAppMetricsSummary>(initialMetrics);
@@ -539,7 +540,9 @@ export function WhatsAppDashboardContainer({
                 </div>
                 <div className="flex justify-between py-1.5 border-b border-border/50">
                   <span className="text-muted-foreground">Last Tested:</span>
-                  <span className="text-ink">{config.last_tested_at ? new Date(config.last_tested_at).toLocaleString() : "Never"}</span>
+                  <span className="text-ink" suppressHydrationWarning>
+                    {config.last_tested_at ? new Date(config.last_tested_at).toLocaleString() : "Never"}
+                  </span>
                 </div>
               </div>
 
@@ -644,12 +647,139 @@ export function WhatsAppDashboardContainer({
                   </span>
                 </div>
 
+                {/* Edit Meta Template Mapping Section */}
+                <div className="p-4 bg-muted/30 border border-border rounded-lg space-y-3">
+                  <div className="text-xs font-bold text-ink flex items-center justify-between">
+                    <span>Meta Cloud API Template Mapping:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextTpl = {
+                          ...selectedTemplate,
+                          meta_template_name: "hello_world",
+                          language_code: "en_US",
+                          status: "APPROVED" as const,
+                          body_text: "Welcome and congratulations! This message confirms that your WhatsApp Business Account is now successfully integrated.",
+                          variable_schema: [],
+                        };
+                        setTemplates((prev) => prev.map((t) => (t.id === selectedTemplate.id ? nextTpl : t)));
+                        updateWhatsAppTemplateAction({
+                          id: selectedTemplate.id,
+                          metaTemplateName: "hello_world",
+                          languageCode: "en_US",
+                          status: "APPROVED",
+                          isEnabled: selectedTemplate.is_enabled,
+                          bodyText: "Welcome and congratulations! This message confirms that your WhatsApp Business Account is now successfully integrated.",
+                          variableSchema: [],
+                        }).then((r) => {
+                          if (r.success) toast.success("Template mapped to Meta sandbox 'hello_world' (en_US) with 0 params!");
+                          else toast.error(r.error || "Update failed");
+                        });
+                      }}
+                      className="text-[10px] px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-300 font-semibold transition"
+                    >
+                      ⚡ Quick-Set to Meta Sandbox `hello_world`
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <label className="block text-[11px] text-muted-foreground mb-1">Meta Template Name</label>
+                      <input
+                        type="text"
+                        value={selectedTemplate.meta_template_name}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTemplates((prev) =>
+                            prev.map((t) => (t.id === selectedTemplate.id ? { ...t, meta_template_name: val } : t))
+                          );
+                        }}
+                        className="w-full text-xs px-2.5 py-1.5 rounded border border-border bg-paper font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-muted-foreground mb-1">Language Code</label>
+                      <input
+                        type="text"
+                        value={selectedTemplate.language_code}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTemplates((prev) =>
+                            prev.map((t) => (t.id === selectedTemplate.id ? { ...t, language_code: val } : t))
+                          );
+                        }}
+                        placeholder="en or en_US"
+                        className="w-full text-xs px-2.5 py-1.5 rounded border border-border bg-paper font-mono"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const res = await updateWhatsAppTemplateAction({
+                            id: selectedTemplate.id,
+                            metaTemplateName: selectedTemplate.meta_template_name,
+                            languageCode: selectedTemplate.language_code,
+                            status: selectedTemplate.status,
+                            isEnabled: selectedTemplate.is_enabled,
+                            bodyText: selectedTemplate.body_text,
+                            variableSchema: selectedTemplate.variable_schema,
+                          });
+                          if (res.success) {
+                            toast.success(`Template '${selectedTemplate.name}' updated successfully!`);
+                          } else {
+                            toast.error(res.error || "Failed to update template");
+                          }
+                        }}
+                        className="w-full py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition"
+                      >
+                        Save Mapping
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-3">
-                  <label className="text-xs font-bold text-ink uppercase tracking-wider">
-                    Template Body Format (Local Source):
-                  </label>
-                  <div className="p-3 bg-muted/40 rounded-lg border border-border font-mono text-xs whitespace-pre-wrap text-ink">
-                    {selectedTemplate.body_text}
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-ink uppercase tracking-wider">
+                      Editable Template Body:
+                    </label>
+                    <span className="text-[10px] text-muted-foreground">Use {`{{1}}`}, {`{{2}}`} for positional variables</span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={selectedTemplate.body_text}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setTemplates((prev) =>
+                        prev.map((t) => (t.id === selectedTemplate.id ? { ...t, body_text: val } : t))
+                      );
+                    }}
+                    className="w-full p-3 rounded-lg border border-border bg-paper font-mono text-xs whitespace-pre-wrap text-ink focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const res = await updateWhatsAppTemplateAction({
+                          id: selectedTemplate.id,
+                          metaTemplateName: selectedTemplate.meta_template_name,
+                          languageCode: selectedTemplate.language_code,
+                          status: selectedTemplate.status,
+                          isEnabled: selectedTemplate.is_enabled,
+                          bodyText: selectedTemplate.body_text,
+                          variableSchema: selectedTemplate.variable_schema,
+                        });
+                        if (res.success) {
+                          toast.success(`Template content for '${selectedTemplate.name}' saved!`);
+                        } else {
+                          toast.error(res.error || "Failed to save template body");
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition"
+                    >
+                      Save Template Content
+                    </button>
                   </div>
                 </div>
 
@@ -689,43 +819,106 @@ export function WhatsAppDashboardContainer({
 
       {/* TAB 3: AUTOMATIONS / TRIGGERS */}
       {activeTab === "triggers" && (
-        <div className="bg-paper border border-border rounded-xl p-5 space-y-4">
-          <div>
-            <h2 className="text-base font-semibold text-ink flex items-center gap-2">
-              <Zap className="size-4 text-emerald-600" />
-              <span>Event Lifecycle Triggers & Automation Rules</span>
-            </h2>
-            <p className="text-xs text-muted-foreground mt-1">
-              Control which store lifecycle events automatically dispatch WhatsApp messages.
-            </p>
+        <div className="bg-paper border border-border rounded-xl p-5 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-4">
+            <div>
+              <h2 className="text-base font-semibold text-ink flex items-center gap-2">
+                <Zap className="size-4 text-emerald-600" />
+                <span>Lifecycle Automations & Trigger Rules</span>
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Configure which store lifecycle events automatically trigger WhatsApp notifications and choose which template is assigned to each event.
+              </p>
+            </div>
+            <div className="text-xs text-muted-foreground font-mono">
+              {triggers.filter((t) => t.is_enabled).length} of {triggers.length} automations enabled
+            </div>
           </div>
 
-          <div className="divide-y divide-border border border-border rounded-lg overflow-hidden">
+          <div className="divide-y divide-border border border-border rounded-xl overflow-hidden bg-paper">
             {triggers.map((trig) => (
-              <div key={trig.id} className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-muted/20 transition">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold font-mono text-ink">{trig.event_type}</span>
-                    <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+              <div
+                key={trig.id}
+                className={`p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition ${
+                  trig.is_enabled ? "bg-paper hover:bg-muted/10" : "bg-muted/20 opacity-75"
+                }`}
+              >
+                <div className="space-y-1.5 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold font-mono text-ink bg-muted/40 px-2 py-0.5 rounded border border-border">
+                      {trig.event_type}
+                    </span>
+                    <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300">
                       {trig.category}
+                    </span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        trig.is_enabled
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                          : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                      }`}
+                    >
+                      {trig.is_enabled ? "ACTIVE" : "OFF"}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">{trig.description}</p>
-                  <div className="text-[11px] text-emerald-600 font-medium">
-                    Template: {trig.template?.name || "None assigned"}
-                  </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={trig.is_enabled}
-                      onChange={() => handleToggleTrigger(trig)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
-                  </label>
+                <div className="flex flex-wrap items-center gap-4 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-3 md:pt-0 border-border">
+                  {/* Template selector */}
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] font-medium text-muted-foreground whitespace-nowrap">Template:</label>
+                    <select
+                      value={trig.template_id || ""}
+                      onChange={async (e) => {
+                        const newTplId = e.target.value || null;
+                        const matchedTpl = templates.find((t) => t.id === newTplId);
+                        setTriggers((prev) =>
+                          prev.map((t) =>
+                            t.id === trig.id
+                              ? { ...t, template_id: newTplId, template: matchedTpl || null }
+                              : t
+                          )
+                        );
+                        const res = await updateWhatsAppTriggerAction({
+                          id: trig.id,
+                          isEnabled: trig.is_enabled,
+                          templateId: newTplId,
+                          maxRetries: trig.max_retries,
+                        });
+                        if (res.success) toast.success(`Template updated for '${trig.event_type}'`);
+                        else toast.error(res.error || "Failed to assign template");
+                      }}
+                      className="text-xs px-2.5 py-1.5 rounded-lg border border-border bg-paper text-ink max-w-[200px]"
+                    >
+                      <option value="">-- No Template Assigned --</option>
+                      {templates.map((tpl) => (
+                        <option key={tpl.id} value={tpl.id}>
+                          {tpl.name} ({tpl.meta_template_name})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Toggle Switch */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleTrigger(trig)}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        trig.is_enabled ? "bg-emerald-600" : "bg-slate-300 dark:bg-slate-700"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          trig.is_enabled ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                    <span className="text-xs font-semibold text-ink w-8">
+                      {trig.is_enabled ? "ON" : "OFF"}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -800,7 +993,7 @@ export function WhatsAppDashboardContainer({
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-muted-foreground">{log.attempts}</td>
-                      <td className="py-2.5 px-3 text-muted-foreground">
+                      <td className="py-2.5 px-3 text-muted-foreground" suppressHydrationWarning>
                         {new Date(log.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                       </td>
                       <td className="py-2.5 px-3 font-mono text-[10px] text-muted-foreground">

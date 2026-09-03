@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { ProductService } from "@/lib/catalogue/product-service";
 import { PricingService } from "@/lib/pricing/pricing-service";
+import { AvailabilityService } from "@/lib/availability/engine";
 import { products } from "@/lib/data/products";
 import { tierPrice, tierCompareAtPrice, findVariant } from "@/lib/pricing";
 
@@ -44,6 +45,22 @@ export async function getLiveProductPriceAction(
           dbVariant = vData;
           if (vData.status !== "active" || !vData.available_for_sale) {
             return { success: false, error: "Variant is out of stock or unavailable." };
+          }
+          
+          // Check physical inventory availability
+          const availability = await AvailabilityService.evaluateVariantAvailability(
+            vData.id,
+            quantity,
+            dbProduct.status,
+            vData.status,
+            false // Not checking same-day explicitly here, just checking if it can be added to cart
+          );
+          
+          if (!availability.available) {
+            return { 
+               success: false, 
+               error: `Product unavailable: ${availability.reason}`
+            };
           }
         }
       }

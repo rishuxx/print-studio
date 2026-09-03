@@ -118,7 +118,7 @@ export async function fetchAdminShipments(params?: {
 
   const { data: recentOrders } = await supabase
     .from("orders")
-    .select("id, order_number, total, customer_snapshot, delivery_snapshot, shipping_address")
+    .select("id, order_number, total, customer_snapshot, delivery_snapshot")
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -128,17 +128,14 @@ export async function fetchAdminShipments(params?: {
     total: number;
     customer_snapshot?: unknown;
     delivery_snapshot?: unknown;
-    shipping_address?: unknown;
+    // removed shipping_snapshot
   }) => {
     const cSnap = (o.customer_snapshot as Record<string, unknown>) || {};
     const dSnap = (o.delivery_snapshot as Record<string, unknown>) || {};
-    const sAddr = (o.shipping_address as Record<string, unknown>) || {};
     const customerName = String(
       cSnap.fullName ||
       cSnap.name ||
       dSnap.fullName ||
-      sAddr.recipient_name ||
-      sAddr.full_name ||
       "Customer"
     );
 

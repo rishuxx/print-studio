@@ -46,6 +46,11 @@ interface CalculatePriceParams {
   currentTimestamp?: string;
   isPersonalized?: boolean;
   needsDesignAssistance?: boolean;
+  gstConfig?: {
+    enabled: boolean;
+    ratePercent: number;
+    mode: "inclusive" | "exclusive";
+  };
 }
 
 /**
@@ -64,6 +69,7 @@ export function calculateAuthoritativePrice({
   currentTimestamp = new Date().toISOString(),
   isPersonalized = false,
   needsDesignAssistance = false,
+  gstConfig = { enabled: false, ratePercent: 0, mode: "exclusive" },
 }: CalculatePriceParams): AuthoritativePriceCalculation {
   const now = new Date(currentTimestamp).getTime();
 
@@ -282,6 +288,30 @@ export function calculateAuthoritativePrice({
     marginFloorProtected = true;
   }
 
+  // 7. GST Calculation
+  let taxableValueMinor = finalSubtotalMinor;
+  let gstAmountMinor = 0;
+  
+  if (gstConfig.enabled && gstConfig.ratePercent > 0) {
+    if (gstConfig.mode === "inclusive") {
+      // finalSubtotalMinor includes GST
+      // Taxable Value = finalSubtotalMinor / (1 + ratePercent/100)
+      taxableValueMinor = Math.round(finalSubtotalMinor / (1 + (gstConfig.ratePercent / 100)));
+      gstAmountMinor = finalSubtotalMinor - taxableValueMinor;
+    } else {
+      // exclusive
+      gstAmountMinor = Math.round(taxableValueMinor * (gstConfig.ratePercent / 100));
+      // Adjust final subtotal to include GST because it's exclusive
+      finalSubtotalMinor += gstAmountMinor;
+    }
+  }
+
+  // Split into CGST and SGST (assuming intra-state default for now, unless IGST is explicitly requested)
+  // In a real scenario, you'd compare store state with shipping state
+  const cgstAmountMinor = Math.round(gstAmountMinor / 2);
+  const sgstAmountMinor = gstAmountMinor - cgstAmountMinor;
+  const igstAmountMinor = 0;
+  
   const finalUnitPriceMinor: MoneyMinor = Math.round(finalSubtotalMinor / quantity);
 
   return {
@@ -306,6 +336,13 @@ export function calculateAuthoritativePrice({
     finalSubtotalMinor,
     totalDiscountMinor,
     marginFloorProtected,
+    taxableValueMinor,
+    gstAmountMinor,
+    gstRatePercent: gstConfig.enabled ? gstConfig.ratePercent : 0,
+    cgstAmountMinor,
+    sgstAmountMinor,
+    igstAmountMinor,
+    isGstInclusive: gstConfig.mode === "inclusive",
     engineVersion: PRICING_ENGINE_VERSION,
     calculatedAt: new Date().toISOString(),
   };

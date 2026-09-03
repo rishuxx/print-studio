@@ -36,7 +36,7 @@ export class NotificationService {
       if (params.orderId) {
         const { data: ord } = await supabase
           .from("orders")
-          .select("id, order_number, user_id, total, status, delivery_snapshot, customer_snapshot, shipping_address")
+          .select("id, order_number, user_id, total, status, delivery_snapshot, customer_snapshot")
           .eq("id", params.orderId)
           .maybeSingle();
         order = ord;
@@ -45,7 +45,7 @@ export class NotificationService {
       const effectiveUserId = params.userId || order?.user_id || null;
       const cSnap = (order?.customer_snapshot as Record<string, unknown>) || {};
       const dSnap = (order?.delivery_snapshot as Record<string, unknown>) || {};
-      const shipAddr = (order?.shipping_address as Record<string, unknown>) || {};
+      // removed shipAddr
 
       const recipientEmail =
         params.recipientEmail ||
@@ -57,14 +57,12 @@ export class NotificationService {
         params.recipientPhone ||
         (cSnap.phone as string) ||
         (dSnap.phone as string) ||
-        (shipAddr.phone as string) ||
         null;
 
       const recipientName =
         params.recipientName ||
         (cSnap.name as string) ||
         (dSnap.recipient_name as string) ||
-        (shipAddr.name as string) ||
         "Valued Customer";
 
       const orderNumber = params.orderNumber || order?.order_number || (order ? `PRT-${order.id.slice(0, 8)}` : undefined);
@@ -237,6 +235,19 @@ export class NotificationService {
           recipient: params.recipient,
           templateKey,
           rendered,
+          metadata: {
+            ...params.context,
+            orderId: params.orderId || undefined,
+            orderNumber: params.context.orderNumber || undefined,
+            customerName: params.context.customerName || undefined,
+            orderTotal: params.context.amountMinor
+              ? (params.context.amountMinor / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })
+              : undefined,
+            trackingNumber: params.context.trackingNumber || undefined,
+            carrierName: params.context.carrierName || undefined,
+            artworkReviewUrl: `${params.context.siteUrl || "https://preetyprints.com"}/orders/${params.orderId || ""}#proof`,
+            orderTrackingUrl: `${params.context.siteUrl || "https://preetyprints.com"}/orders/${params.orderId || ""}`,
+          },
         });
 
         if (finalResult.success || !finalResult.isRetryable) {
