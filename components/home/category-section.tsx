@@ -103,7 +103,7 @@ export function CategorySection({ categories }: CategorySectionProps) {
           {displayCategories.map((category) => (
             <div
               key={category.handle}
-              className="w-[calc(50%-8px)] sm:w-[calc(33.333%-11px)] md:w-[calc(25%-12px)] lg:w-[calc(19%-12px)] xl:w-[calc(16.666%-14px)] shrink-0 snap-start"
+              className="w-[calc(34%-8px)] sm:w-[calc(28%-10px)] md:w-[calc(22%-12px)] lg:w-[calc(18%-12px)] xl:w-[calc(16%-14px)] shrink-0 snap-start"
             >
               <CategoryCard category={category} />
             </div>

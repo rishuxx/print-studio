@@ -30,8 +30,9 @@ export function MobileHeader() {
   return (
     <>
       <header className="sticky top-0 z-40 w-full border-b border-border bg-white/95 backdrop-blur-md md:hidden">
-        <div className="flex h-[4.25rem] items-center justify-between px-4">
-          <div className="flex items-center gap-4">
+        <div className="grid grid-cols-3 h-[4.25rem] items-center px-4">
+          {/* Left: Drawer Menu Toggle */}
+          <div className="flex items-center justify-start">
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
@@ -40,11 +41,15 @@ export function MobileHeader() {
             >
               <Menu className="size-6 pointer-events-none" />
             </button>
-
-            <SiteLogo isMobile={true} />
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Center: Brand Logo Lockup */}
+          <div className="flex items-center justify-center">
+            <SiteLogo isMobile={true} className="justify-center" />
+          </div>
+
+          {/* Right: Shopping Cart Link */}
+          <div className="flex items-center justify-end">
             <Link
               href="/cart"
               className="relative flex size-11 cursor-pointer items-center justify-center rounded-lg text-ink hover:bg-muted active:bg-muted/80"

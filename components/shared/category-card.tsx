@@ -69,14 +69,14 @@ export function CategoryCard({ category, className, variant = "tile" }: Category
       </div>
 
       {/* Info bottom - Clean padded area for title and blurb */}
-      <div className="flex flex-col p-3.5 pt-3">
-        <div className="flex items-center justify-between gap-1.5">
-          <h3 className="truncate text-xs font-bold text-zinc-900 transition-colors group-hover:text-primary sm:text-sm">
+      <div className="flex flex-col p-2 sm:p-3.5 pt-2 sm:pt-3">
+        <div className="flex items-center justify-between gap-1">
+          <h3 className="truncate text-[11px] sm:text-sm font-bold text-zinc-900 transition-colors group-hover:text-primary">
             {category.title}
           </h3>
-          <ArrowRight className="size-3.5 shrink-0 text-zinc-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-primary" />
+          <ArrowRight className="size-3 sm:size-3.5 shrink-0 text-zinc-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-primary hidden sm:block" />
         </div>
-        <p className="mt-1 line-clamp-1 text-[11px] font-medium text-zinc-500">
+        <p className="mt-0.5 line-clamp-1 text-[10px] sm:text-[11px] font-medium text-zinc-500">
           {category.blurb}
         </p>
       </div>
