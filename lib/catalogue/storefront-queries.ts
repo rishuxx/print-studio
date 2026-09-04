@@ -1,10 +1,16 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 function getPublicClient() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY! || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    return null;
+  }
+
+  return createSupabaseClient(url, key);
 }
 import { getProduct as getStaticProduct, getAllProducts as getStaticAllProducts } from "@/lib/data/products";
 import { getCategory as getStaticCategory, categories as staticCategories } from "@/lib/data/categories";
@@ -228,6 +234,7 @@ export function mapDatabaseProductToStorefront(dbProduct: any, priceTiers: any[]
 export async function getStorefrontProduct(handle: string): Promise<Product | undefined> {
   try {
     const supabase = getPublicClient();
+    if (!supabase) return getStaticProduct(handle);
 
     // 1. Fetch from PostgreSQL
     const { data: dbProduct } = await supabase
@@ -291,6 +298,7 @@ export async function getStorefrontProduct(handle: string): Promise<Product | un
 export async function getStorefrontCategory(handle: string) {
   try {
     const supabase = getPublicClient();
+    if (!supabase) return getStaticCategory(handle);
     const { data: cat } = await supabase
       .from("categories")
       .select("*")
@@ -314,6 +322,7 @@ export async function getStorefrontRelatedProducts(
 ): Promise<Product[]> {
   try {
     const supabase = getPublicClient();
+    if (!supabase) return [];
 
     const { data } = await supabase
       .from("products")
@@ -350,6 +359,7 @@ export async function getStorefrontRelatedProducts(
 export async function getStorefrontAllProducts(): Promise<Product[]> {
   try {
     const supabase = getPublicClient();
+    if (!supabase) return getStaticAllProducts();
     const { data: dbProducts } = await supabase
       .from("products")
       .select(
@@ -451,6 +461,10 @@ export async function getStorefrontCatalogue(filter: PublicCatalogueFilter) {
 export async function getStorefrontFeaturedProducts(): Promise<Product[]> {
   try {
     const supabase = getPublicClient();
+    if (!supabase) {
+      const staticProds = getStaticAllProducts();
+      return staticProds.filter((p: any) => p.isFeatured || p.categoryHandles?.includes("marketing-materials")).slice(0, 8);
+    }
     const { data: dbProducts } = await supabase
       .from("products")
       .select(
@@ -497,6 +511,7 @@ export async function getStorefrontFeaturedProducts(): Promise<Product[]> {
 export async function getStorefrontReviews(productId: string): Promise<any[]> {
   try {
     const supabase = getPublicClient();
+    if (!supabase) return [];
     const { data: reviews } = await supabase
       .from("product_reviews")
       .select(`
