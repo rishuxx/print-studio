@@ -21,29 +21,37 @@ export function SettingsProvider({ initialSettings, children }: SettingsProvider
   const [settings, setSettings] = React.useState<DatabaseBusinessSettings>(initialSettings);
 
   React.useEffect(() => {
-    const supabase = createClient();
+    try {
+      const supabase = createClient();
 
-    // Listen for Realtime updates on business_settings table
-    const channel = supabase
-      .channel("realtime-business-settings")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "business_settings",
-        },
-        (payload) => {
-          if (payload.new && typeof payload.new === "object") {
-            setSettings(payload.new as DatabaseBusinessSettings);
+      // Listen for Realtime updates on business_settings table
+      const channel = supabase
+        .channel("realtime-business-settings")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "business_settings",
+          },
+          (payload) => {
+            if (payload.new && typeof payload.new === "object") {
+              setSettings(payload.new as DatabaseBusinessSettings);
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      return () => {
+        try {
+          supabase.removeChannel(channel);
+        } catch {
+          // Graceful cleanup
+        }
+      };
+    } catch (err) {
+      console.warn("Realtime settings sync unavailable on this device:", err);
+    }
   }, []);
 
   return (

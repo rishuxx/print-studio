@@ -57,7 +57,7 @@ export const DEFAULT_BUSINESS_SETTINGS: DatabaseBusinessSettings = {
   site_title: "PreetyPrints · High-Quality Custom Online Printing & Branding",
   site_description: siteConfig.description,
   og_image_url: null,
-  canonical_site_url: "http://localhost:3000",
+  canonical_site_url: "https://preetyprints.in",
 
   version: 1,
   updated_by: null,
