@@ -414,7 +414,7 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
       return;
     }
 
-    const secureUnitPaise = livePriceCheck.unitPricePaise || Math.round(livePriceCheck.pricePaise / Math.max(1, selectedTierQty));
+    const secureBatchPaise = livePriceCheck.pricePaise;
     const secureCompareAtPaise = livePriceCheck.compareAtPaise || null;
 
     const linePayload = {
@@ -427,7 +427,7 @@ export function ProductConfigurator({ product }: ProductConfiguratorProps) {
       tierQty: selectedTierQty,
       sameDayEligible: product.sameDayEligible || false,
       priceUnit: product.priceUnit,
-      unitPrice: { amount: secureUnitPaise, currencyCode: "INR" as const },
+      unitPrice: { amount: secureBatchPaise, currencyCode: "INR" as const },
       compareAtUnitPrice: secureCompareAtPaise
         ? { amount: secureCompareAtPaise, currencyCode: "INR" as const }
         : null,

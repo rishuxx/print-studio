@@ -130,13 +130,13 @@ export default function CartPage() {
                     </span>
                     {line.quantity > 1 ? (
                       <div className="text-[0.6875rem] text-muted-foreground font-mono">
-                        ({formatMoney(line.unitPrice)} / batch)
+                        ({formatMoney(line.unitPrice)} each)
                       </div>
-                    ) : (
+                    ) : line.tierQty && line.tierQty > 1 ? (
                       <div className="text-[0.6875rem] text-muted-foreground font-mono">
-                        (₹{(line.unitPrice.amount / (Math.max(1, line.tierQty || 1) * 100)).toFixed(2)} / unit)
+                        (₹{(line.unitPrice.amount / (line.tierQty * 100)).toFixed(2)} / unit)
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 
@@ -186,7 +186,7 @@ export default function CartPage() {
                 {/* Quantity Controls & Actions */}
                 <div className="flex items-center justify-between pt-1 text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">Batches / Sets:</span>
+                    <span className="text-muted-foreground font-medium">Quantity:</span>
                     <div className="inline-flex items-center rounded-lg border border-border bg-paper p-1">
                       <button
                         type="button"
