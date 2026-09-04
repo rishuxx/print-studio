@@ -74,6 +74,8 @@ export async function saveHeroBannerAction(
     const supabase = await createClient();
 
     const payload = {
+      page_type: input.page_type || "home",
+      category_handle: input.page_type === "category" ? (input.category_handle || null) : null,
       title: input.title.trim(),
       subtitle: input.subtitle ? input.subtitle.trim() : null,
       eyebrow: input.eyebrow ? input.eyebrow.trim() : null,
@@ -128,6 +130,10 @@ export async function saveHeroBannerAction(
 
     revalidatePath("/", "layout");
     revalidatePath("/admin/hero");
+    if (input.category_handle) {
+      revalidatePath(`/category/${input.category_handle}`);
+    }
+    revalidatePath("/same-day");
 
     return { success: true, data: result.data as HeroBannerRecord };
   } catch (err: unknown) {

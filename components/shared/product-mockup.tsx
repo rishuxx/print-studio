@@ -223,10 +223,23 @@ function renderMockupSilhouette(kind: MockupKind) {
       );
     default:
       return (
-        <g stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="#ffffff" fillOpacity="0.9">
-          <rect x="50" y="50" width="100" height="100" rx="8" fill="#ffffff" />
-          <path d="M80 80 L120 120 M120 80 L80 120" stroke="var(--color-violet, #e53935)" strokeWidth="2" />
-          <circle cx="100" cy="100" r="35" stroke="#a09aa9" strokeWidth="1.5" strokeDasharray="3 3" fill="none" />
+        <g stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="#ffffff" fillOpacity="0.95">
+          {/* Layered printed paper/card sheet */}
+          <rect x="42" y="38" width="90" height="110" rx="8" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.5" />
+          <rect x="58" y="52" width="95" height="115" rx="8" fill="#ffffff" stroke="#e2e8f0" strokeWidth="1.5" />
+          {/* Subtle print graphic elements */}
+          <rect x="72" y="68" width="67" height="42" rx="4" fill="var(--color-violet-wash, #fef2f2)" stroke="var(--color-violet, #e53935)" strokeWidth="1.5" />
+          <circle cx="90" cy="85" r="7" fill="var(--color-violet, #e53935)" stroke="none" />
+          <path d="M78 102 Q90 94 100 102 T118 102" fill="none" stroke="#f2a31c" strokeWidth="2" />
+          {/* Typography simulation lines */}
+          <line x1="72" y1="122" x2="135" y2="122" stroke="#94a3b8" strokeWidth="2.5" />
+          <line x1="72" y1="134" x2="115" y2="134" stroke="#cbd5e1" strokeWidth="2" />
+          <line x1="72" y1="144" x2="125" y2="144" stroke="#e2e8f0" strokeWidth="2" />
+          {/* CMYK Accent dots */}
+          <circle cx="68" cy="154" r="3" fill="#00aeef" stroke="none" />
+          <circle cx="76" cy="154" r="3" fill="#ec008c" stroke="none" />
+          <circle cx="84" cy="154" r="3" fill="#fff200" stroke="none" />
+          <circle cx="92" cy="154" r="3" fill="#1b0b2e" stroke="none" />
         </g>
       );
   }

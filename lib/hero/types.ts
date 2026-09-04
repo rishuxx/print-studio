@@ -1,7 +1,10 @@
 export type HeroContentMode = "image_only" | "image_overlay";
+export type HeroPageType = "home" | "category";
 
 export interface HeroBannerRecord {
   id: string;
+  page_type: HeroPageType;
+  category_handle: string | null;
   title: string;
   subtitle: string | null;
   eyebrow: string | null;
@@ -32,6 +35,8 @@ export interface HeroBannerRecord {
 
 export interface SaveHeroBannerInput {
   id?: string;
+  page_type: HeroPageType;
+  category_handle?: string | null;
   title: string;
   subtitle?: string | null;
   eyebrow?: string | null;
@@ -61,6 +66,8 @@ export interface SaveHeroBannerInput {
 export const DEFAULT_HERO_BANNERS: HeroBannerRecord[] = [
   {
     id: "default-banner-1",
+    page_type: "home",
+    category_handle: null,
     title: "Print Anything. Make It Yours.",
     subtitle: "India's Premier Custom Printing & Merchandise Platform",
     eyebrow: "CUSTOM PRINTING & PERSONALISED PRODUCTS",

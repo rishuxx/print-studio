@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { HeroBannerRecord, SaveHeroBannerInput } from "@/lib/hero/types";
+import { HeroBannerRecord, SaveHeroBannerInput, HeroPageType } from "@/lib/hero/types";
+import { categories } from "@/lib/data/categories";
 import {
   saveHeroBannerAction,
   deleteHeroBannerAction,
@@ -23,6 +24,8 @@ import {
   Sparkles,
   Layers,
   ArrowUpRight,
+  Filter,
+  LayoutGrid,
 } from "lucide-react";
 
 interface HeroBannerManagerProps {
@@ -31,6 +34,8 @@ interface HeroBannerManagerProps {
 
 export function HeroBannerManager({ initialBanners }: HeroBannerManagerProps) {
   const [banners, setBanners] = React.useState<HeroBannerRecord[]>(initialBanners);
+  const [activeTab, setActiveTab] = React.useState<"all" | "home" | "category">("all");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = React.useState<string>("all");
   const [isEditing, setIsEditing] = React.useState(false);
   const [activePreviewTab, setActivePreviewTab] = React.useState<"desktop" | "mobile">("desktop");
   const [isSaving, setIsSaving] = React.useState(false);
@@ -39,6 +44,8 @@ export function HeroBannerManager({ initialBanners }: HeroBannerManagerProps) {
 
   // Form State
   const [currentId, setCurrentId] = React.useState<string | undefined>(undefined);
+  const [pageType, setPageType] = React.useState<HeroPageType>("home");
+  const [categoryHandle, setCategoryHandle] = React.useState<string>("");
   const [title, setTitle] = React.useState("");
   const [subtitle, setSubtitle] = React.useState("");
   const [eyebrow, setEyebrow] = React.useState("");
@@ -61,20 +68,35 @@ export function HeroBannerManager({ initialBanners }: HeroBannerManagerProps) {
   const [displayOrder, setDisplayOrder] = React.useState(1);
   const [isActive, setIsActive] = React.useState(true);
 
-  const openCreateModal = () => {
+  const openCreateModal = (defaultCategory?: string) => {
     setCurrentId(undefined);
-    setTitle("Print Anything. Make It Yours.");
-    setSubtitle("India's Premier Custom Printing Platform");
-    setEyebrow("CUSTOM PRINTING & MERCHANDISE");
-    setDescription(
-      "Luxury visiting cards, custom apparel, corporate merchandise, and packaging delivered nationwide."
-    );
+    if (defaultCategory) {
+      setPageType("category");
+      setCategoryHandle(defaultCategory);
+      const cat = categories.find((c) => c.handle === defaultCategory);
+      const catTitle = cat?.title || defaultCategory;
+      setTitle(`Premium Custom ${catTitle}`);
+      setSubtitle(`Explore high-impact prints & exclusive bulk discounts on ${catTitle}.`);
+      setEyebrow(`FLAT 25% OFF ON ${catTitle.toUpperCase()}`);
+      setDescription(cat?.blurb || `Order online with fast turnarounds, premium paper stocks and express doorstep delivery across India.`);
+      setPrimaryCtaText(`Shop ${catTitle}`);
+      setPrimaryCtaUrl(`/category/${defaultCategory}`);
+    } else {
+      setPageType("home");
+      setCategoryHandle("");
+      setTitle("Print Anything. Make It Yours.");
+      setSubtitle("India's Premier Custom Printing Platform");
+      setEyebrow("CUSTOM PRINTING & MERCHANDISE");
+      setDescription(
+        "Luxury visiting cards, custom apparel, corporate merchandise, and packaging delivered nationwide."
+      );
+      setPrimaryCtaText("Explore Products");
+      setPrimaryCtaUrl("/products");
+    }
     setDesktopImageUrl("");
     setMobileImageUrl("");
     setAltText("PreetyPrints Custom Online Printing Banner");
     setContentMode("image_overlay");
-    setPrimaryCtaText("Explore Products");
-    setPrimaryCtaUrl("/products");
     setPrimaryCtaBgColor("#e53935");
     setPrimaryCtaTextColor("#ffffff");
     setSecondaryCtaText("Get a Quote");
@@ -91,6 +113,8 @@ export function HeroBannerManager({ initialBanners }: HeroBannerManagerProps) {
 
   const openEditModal = (banner: HeroBannerRecord) => {
     setCurrentId(banner.id);
+    setPageType(banner.page_type || "home");
+    setCategoryHandle(banner.category_handle || "");
     setTitle(banner.title);
     setSubtitle(banner.subtitle || "");
     setEyebrow(banner.eyebrow || "");
@@ -189,6 +213,8 @@ export function HeroBannerManager({ initialBanners }: HeroBannerManagerProps) {
     try {
       const payload: SaveHeroBannerInput = {
         id: currentId,
+        page_type: pageType,
+        category_handle: pageType === "category" ? categoryHandle || null : null,
         title: title.trim(),
         subtitle: subtitle.trim() || null,
         eyebrow: eyebrow.trim() || null,
@@ -264,6 +290,28 @@ export function HeroBannerManager({ initialBanners }: HeroBannerManagerProps) {
     }
   };
 
+  // Filter banners based on selected tab and category
+  const filteredBanners = React.useMemo(() => {
+    return banners.filter((b) => {
+      const bannerPageType = b.page_type || "home";
+      if (activeTab === "home") {
+        return bannerPageType === "home";
+      }
+      if (activeTab === "category") {
+        if (bannerPageType !== "category") return false;
+        if (selectedCategoryFilter !== "all") {
+          return b.category_handle === selectedCategoryFilter;
+        }
+        return true;
+      }
+      // "all" tab
+      if (selectedCategoryFilter !== "all") {
+        return b.category_handle === selectedCategoryFilter;
+      }
+      return true;
+    });
+  }, [banners, activeTab, selectedCategoryFilter]);
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -273,48 +321,129 @@ export function HeroBannerManager({ initialBanners }: HeroBannerManagerProps) {
             <div className="flex items-center gap-2">
               <span className="inline-flex size-2 rounded-full bg-primary animate-pulse" />
               <span className="text-xs font-bold uppercase tracking-wider text-primary">
-                Homepage Content Engine
+                Storefront Promotional Engine
               </span>
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-black text-zinc-900 tracking-tight">
-              Hero Promotional Banners
+              Hero & Category Promotional Banners
             </h1>
             <p className="text-xs sm:text-sm text-zinc-500 max-w-2xl leading-relaxed">
-              Upload and organize responsive promotional hero banners (Desktop 16:5 / 16:6 and Mobile 4:5 / 1:1), customize call-to-actions, and preview before publishing.
+              Upload and organize responsive promotional hero banners for the <strong>Homepage</strong> and <strong>Every Category Page</strong>. Set category offers, custom artwork, overlay typography, and direct CTAs.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-primary/90 transition-all self-start sm:self-auto cursor-pointer"
-          >
-            <Plus className="size-4 stroke-[2.5]" />
-            <span>Add New Banner</span>
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => openCreateModal(selectedCategoryFilter !== "all" ? selectedCategoryFilter : undefined)}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-primary/90 transition-all self-start sm:self-auto cursor-pointer"
+            >
+              <Plus className="size-4 stroke-[2.5]" />
+              <span>Add New Banner</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Tabs: All / Homepage / Category Pages */}
+        <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-zinc-100 pt-4">
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-zinc-100/80 border border-zinc-200/60 self-start">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("all");
+                setSelectedCategoryFilter("all");
+              }}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === "all"
+                  ? "bg-white text-zinc-900 shadow-xs"
+                  : "text-zinc-600 hover:text-zinc-900"
+              }`}
+            >
+              All Banners ({banners.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("home");
+                setSelectedCategoryFilter("all");
+              }}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === "home"
+                  ? "bg-white text-zinc-900 shadow-xs"
+                  : "text-zinc-600 hover:text-zinc-900"
+              }`}
+            >
+              Homepage ({banners.filter((b) => (b.page_type || "home") === "home").length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("category")}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === "category"
+                  ? "bg-white text-zinc-900 shadow-xs"
+                  : "text-zinc-600 hover:text-zinc-900"
+              }`}
+            >
+              Category Pages ({banners.filter((b) => b.page_type === "category").length})
+            </button>
+          </div>
+
+          {/* Category Dropdown Filter */}
+          {(activeTab === "category" || activeTab === "all") && (
+            <div className="flex items-center gap-2">
+              <Filter className="size-3.5 text-zinc-400" />
+              <select
+                value={selectedCategoryFilter}
+                onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                aria-label="Filter banners by category"
+                className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-2xs focus:border-primary focus:outline-none"
+              >
+                <option value="all">All Categories</option>
+                {categories.map((c) => (
+                  <option key={c.handle} value={c.handle}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Hero Banners Grid / List */}
       <div className="grid grid-cols-1 gap-4">
-        {banners.length === 0 ? (
+        {filteredBanners.length === 0 ? (
           <div className="rounded-2xl border-2 border-dashed border-zinc-200 bg-white p-12 text-center">
             <Layers className="size-10 mx-auto text-zinc-300 mb-3" />
-            <h3 className="font-bold text-sm text-zinc-800">No Custom Hero Banners Yet</h3>
+            <h3 className="font-bold text-sm text-zinc-800">
+              {activeTab === "category"
+                ? selectedCategoryFilter !== "all"
+                  ? `No Banners Configured For "${categories.find((c) => c.handle === selectedCategoryFilter)?.title || selectedCategoryFilter}"`
+                  : "No Category Banners Configured Yet"
+                : "No Hero Banners Match This Filter"}
+            </h3>
             <p className="text-xs text-zinc-500 mt-1 max-w-md mx-auto">
-              Your homepage is currently rendering the default fallback layout. Add your first promotional marketing banner to take control from here!
+              {activeTab === "category"
+                ? "This category will display its smart default promotional header until you upload or publish a dedicated banner."
+                : "Add a promotional banner to customize images, offers, and buttons."}
             </p>
             <button
               type="button"
-              onClick={openCreateModal}
+              onClick={() => openCreateModal(activeTab === "category" && selectedCategoryFilter !== "all" ? selectedCategoryFilter : undefined)}
               className="mt-4 inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-800 transition-colors cursor-pointer"
             >
               <Plus className="size-3.5" />
-              <span>Create First Banner</span>
+              <span>
+                {activeTab === "category" && selectedCategoryFilter !== "all"
+                  ? `Create Banner for ${categories.find((c) => c.handle === selectedCategoryFilter)?.title || selectedCategoryFilter}`
+                  : "Create New Banner"}
+              </span>
             </button>
           </div>
         ) : (
-          banners.map((banner, index) => (
+          filteredBanners.map((banner, index) => (
             <div
               key={banner.id}
               className="group rounded-2xl border border-zinc-200 bg-white p-5 shadow-2xs hover:shadow-xs transition-all flex flex-col md:flex-row md:items-center justify-between gap-6"
@@ -341,6 +470,13 @@ export function HeroBannerManager({ initialBanners }: HeroBannerManagerProps) {
 
                 <div className="space-y-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
+                    {/* Placement Tag */}
+                    <span className="rounded-md bg-zinc-900 text-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                      {banner.page_type === "category"
+                        ? `Category: ${categories.find((c) => c.handle === banner.category_handle)?.title || banner.category_handle}`
+                        : "Homepage"}
+                    </span>
+
                     <span
                       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                         banner.is_active
@@ -350,7 +486,7 @@ export function HeroBannerManager({ initialBanners }: HeroBannerManagerProps) {
                     >
                       {banner.is_active ? (
                         <>
-                          <CheckCircle2 className="size-3 text-emerald-600" /> Active on Homepage
+                          <CheckCircle2 className="size-3 text-emerald-600" /> Active
                         </>
                       ) : (
                         <>
@@ -366,6 +502,12 @@ export function HeroBannerManager({ initialBanners }: HeroBannerManagerProps) {
                   <h3 className="font-bold text-base text-zinc-900 truncate">
                     {banner.title}
                   </h3>
+
+                  {banner.eyebrow && (
+                    <p className="text-[11px] font-bold text-red-600 uppercase tracking-wide">
+                      {banner.eyebrow}
+                    </p>
+                  )}
 
                   {banner.subtitle && (
                     <p className="text-xs text-zinc-500 line-clamp-1">{banner.subtitle}</p>
@@ -442,6 +584,81 @@ export function HeroBannerManager({ initialBanners }: HeroBannerManagerProps) {
             </div>
 
             <form onSubmit={handleSave} className="space-y-6">
+              {/* Placement Selection (Homepage vs Category Page) */}
+              <div className="rounded-xl border border-zinc-200 p-4 space-y-3 bg-zinc-50/50">
+                <label className="text-xs font-bold text-zinc-900 block">Banner Placement Location *</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPageType("home");
+                      setCategoryHandle("");
+                    }}
+                    className={`flex items-center gap-3 p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                      pageType === "home"
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "border-zinc-200 bg-white hover:border-zinc-300"
+                    }`}
+                  >
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white border border-zinc-200 text-zinc-700">
+                      <Monitor className="size-4 text-primary" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-zinc-900">Homepage Hero Carousel</div>
+                      <p className="text-[11px] text-zinc-500">Shows on the main storefront homepage</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPageType("category");
+                      if (!categoryHandle && categories.length > 0) {
+                        setCategoryHandle(categories[0].handle);
+                      }
+                    }}
+                    className={`flex items-center gap-3 p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                      pageType === "category"
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "border-zinc-200 bg-white hover:border-zinc-300"
+                    }`}
+                  >
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white border border-zinc-200 text-zinc-700">
+                      <LayoutGrid className="size-4 text-primary" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-zinc-900">Category Page Header</div>
+                      <p className="text-[11px] text-zinc-500">Shows atop a specific product category</p>
+                    </div>
+                  </button>
+                </div>
+
+                {/* If Category is selected, show category picker */}
+                {pageType === "category" && (
+                  <div className="pt-2 border-t border-zinc-200/70 space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-800">Target Category *</label>
+                    <select
+                      value={categoryHandle}
+                      onChange={(e) => {
+                        const newCat = e.target.value;
+                        setCategoryHandle(newCat);
+                        // Optionally update CTA default URL if not customized
+                        if (primaryCtaUrl.startsWith("/category/") || primaryCtaUrl === "/products") {
+                          setPrimaryCtaUrl(`/category/${newCat}`);
+                        }
+                      }}
+                      className="w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2 text-xs font-semibold text-zinc-800 focus:border-primary focus:outline-none"
+                    >
+                      {categories.map((c) => (
+                        <option key={c.handle} value={c.handle}>
+                          {c.title} (/category/{c.handle})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
               {/* Image Upload Row (Desktop & Mobile) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Desktop Asset */}
