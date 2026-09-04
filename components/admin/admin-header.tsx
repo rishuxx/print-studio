@@ -3,8 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, ChevronRight, ShieldCheck, ArrowUpRight } from "lucide-react";
-import { AdminSidebar } from "@/components/admin/admin-sidebar";
+import { ChevronRight, ShieldCheck, ArrowUpRight, PanelLeft } from "lucide-react";
 import { ADMIN_NAVIGATION } from "@/lib/admin/navigation";
 import { AdminPageHelpButton } from "@/components/admin/admin-page-help-button";
 
@@ -16,6 +15,8 @@ interface AdminHeaderProps {
   adminName: string;
   adminRole: UserRole;
   allowedPermissions: string[];
+  onToggleDrawer?: () => void;
+  isDrawerOpen?: boolean;
 }
 
 export function AdminHeader({
@@ -23,21 +24,10 @@ export function AdminHeader({
   adminName,
   adminRole,
   allowedPermissions,
+  onToggleDrawer,
+  isDrawerOpen,
 }: AdminHeaderProps) {
   const pathname = usePathname();
-  const [mobileDrawerOpen, setMobileDrawerOpen] = React.useState(false);
-
-  // Lock body scroll when mobile drawer is open
-  React.useEffect(() => {
-    if (mobileDrawerOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [mobileDrawerOpen]);
 
   // Derive current page title from navigation config
   const currentPageTitle = React.useMemo(() => {
@@ -80,15 +70,16 @@ export function AdminHeader({
       <header className="sticky top-0 z-30 flex h-16 sm:h-20 w-full items-center justify-between border-b border-border/80 bg-white/95 px-4 sm:px-8 backdrop-blur-md">
         {/* Left Side: Mobile Menu Button & Breadcrumb/Title */}
         <div className="flex items-center gap-3">
-          {/* Mobile Drawer Trigger */}
+          {/* Drawer Trigger Button (Desktop & Mobile) */}
           <button
             type="button"
-            onClick={() => setMobileDrawerOpen(true)}
-            className="flex size-10 items-center justify-center rounded-xl border border-border text-ink hover:bg-paper lg:hidden"
-            aria-label="Open Admin Menu"
-            aria-expanded={mobileDrawerOpen}
+            onClick={onToggleDrawer}
+            className="flex size-10 items-center justify-center rounded-xl border border-border text-ink hover:bg-paper hover:text-violet transition-colors shadow-2xs cursor-pointer"
+            aria-label="Toggle Admin Navigation Drawer"
+            title="Toggle Navigation Menu"
+            aria-expanded={isDrawerOpen}
           >
-            <Menu className="size-5" />
+            <PanelLeft className="size-5" />
           </button>
 
           {/* Breadcrumb / Title */}
@@ -143,41 +134,7 @@ export function AdminHeader({
         </div>
       </header>
 
-      {/* Mobile Drawer Overlay & Sliding Panel */}
-      {mobileDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex lg:hidden">
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-ink/50 backdrop-blur-xs transition-opacity animate-in fade-in"
-            onClick={() => setMobileDrawerOpen(false)}
-            aria-hidden="true"
-          />
-
-          {/* Drawer Content */}
-          <div className="relative flex w-full max-w-xs flex-1 flex-col bg-white shadow-2xl animate-in slide-in-from-left duration-200">
-            {/* Close Button Header */}
-            <div className="absolute right-3 top-4 z-10">
-              <button
-                type="button"
-                onClick={() => setMobileDrawerOpen(false)}
-                className="flex size-9 items-center justify-center rounded-xl border border-border bg-white text-ink hover:bg-paper"
-                aria-label="Close Admin Menu"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
-
-            <AdminSidebar
-              adminEmail={adminEmail}
-              adminName={adminName}
-              adminRole={adminRole}
-              allowedPermissions={allowedPermissions}
-              onNavigate={() => setMobileDrawerOpen(false)}
-              className="w-full border-r-0"
-            />
-          </div>
-        </div>
-      )}
+      {/* Drawer handled by AdminShell */}
     </>
   );
 }

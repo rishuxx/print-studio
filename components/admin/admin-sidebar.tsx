@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, ExternalLink, ShieldCheck } from "lucide-react";
+import { LogOut, ExternalLink, ShieldCheck, PanelLeftClose, X } from "lucide-react";
 import { ADMIN_NAVIGATION, type AdminNavItem } from "@/lib/admin/navigation";
 import { AdminPageHelpButton } from "@/components/admin/admin-page-help-button";
 import { type Permission } from "@/lib/auth/permissions";
@@ -19,6 +19,7 @@ interface AdminSidebarProps {
   adminRole: UserRole;
   allowedPermissions: string[];
   onNavigate?: () => void;
+  onClose?: () => void;
   className?: string;
 }
 
@@ -28,6 +29,7 @@ export function AdminSidebar({
   adminRole,
   allowedPermissions,
   onNavigate,
+  onClose,
   className,
 }: AdminSidebarProps) {
   const pathname = usePathname();
@@ -61,7 +63,7 @@ export function AdminSidebar({
       {/* Top Section: Brand & Navigation */}
       <div className="flex flex-1 flex-col overflow-y-auto">
         {/* Admin Header / Brand */}
-        <div className="flex h-16 sm:h-20 shrink-0 items-center justify-between border-b border-border/80 px-6">
+        <div className="flex h-16 sm:h-20 shrink-0 items-center justify-between border-b border-border/80 px-5 sm:px-6">
           <Link
             href="/admin"
             onClick={onNavigate}
@@ -84,6 +86,18 @@ export function AdminSidebar({
               </span>
             </div>
           </Link>
+
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex size-8 items-center justify-center rounded-lg border border-border/80 text-muted-foreground hover:bg-paper hover:text-ink transition-colors cursor-pointer"
+              title="Close Drawer"
+              aria-label="Close sidebar drawer"
+            >
+              <PanelLeftClose className="size-4" />
+            </button>
+          )}
         </div>
 
         {/* Navigation Sections */}
