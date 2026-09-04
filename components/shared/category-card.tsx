@@ -20,18 +20,18 @@ export function CategoryCard({ category, className, variant = "tile" }: Category
       <Link
         href={`/category/${category.handle}`}
         className={cn(
-          "group flex items-center gap-3 rounded-xl border border-border bg-white p-3 transition-all duration-200 hover:border-violet hover:shadow-sheet",
+          "group flex items-center gap-3 rounded-xl border border-border/80 bg-white p-3 transition-all duration-200 hover:border-primary/40 hover:shadow-sm",
           className
         )}
       >
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-violet-wash text-violet-deep transition-colors group-hover:bg-violet group-hover:text-white">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-600 transition-colors group-hover:bg-primary group-hover:text-white">
           <Icon name={category.icon} className="size-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <h4 className="truncate text-sm font-bold text-ink group-hover:text-violet">
+          <h4 className="truncate text-sm font-semibold text-zinc-900 group-hover:text-primary">
             {category.title}
           </h4>
-          <p className="truncate text-xs text-muted-foreground">{category.blurb}</p>
+          <p className="truncate text-xs text-zinc-500">{category.blurb}</p>
         </div>
       </Link>
     );
@@ -41,35 +41,34 @@ export function CategoryCard({ category, className, variant = "tile" }: Category
     <Link
       href={`/category/${category.handle}`}
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-white transition-all duration-300 hover:-translate-y-1 hover:border-violet/30 hover:shadow-lift",
+        "group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-zinc-200/80 bg-white p-3.5 transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md",
         className
       )}
     >
-      {/* Category Mockup Top Visual */}
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-paper">
+      {/* Category Mockup Top Visual - Clean light neutral square area */}
+      <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-zinc-100/80 flex items-center justify-center">
         <ProductMockup
           kind={category.mockup || "card-stack"}
-          tone="#f1edfb"
-          className="group-hover:scale-105"
+          tone="transparent"
+          className="size-full p-3 transition-transform duration-300 group-hover:scale-110"
         />
-        <div className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-lg bg-white/90 shadow-sm backdrop-blur-sm text-violet-deep">
-          <Icon name={category.icon} className="size-4" />
+        {/* Soft-cornered floating icon badge */}
+        <div className="absolute right-2.5 top-2.5 flex size-7 items-center justify-center rounded-lg bg-white/95 shadow-2xs border border-zinc-200/70 text-zinc-500 backdrop-blur-xs transition-colors duration-200 group-hover:text-primary group-hover:border-primary/20">
+          <Icon name={category.icon} className="size-3.5" />
         </div>
       </div>
 
-      {/* Info */}
-      <div className="flex flex-1 flex-col p-5">
-        <h3 className="text-lg font-bold text-ink transition-colors group-hover:text-violet">
-          {category.title}
-        </h3>
-        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+      {/* Info bottom - legible title and subtitle */}
+      <div className="mt-3 flex flex-col px-0.5">
+        <div className="flex items-center justify-between gap-1.5">
+          <h3 className="truncate text-xs font-bold text-zinc-900 transition-colors group-hover:text-primary sm:text-sm">
+            {category.title}
+          </h3>
+          <ArrowRight className="size-3.5 shrink-0 text-zinc-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-primary" />
+        </div>
+        <p className="mt-0.5 line-clamp-1 text-[11px] font-medium text-zinc-500">
           {category.blurb}
         </p>
-
-        <div className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-violet">
-          <span>Explore collection</span>
-          <ArrowRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-1" />
-        </div>
       </div>
     </Link>
   );

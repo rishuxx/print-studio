@@ -101,8 +101,8 @@ export function AnnouncementBar() {
       aria-label="Announcements"
       className={`relative z-50 text-white text-xs border-b overflow-hidden transition-colors ${
         isLiveSale
-          ? "bg-gradient-to-r from-violet via-purple-900 to-ink border-violet/40"
-          : "bg-ink border-ink-line"
+          ? "bg-gradient-to-r from-red-600 via-primary to-rose-700 border-red-700"
+          : "bg-zinc-900 border-zinc-800"
       }`}
     >
       <div className="shell flex items-center justify-between py-2 px-4">

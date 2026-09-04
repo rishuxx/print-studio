@@ -1,142 +1,262 @@
+"use client";
+
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight, Palette, CheckCircle2 } from "lucide-react";
-import { ProductMockup } from "@/components/shared/product-mockup";
+import { ArrowRight, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { HeroBannerRecord } from "@/lib/hero/types";
+import { cn } from "@/lib/utils";
 
-export function HomeHero() {
+interface HomeHeroProps {
+  banners?: HeroBannerRecord[];
+}
+
+export function HomeHero({ banners = [] }: HomeHeroProps) {
+  const activeBanners = React.useMemo(() => {
+    const list = banners.filter((b) => b.is_active);
+    return list.length > 0 ? list : [];
+  }, [banners]);
+
+  const [currentIndex, setCurrentIndex] = React.useState(0);
+  const [isPaused, setIsPaused] = React.useState(false);
+  const touchStartX = React.useRef<number | null>(null);
+  const touchEndX = React.useRef<number | null>(null);
+
+  // Auto slide timer (6 seconds, pauses on hover)
+  React.useEffect(() => {
+    if (activeBanners.length <= 1 || isPaused) return;
+
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % activeBanners.length);
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, [activeBanners.length, isPaused]);
+
+  const handlePrev = () => {
+    setCurrentIndex((prev) => (prev - 1 + activeBanners.length) % activeBanners.length);
+  };
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => (prev + 1) % activeBanners.length);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStartX.current || !touchEndX.current) return;
+    const diff = touchStartX.current - touchEndX.current;
+    // 50px threshold for swipe
+    if (diff > 50) {
+      handleNext();
+    } else if (diff < -50) {
+      handlePrev();
+    }
+    touchStartX.current = null;
+    touchEndX.current = null;
+  };
+
+  if (activeBanners.length === 0) {
+    return null;
+  }
+
+  const currentBanner = activeBanners[currentIndex] || activeBanners[0];
+  const hasMultiple = activeBanners.length > 1;
+
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-ink via-ink to-ink-soft text-white py-14 sm:py-16 md:py-20">
-      {/* Decorative grid pattern */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:28px_28px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
+    <section
+      className="shell pt-3 sm:pt-6"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      aria-label="Promotional Carousel"
+    >
+      <div className="relative w-full overflow-hidden rounded-2xl md:rounded-3xl border border-zinc-200/80 bg-zinc-900 shadow-sm transition-all">
+        {/* Banner Images Carousel View - Adapts responsively and fills any image size */}
+        <div className="relative w-full aspect-[4/5] sm:aspect-[16/7] md:aspect-[16/5.5] lg:aspect-[16/5] min-h-[320px] sm:min-h-[360px] md:min-h-[380px] lg:min-h-[420px] max-h-[580px]">
+          {activeBanners.map((banner, index) => {
+            const isSelected = index === currentIndex;
+            const hasMobile = Boolean(banner.mobile_image_url);
+            const hasDesktop = Boolean(banner.desktop_image_url);
+            const bannerSrc = banner.desktop_image_url || banner.mobile_image_url || "";
 
-      <div className="shell relative z-10">
-        <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-8">
-          {/* Left Column: Heading & Value Proposition */}
-          <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 rounded-full border border-violet-tint/30 bg-violet/20 px-3.5 py-1 text-xs font-semibold text-violet-tint backdrop-blur-sm mx-auto lg:mx-0">
-              <Palette className="size-3.5 text-marigold stroke-[2]" />
-              <span>Custom Printing & Personalised Products</span>
-            </div>
-
-            <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl lg:text-6xl leading-[1.1] text-balance">
-              Print Anything. <br />
-              <span className="bg-gradient-to-r from-violet-tint via-white to-marigold bg-clip-text text-transparent">
-                Make It Yours.
-              </span>
-            </h1>
-
-            <p className="max-w-xl text-sm leading-relaxed text-white/80 sm:text-base md:text-lg mx-auto lg:mx-0 text-balance">
-              Custom printing for businesses, events, celebrations and everyday needs. High-quality production with easy customization.
-            </p>
-
-            <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3.5 pt-1">
-              <Link
-                href="/category/visiting-cards"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet px-6 py-3.5 text-sm font-bold text-white shadow-lift transition-all hover:bg-violet-lift hover:shadow-pop"
+            return (
+              <div
+                key={banner.id}
+                className={cn(
+                  "absolute inset-0 size-full transition-opacity duration-500 ease-in-out overflow-hidden",
+                  isSelected ? "opacity-100 z-10" : "opacity-0 pointer-events-none z-0"
+                )}
               >
-                <span>Explore Products</span>
-                <ArrowRight className="size-4" />
-              </Link>
+                {/* Visual Image Banner with Responsive Picture & Adaptive Background Fill */}
+                {hasDesktop || hasMobile ? (
+                  <div className="relative size-full overflow-hidden bg-zinc-950">
+                    {/* Subtle blurred backdrop fill for non-standard aspect ratio images to prevent blank gaps */}
+                    {bannerSrc && (
+                      <div
+                        className="absolute inset-0 size-full scale-110 blur-xl opacity-30 bg-center bg-cover pointer-events-none"
+                        style={{ backgroundImage: `url(${bannerSrc})` }}
+                        aria-hidden="true"
+                      />
+                    )}
 
-              <Link
-                href="/bulk-quote"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-6 py-3.5 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20"
-              >
-                <span>Get a Quote</span>
-              </Link>
-            </div>
+                    <picture className="relative size-full block">
+                      {hasMobile && (
+                        <source
+                          media="(max-width: 640px)"
+                          srcSet={banner.mobile_image_url!}
+                        />
+                      )}
+                      {hasDesktop && (
+                        <source
+                          media="(min-width: 641px)"
+                          srcSet={banner.desktop_image_url}
+                        />
+                      )}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={bannerSrc}
+                        alt={banner.alt_text || banner.title}
+                        loading={index === 0 ? "eager" : "lazy"}
+                        className="size-full object-cover object-center transform-gpu"
+                      />
+                    </picture>
+                  </div>
+                ) : (
+                  // Fallback sleek promotional background if no image uploaded yet
+                  <div className="size-full bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950" />
+                )}
 
-            {/* Neutral Guarantees */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-6 border-t border-white/10 text-[0.6875rem] sm:text-xs text-white/70">
-              <div className="flex items-center justify-center lg:justify-start gap-1.5 sm:gap-2">
-                <CheckCircle2 className="size-3.5 sm:size-4 text-marigold shrink-0" />
-                <span>Custom Sizes & Stocks</span>
+                {/* Dark Overlay if enabled by admin */}
+                {banner.overlay_enabled && (
+                  <div
+                    className="absolute inset-0 bg-black"
+                    style={{ opacity: (banner.overlay_opacity || 30) / 100 }}
+                  />
+                )}
+
+                {/* Content Mode 1: Image Only - The entire banner graphic is clickable if primary URL set */}
+                {banner.content_mode === "image_only" && banner.primary_cta_url && (
+                  <Link
+                    href={banner.primary_cta_url}
+                    className="absolute inset-0 z-20"
+                    aria-label={banner.title}
+                  />
+                )}
+
+                {/* Content Mode 2: Image + Content Overlay (Pepperfry style promotional banner hierarchy) */}
+                {banner.content_mode === "image_overlay" && (
+                  <div className="absolute inset-0 z-20 flex flex-col justify-center p-6 sm:p-10 md:p-12 lg:p-16 max-w-2xl bg-gradient-to-t sm:bg-gradient-to-r from-black/85 via-black/55 to-transparent text-white">
+                    {banner.eyebrow && (
+                      <div className="inline-flex items-center gap-1.5 self-start rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider backdrop-blur-xs mb-3 text-white">
+                        <Sparkles className="size-3 text-white stroke-[2]" />
+                        <span>{banner.eyebrow}</span>
+                      </div>
+                    )}
+
+                    <h1 className="font-display text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight leading-[1.15] text-white text-balance drop-shadow-xs">
+                      {banner.title}
+                    </h1>
+
+                    {banner.subtitle && (
+                      <p className="mt-2 text-sm sm:text-base font-medium text-white/90 line-clamp-2">
+                        {banner.subtitle}
+                      </p>
+                    )}
+
+                    {banner.description && (
+                      <p className="mt-1 text-xs sm:text-sm leading-relaxed text-white/80 line-clamp-2 sm:line-clamp-3 max-w-lg">
+                        {banner.description}
+                      </p>
+                    )}
+
+                    {/* CTAs */}
+                    {(banner.primary_cta_text || banner.secondary_cta_text) && (
+                      <div className="mt-6 flex flex-wrap items-center gap-3">
+                        {banner.primary_cta_text && banner.primary_cta_url && (
+                          <Link
+                            href={banner.primary_cta_url}
+                            style={{
+                              backgroundColor: banner.primary_cta_bg_color || "#e53935",
+                              color: banner.primary_cta_text_color || "#ffffff",
+                            }}
+                            className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-xs sm:text-sm font-bold shadow-md transition-transform hover:scale-102 active:scale-98"
+                          >
+                            <span>{banner.primary_cta_text}</span>
+                            <ArrowRight className="size-4 stroke-[2]" />
+                          </Link>
+                        )}
+
+                        {banner.secondary_cta_text && banner.secondary_cta_url && (
+                          <Link
+                            href={banner.secondary_cta_url}
+                            style={{
+                              backgroundColor: banner.secondary_cta_bg_color || "#ffffff",
+                              color: banner.secondary_cta_text_color || "#222225",
+                            }}
+                            className="inline-flex items-center gap-2 rounded-xl border border-white/30 px-6 py-3 text-xs sm:text-sm font-semibold shadow-xs transition-colors hover:bg-white/90"
+                          >
+                            <span>{banner.secondary_cta_text}</span>
+                          </Link>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="flex items-center justify-center lg:justify-start gap-1.5 sm:gap-2">
-                <CheckCircle2 className="size-3.5 sm:size-4 text-violet-tint shrink-0" />
-                <span>Single & Bulk Runs</span>
-              </div>
-              <div className="flex items-center justify-center lg:justify-start gap-1.5 sm:gap-2">
-                <CheckCircle2 className="size-3.5 sm:size-4 text-marigold shrink-0" />
-                <span>Digital & Offset Quality</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column: Visual Product Showcase Grid */}
-          <div className="lg:col-span-5">
-            <div className="relative rounded-2xl border border-white/15 bg-white/5 p-4 sm:p-6 backdrop-blur-md shadow-pop">
-              <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
-                <span className="font-mono text-xs font-bold uppercase tracking-wider text-violet-tint">
-                  Popular Print Types
-                </span>
-                <span className="font-mono text-[0.6875rem] text-white/60">160+ Products</span>
-              </div>
-
-              {/* 2x2 Clean Visual Mockup Showcase */}
-              <div className="grid grid-cols-2 gap-3">
-                <Link
-                  href="/category/visiting-cards"
-                  className="group rounded-xl border border-white/10 bg-white/5 p-3 text-center transition-all hover:border-violet-tint hover:bg-white/10"
-                >
-                  <div className="mx-auto flex h-24 items-center justify-center">
-                    <ProductMockup kind="card-stack" tone="transparent" className="h-20 w-auto" />
-                  </div>
-                  <div className="mt-2 font-bold text-xs text-white group-hover:text-violet-tint transition-colors">
-                    Visiting Cards
-                  </div>
-                  <div className="text-[0.6875rem] text-white/60">Standard & Luxury</div>
-                </Link>
-
-                <Link
-                  href="/category/apparel"
-                  className="group rounded-xl border border-white/10 bg-white/5 p-3 text-center transition-all hover:border-violet-tint hover:bg-white/10"
-                >
-                  <div className="mx-auto flex h-24 items-center justify-center">
-                    <ProductMockup kind="tshirt" tone="transparent" className="h-20 w-auto" />
-                  </div>
-                  <div className="mt-2 font-bold text-xs text-white group-hover:text-violet-tint transition-colors">
-                    Custom Apparel
-                  </div>
-                  <div className="text-[0.6875rem] text-white/60">T-Shirts & Polos</div>
-                </Link>
-
-                <Link
-                  href="/category/personalised-gifts"
-                  className="group rounded-xl border border-white/10 bg-white/5 p-3 text-center transition-all hover:border-violet-tint hover:bg-white/10"
-                >
-                  <div className="mx-auto flex h-24 items-center justify-center">
-                    <ProductMockup kind="mug" tone="transparent" className="h-20 w-auto" />
-                  </div>
-                  <div className="mt-2 font-bold text-xs text-white group-hover:text-violet-tint transition-colors">
-                    Personalised Gifts
-                  </div>
-                  <div className="text-[0.6875rem] text-white/60">Mugs & Frames</div>
-                </Link>
-
-                <Link
-                  href="/category/labels-packaging"
-                  className="group rounded-xl border border-white/10 bg-white/5 p-3 text-center transition-all hover:border-violet-tint hover:bg-white/10"
-                >
-                  <div className="mx-auto flex h-24 items-center justify-center">
-                    <ProductMockup kind="box" tone="transparent" className="h-20 w-auto" />
-                  </div>
-                  <div className="mt-2 font-bold text-xs text-white group-hover:text-violet-tint transition-colors">
-                    Packaging
-                  </div>
-                  <div className="text-[0.6875rem] text-white/60">Boxes & Stickers</div>
-                </Link>
-              </div>
-
-              <div className="mt-4 rounded-xl border border-violet/30 bg-violet/10 p-2.5 text-center text-xs text-white/80">
-                <span>Looking for bespoke requirements? </span>
-                <Link href="/bulk-quote" className="font-semibold text-marigold hover:underline">
-                  Request a Quote &rarr;
-                </Link>
-              </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
+
+        {/* Carousel Navigation Arrows (Desktop) */}
+        {hasMultiple && (
+          <>
+            <button
+              type="button"
+              onClick={handlePrev}
+              aria-label="Previous Banner"
+              className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 z-30 flex size-9 sm:size-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-xs border border-white/20 transition-all hover:bg-black/70 hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <ChevronLeft className="size-5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleNext}
+              aria-label="Next Banner"
+              className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 z-30 flex size-9 sm:size-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-xs border border-white/20 transition-all hover:bg-black/70 hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <ChevronRight className="size-5" />
+            </button>
+          </>
+        )}
+
+        {/* Pagination Dots */}
+        {hasMultiple && (
+          <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 p-1 rounded-full bg-black/30 backdrop-blur-xs border border-white/15">
+            {activeBanners.map((_, dotIdx) => (
+              <button
+                key={dotIdx}
+                type="button"
+                onClick={() => setCurrentIndex(dotIdx)}
+                aria-label={`Go to slide ${dotIdx + 1}`}
+                className={cn(
+                  "size-2 sm:size-2.5 rounded-full transition-all cursor-pointer",
+                  dotIdx === currentIndex
+                    ? "w-6 sm:w-7 bg-white"
+                    : "bg-white/40 hover:bg-white/70"
+                )}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

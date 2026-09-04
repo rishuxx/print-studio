@@ -31,7 +31,7 @@ export function ProductCard({ product, className, compact = false }: ProductCard
   return (
     <div
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-white transition-all duration-300 hover:-translate-y-1 hover:border-violet/30 hover:shadow-lift",
+        "group relative flex flex-col overflow-hidden rounded-2xl border border-zinc-200/80 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-sheet",
         className
       )}
     >
@@ -86,43 +86,43 @@ export function ProductCard({ product, className, compact = false }: ProductCard
           )}
         </div>
 
-        <h3 className="line-clamp-2 sm:line-clamp-1 text-sm sm:text-base font-bold text-ink transition-colors group-hover:text-violet">
+        <h3 className="line-clamp-2 sm:line-clamp-1 text-sm sm:text-base font-bold text-zinc-800 transition-colors group-hover:text-primary">
           <Link href={`/product/${product.handle}`}>{product.title}</Link>
         </h3>
 
         {!compact && (
-          <p className="mt-1 hidden sm:-webkit-box line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+          <p className="mt-1 hidden sm:-webkit-box line-clamp-2 text-xs leading-relaxed text-zinc-500">
             {product.subtitle || product.description}
           </p>
         )}
 
         {/* Footer with Pricing and CTA */}
-        <div className="mt-auto pt-3 sm:pt-4 flex items-end justify-between border-t border-border/60">
+        <div className="mt-auto pt-3 sm:pt-4 flex items-end justify-between border-t border-zinc-100">
           <div>
-            <span className="block font-mono text-[0.5rem] sm:text-[0.625rem] uppercase tracking-wider text-muted-foreground">
+            <span className="block font-mono text-[0.5rem] sm:text-[0.625rem] uppercase tracking-wider text-zinc-400">
               Starting from
             </span>
             <div className="flex flex-col sm:flex-row sm:items-baseline gap-0 sm:gap-1.5">
-              <span className="font-display text-base sm:text-lg font-extrabold text-ink leading-none">
+              <span className="font-display text-base sm:text-lg font-extrabold text-zinc-800 leading-none">
                 {formatMoney(product.priceFrom)}
               </span>
               {product.compareAtFrom && (
-                <span className="font-mono text-[0.625rem] sm:text-xs text-muted-foreground line-through">
+                <span className="font-mono text-[0.625rem] sm:text-xs text-zinc-400 line-through">
                   {formatMoney(product.compareAtFrom)}
                 </span>
               )}
             </div>
-            <span className="font-mono text-[0.5rem] sm:text-[0.625rem] text-muted-foreground mt-0.5 sm:mt-0 block">
+            <span className="font-mono text-[0.5rem] sm:text-[0.625rem] text-zinc-500 mt-0.5 sm:mt-0 block">
               {product.priceUnit}
             </span>
           </div>
 
           <Link
             href={`/product/${product.handle}`}
-            className="inline-flex size-7 sm:size-9 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-violet-wash text-violet-deep transition-all duration-200 group-hover:bg-violet group-hover:text-white"
+            className="inline-flex size-7 sm:size-9 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500 transition-all duration-200 group-hover:bg-primary group-hover:text-white"
             aria-label={`Configure ${product.title}`}
           >
-            <ArrowRight className="size-3.5 sm:size-4" />
+            <ArrowRight className="size-3.5 sm:size-4 stroke-[1.75]" />
           </Link>
         </div>
       </div>

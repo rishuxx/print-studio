@@ -12,6 +12,7 @@ import { HowItWorks } from "@/components/home/how-it-works";
 import { BulkQuoteSection } from "@/components/home/bulk-quote-section";
 import { FaqSection } from "@/components/home/faq-section";
 import { FinalCta } from "@/components/home/final-cta";
+import { getActiveHeroBanners } from "@/lib/hero/queries";
 
 export const metadata: Metadata = {
   title: `Custom Online Printing, Business Cards & Gifts | ${siteConfig.businessName}`,
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function HomePage() {
+export default async function HomePage() {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.in";
 
   // Schema.org WebSite & Organization Structured Data
@@ -57,6 +58,8 @@ export default function HomePage() {
     },
   };
 
+  const heroBanners = await getActiveHeroBanners();
+
   return (
     <div className="flex flex-col gap-12 sm:gap-16 pb-16">
       {/* Schema.org Organization & WebSite JSON-LD */}
@@ -68,8 +71,8 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
       />
-      {/* 1. Hero Section */}
-      <HomeHero />
+      {/* 1. Hero Section - Dynamic Admin-Controlled Carousel */}
+      <HomeHero banners={heroBanners} />
 
       {/* 2. Trust / Value Strip */}
       <TrustStrip />

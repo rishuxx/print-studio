@@ -27,6 +27,7 @@ import { HeaderAuthButton } from "@/components/layout/header-auth-button";
 import { cn } from "@/lib/utils";
 
 import { useStoreSettings } from "@/lib/settings/settings-context";
+import { SiteLogo } from "@/components/shared/site-logo";
 
 export function SiteHeader() {
   const router = useRouter();
@@ -137,28 +138,13 @@ export function SiteHeader() {
           {mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
 
-        {/* Brand Logo Lockup */}
-        <Link href="/" className="flex items-center gap-2 group shrink-0">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <span className="font-display text-xl sm:text-2xl font-extrabold tracking-tight text-ink">
-                {settings.business_name || siteConfig.businessName}
-              </span>
-            </div>
-            {/* CMYK Mini Registration Mark */}
-            <div className="flex h-1 w-full gap-0.5 mt-0.5 rounded-full overflow-hidden">
-              <span className="flex-1 bg-[#00aeef]" />
-              <span className="flex-1 bg-[#ec008c]" />
-              <span className="flex-1 bg-[#fff200]" />
-              <span className="flex-1 bg-[#1b0b2e]" />
-            </div>
-          </div>
-        </Link>
+        {/* Brand Logo Lockup - Controlled from Admin Console */}
+        <SiteLogo />
 
         {/* Global Live Search Bar */}
         <div ref={searchContainerRef} className="relative hidden max-w-lg flex-1 md:block">
           <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-zinc-400" />
             <input
               type="search"
               value={searchQuery}
@@ -172,7 +158,7 @@ export function SiteHeader() {
                 }
               }}
               placeholder="Search visiting cards, t-shirts, mugs, stamps, packaging..."
-              className="h-11 w-full rounded-xl border border-border bg-paper/60 pl-10 pr-4 text-sm text-ink placeholder:text-muted-foreground focus:border-violet focus:bg-white focus:outline-none transition-all"
+              className="h-11 w-full rounded-full border border-zinc-200 bg-zinc-50/80 pl-11 pr-12 text-sm text-zinc-800 placeholder:text-zinc-400 focus:border-primary focus:bg-white focus:outline-none transition-all shadow-2xs"
             />
             {/* View all results button */}
             {searchFocused && searchQuery.trim().length > 1 && (
@@ -182,7 +168,7 @@ export function SiteHeader() {
                   router.push(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
                   setSearchFocused(false);
                 }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded bg-violet px-2 py-1 text-[10px] font-bold text-white uppercase tracking-wider hover:bg-violet-600 transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-primary px-3 py-1 text-[10px] font-bold text-white uppercase tracking-wider hover:bg-primary/90 transition-colors"
               >
                 Go
               </button>
@@ -242,7 +228,7 @@ export function SiteHeader() {
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
             href="/contact"
-            className="hidden lg:flex items-center gap-1.5 rounded-xl border border-border px-3.5 py-2 text-xs font-medium text-ink hover:border-violet hover:text-violet transition-colors"
+            className="hidden lg:flex items-center gap-1.5 rounded-full border border-zinc-200 px-4 py-2 text-xs font-medium text-zinc-700 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
           >
             <span>Need Help?</span>
           </Link>
@@ -251,12 +237,12 @@ export function SiteHeader() {
 
           <Link
             href="/cart"
-            className="relative flex h-10 sm:h-11 items-center gap-2 rounded-xl bg-ink px-4 text-xs font-medium text-white hover:bg-ink-soft transition-colors"
+            className="relative flex h-10 items-center gap-2 rounded-full bg-primary px-4 text-xs font-semibold text-white hover:bg-primary/90 transition-all shadow-sheet"
             aria-label="Shopping Cart"
           >
-            <ShoppingBag className="size-4 text-marigold" />
+            <ShoppingBag className="size-4 stroke-[1.75]" />
             <span className="hidden sm:inline">Cart</span>
-            <span className="flex size-5 items-center justify-center rounded-full bg-violet text-[0.625rem] font-bold text-white">
+            <span className="flex size-5 items-center justify-center rounded-full bg-white text-[0.625rem] font-extrabold text-primary shadow-2xs">
               {totalCartCount}
             </span>
           </Link>
@@ -288,36 +274,36 @@ export function SiteHeader() {
                     aria-expanded={hasDropdown ? isActive : undefined}
                     aria-haspopup={hasDropdown ? "true" : undefined}
                     className={cn(
-                      "group flex items-center gap-1.5 lg:gap-2 px-2 lg:px-2.5 xl:px-3 py-2 rounded-xl text-[12px] lg:text-[12.5px] xl:text-[13px] font-semibold tracking-normal whitespace-nowrap transition-all duration-150 select-none",
+                      "group relative flex items-center gap-1.5 lg:gap-2 px-2.5 lg:px-3 py-2.5 rounded-xl text-[12px] lg:text-[12.5px] xl:text-[13px] font-semibold tracking-normal whitespace-nowrap transition-colors duration-150 select-none",
                       isActive
-                        ? "text-violet bg-violet-wash/90 shadow-2xs"
-                        : "text-ink hover:text-violet hover:bg-paper/80"
+                        ? "text-primary font-bold"
+                        : "text-zinc-600 hover:text-primary"
                     )}
                   >
                     <span
                       className={cn(
-                        "flex size-6 items-center justify-center rounded-lg transition-colors",
-                        isSameDay
-                          ? "bg-amber-100/70 text-amber-700"
-                          : isFestive
-                          ? "bg-fuchsia-100/70 text-fuchsia-700"
-                          : isActive
-                          ? "bg-violet-100/80 text-violet"
-                          : "bg-slate-100/80 text-slate-600 group-hover:bg-violet-50 group-hover:text-violet"
+                        "flex items-center justify-center transition-colors duration-150",
+                        isActive
+                          ? "text-primary"
+                          : "text-zinc-400 group-hover:text-primary"
                       )}
                     >
-                      <Icon name={cat.icon} className="size-3.5 stroke-[1.75]" />
+                      <Icon name={cat.icon} className="size-4 stroke-[1.5]" />
                     </span>
-                    <span className={cn("leading-none", isSameDay && "font-bold text-amber-900")}>
+                    <span className="leading-none">
                       {cat.title}
                     </span>
                     {hasDropdown && (
                       <ChevronDown
                         className={cn(
-                          "size-3 lg:size-3.5 text-muted-foreground/70 shrink-0 transition-transform duration-200",
-                          isActive && "rotate-180 text-violet"
+                          "size-3 lg:size-3.5 text-zinc-400 shrink-0 transition-transform duration-200 group-hover:text-primary",
+                          isActive && "rotate-180 text-primary"
                         )}
                       />
+                    )}
+                    {/* Pepperfry / Zepto Active Indicator line */}
+                    {isActive && (
+                      <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-primary" />
                     )}
                   </Link>
                 </li>
@@ -330,10 +316,10 @@ export function SiteHeader() {
               asChild
               variant="express"
               size="xs"
-              className="h-8 px-3 lg:px-3.5 text-[11px] lg:text-[11.5px] xl:text-xs font-semibold gap-1.5 whitespace-nowrap rounded-lg hover:shadow-xs transition-all"
+              className="h-8 px-3.5 text-[11px] lg:text-[11.5px] xl:text-xs font-semibold gap-1.5 whitespace-nowrap rounded-full hover:shadow-xs transition-all"
             >
               <Link href="/same-day">
-                <Printer className="size-3.5 text-amber-700 shrink-0 stroke-[2]" />
+                <Printer className="size-3.5 stroke-[1.75]" />
                 <span>Express Printing</span>
               </Link>
             </Button>

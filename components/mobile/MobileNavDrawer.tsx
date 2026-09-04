@@ -61,31 +61,20 @@ export function MobileNavDrawer({ open, onOpenChange }: MobileNavDrawerProps) {
               </div>
               <ul className="flex flex-col">
                 {categories.map((cat) => {
-                  const isSameDay = cat.handle === "same-day";
-                  const isFestive = cat.handle === "festive";
                   return (
                     <li key={cat.handle}>
                       <Link
                         href={`/category/${cat.handle}`}
                         onClick={() => onOpenChange(false)}
-                        className="flex items-center justify-between px-4 py-3 text-sm font-semibold text-ink hover:bg-paper active:bg-paper/80 transition-colors"
+                        className="group flex items-center justify-between px-4 py-3 text-sm font-semibold text-zinc-700 hover:text-primary hover:bg-zinc-50 active:bg-zinc-100 transition-colors"
                       >
                         <div className="flex items-center gap-3">
-                          <div
-                            className={cn(
-                              "flex size-8 items-center justify-center rounded-xl border border-border/60",
-                              isSameDay
-                                ? "bg-amber-50 text-amber-700 border-amber-200/60"
-                                : isFestive
-                                ? "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200/60"
-                                : "bg-slate-50 text-slate-700"
-                            )}
-                          >
-                            <Icon name={cat.icon} className="size-4 stroke-[1.75]" />
+                          <div className="flex size-8 items-center justify-center rounded-xl bg-zinc-100 text-zinc-400 group-hover:text-primary group-hover:bg-primary/10 transition-colors">
+                            <Icon name={cat.icon} className="size-4 stroke-[1.5]" />
                           </div>
                           <span>{cat.title}</span>
                         </div>
-                        <ChevronRight className="size-4 text-muted-foreground/60" />
+                        <ChevronRight className="size-4 text-zinc-400 group-hover:text-primary transition-colors" />
                       </Link>
                     </li>
                   );

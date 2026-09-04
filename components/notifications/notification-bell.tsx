@@ -70,12 +70,12 @@ export function NotificationBell() {
     <div className="relative" ref={popoverRef}>
       <button
         onClick={toggleOpen}
-        className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-border text-ink hover:bg-muted transition-colors"
+        className="relative flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors shadow-2xs"
         aria-label={`Notifications, ${unreadCount} unread`}
       >
-        <Bell className="size-5" />
+        <Bell className="size-4 stroke-[1.75]" />
         {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex size-5 items-center justify-center rounded-full bg-violet text-[0.625rem] font-bold text-white shadow-sm ring-2 ring-white">
+          <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[0.625rem] font-bold text-white shadow-sm ring-2 ring-white">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}

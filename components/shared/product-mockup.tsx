@@ -9,10 +9,11 @@ interface ProductMockupProps extends React.SVGProps<SVGSVGElement> {
 }
 
 const toneMap: Record<string, string> = {
-  violet: "rgba(74, 30, 158, 0.15)",
-  marigold: "rgba(242, 163, 28, 0.15)",
-  ink: "rgba(255, 255, 255, 0.08)",
-  paper: "#f8f6f0",
+  violet: "#fef2f2",
+  primary: "#fef2f2",
+  marigold: "#fff7ed",
+  ink: "rgba(34, 34, 37, 0.05)",
+  paper: "#f8f9fa",
   transparent: "transparent",
 };
 
@@ -53,7 +54,7 @@ function renderMockupSilhouette(kind: MockupKind) {
         <g stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.85">
           <rect x="35" y="45" width="130" height="85" rx="6" fill="#ffffff" fillOpacity="0.8" />
           <rect x="45" y="65" width="130" height="85" rx="6" fill="#ffffff" />
-          <line x1="60" y1="85" x2="105" y2="85" stroke="var(--color-violet, #4a1e9e)" strokeWidth="3" />
+          <line x1="60" y1="85" x2="105" y2="85" stroke="var(--color-violet, #e53935)" strokeWidth="3" />
           <line x1="60" y1="100" x2="145" y2="100" stroke="#a09aa9" strokeWidth="2" />
           <line x1="60" y1="112" x2="125" y2="112" stroke="#a09aa9" strokeWidth="2" />
           <circle cx="150" cy="85" r="8" fill="var(--color-marigold, #f2a31c)" stroke="none" />
@@ -72,7 +73,7 @@ function renderMockupSilhouette(kind: MockupKind) {
           ) : (
             <path d="M82 39 C88 50 112 50 118 39" fill="none" strokeWidth="2" />
           )}
-          <rect x="85" y="85" width="30" height="35" rx="3" fill="var(--color-violet-wash, #f1edfb)" stroke="var(--color-violet, #4a1e9e)" strokeWidth="1.5" strokeDasharray="2 2" />
+          <rect x="85" y="85" width="30" height="35" rx="3" fill="var(--color-violet-wash, #fef2f2)" stroke="var(--color-violet, #e53935)" strokeWidth="1.5" strokeDasharray="2 2" />
         </g>
       );
     case "hoodie":
@@ -104,7 +105,7 @@ function renderMockupSilhouette(kind: MockupKind) {
             <>
               <rect x="60" y="55" width="75" height="95" rx="8" fill="#ffffff" />
               <path d="M135 70 C155 70 155 125 135 125" fill="none" strokeWidth="3.5" />
-              <rect x="75" y="75" width="45" height="50" rx="4" fill="var(--color-violet-wash, #f1edfb)" stroke="var(--color-violet, #4a1e9e)" strokeWidth="1.5" strokeDasharray="3 3" />
+              <rect x="75" y="75" width="45" height="50" rx="4" fill="var(--color-violet-wash, #fef2f2)" stroke="var(--color-violet, #e53935)" strokeWidth="1.5" strokeDasharray="3 3" />
             </>
           )}
         </g>
@@ -119,7 +120,7 @@ function renderMockupSilhouette(kind: MockupKind) {
           <rect x="55" y="35" width="90" height="130" rx="4" fill="#ffffff" />
           {kind === "notebook" && (
             <>
-              <line x1="55" y1="35" x2="55" y2="165" strokeWidth="6" stroke="var(--color-violet, #4a1e9e)" />
+              <line x1="55" y1="35" x2="55" y2="165" strokeWidth="6" stroke="var(--color-violet, #e53935)" />
               <circle cx="62" cy="50" r="2" fill="currentColor" />
               <circle cx="62" cy="70" r="2" fill="currentColor" />
               <circle cx="62" cy="90" r="2" fill="currentColor" />
@@ -128,7 +129,7 @@ function renderMockupSilhouette(kind: MockupKind) {
               <circle cx="62" cy="150" r="2" fill="currentColor" />
             </>
           )}
-          <line x1="75" y1="65" x2="125" y2="65" stroke="var(--color-violet, #4a1e9e)" strokeWidth="3" />
+          <line x1="75" y1="65" x2="125" y2="65" stroke="var(--color-violet, #e53935)" strokeWidth="3" />
           <line x1="75" y1="85" x2="125" y2="85" stroke="#a09aa9" strokeWidth="2" />
           <line x1="75" y1="100" x2="115" y2="100" stroke="#a09aa9" strokeWidth="2" />
           <line x1="75" y1="115" x2="125" y2="115" stroke="#a09aa9" strokeWidth="2" />
@@ -143,15 +144,15 @@ function renderMockupSilhouette(kind: MockupKind) {
             <>
               <circle cx="100" cy="100" r="50" fill="#ffffff" strokeWidth="3" />
               <path d="M135 135 L100 100 L135 100 Z" fill="var(--color-marigold-tint, #fce8c2)" stroke="var(--color-marigold, #f2a31c)" />
-              <circle cx="100" cy="100" r="32" stroke="var(--color-violet, #4a1e9e)" strokeWidth="2" strokeDasharray="3 3" fill="none" />
+              <circle cx="100" cy="100" r="32" stroke="var(--color-violet, #e53935)" strokeWidth="2" strokeDasharray="3 3" fill="none" />
             </>
           ) : (
             <>
               <rect x="50" y="40" width="100" height="120" rx="6" fill="#ffffff" />
-              <circle cx="75" cy="70" r="14" fill="var(--color-violet-wash, #f1edfb)" stroke="var(--color-violet, #4a1e9e)" />
+              <circle cx="75" cy="70" r="14" fill="var(--color-violet-wash, #fef2f2)" stroke="var(--color-violet, #e53935)" />
               <circle cx="125" cy="70" r="14" fill="var(--color-marigold-wash, #fef6e7)" stroke="var(--color-marigold, #f2a31c)" />
               <circle cx="75" cy="120" r="14" fill="var(--color-paper-deep, #edebf2)" stroke="currentColor" />
-              <circle cx="125" cy="120" r="14" fill="var(--color-violet-tint, #e4dcf7)" stroke="var(--color-violet, #4a1e9e)" />
+              <circle cx="125" cy="120" r="14" fill="var(--color-violet-tint, #e4dcf7)" stroke="var(--color-violet, #e53935)" />
             </>
           )}
         </g>
@@ -166,7 +167,7 @@ function renderMockupSilhouette(kind: MockupKind) {
             <>
               <path d="M80 60 C80 30 120 30 120 60" fill="none" strokeWidth="3" />
               <path d="M55 60 L145 60 L138 160 L62 160 Z" fill="#ffffff" />
-              <rect x="78" y="90" width="44" height="44" rx="4" fill="var(--color-violet-wash, #f1edfb)" stroke="var(--color-violet, #4a1e9e)" strokeWidth="1.5" />
+              <rect x="78" y="90" width="44" height="44" rx="4" fill="var(--color-violet-wash, #fef2f2)" stroke="var(--color-violet, #e53935)" strokeWidth="1.5" />
             </>
           ) : (
             <>
@@ -184,7 +185,7 @@ function renderMockupSilhouette(kind: MockupKind) {
       return (
         <g stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="#ffffff" fillOpacity="0.9">
           <rect x="45" y="45" width="110" height="110" rx="4" fill="#ffffff" strokeWidth="4" />
-          <rect x="57" y="57" width="86" height="86" fill="var(--color-violet-wash, #f1edfb)" stroke="none" />
+          <rect x="57" y="57" width="86" height="86" fill="var(--color-violet-wash, #fef2f2)" stroke="none" />
           <path d="M58 125 L85 95 L105 115 L125 85 L143 125 Z" fill="var(--color-violet-tint, #e4dcf7)" stroke="none" />
           <circle cx="78" cy="78" r="7" fill="var(--color-marigold, #f2a31c)" stroke="none" />
         </g>
@@ -196,26 +197,26 @@ function renderMockupSilhouette(kind: MockupKind) {
           <rect x="65" y="35" width="70" height="120" rx="4" fill="#ffffff" strokeWidth="3" />
           <line x1="50" y1="165" x2="150" y2="165" strokeWidth="5" />
           <line x1="100" y1="155" x2="100" y2="165" strokeWidth="4" />
-          <rect x="75" y="55" width="50" height="60" rx="3" fill="var(--color-violet-wash, #f1edfb)" stroke="var(--color-violet, #4a1e9e)" strokeWidth="1.5" />
+          <rect x="75" y="55" width="50" height="60" rx="3" fill="var(--color-violet-wash, #fef2f2)" stroke="var(--color-violet, #e53935)" strokeWidth="1.5" />
         </g>
       );
     case "stamp":
       return (
         <g stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="#ffffff" fillOpacity="0.9">
-          <rect x="70" y="35" width="60" height="50" rx="6" fill="var(--color-violet, #4a1e9e)" stroke="none" />
+          <rect x="70" y="35" width="60" height="50" rx="6" fill="var(--color-violet, #e53935)" stroke="none" />
           <rect x="55" y="85" width="90" height="60" rx="6" fill="#ffffff" />
           <line x1="50" y1="145" x2="150" y2="145" strokeWidth="5" stroke="currentColor" />
-          <line x1="75" y1="110" x2="125" y2="110" stroke="var(--color-violet, #4a1e9e)" strokeWidth="3" />
+          <line x1="75" y1="110" x2="125" y2="110" stroke="var(--color-violet, #e53935)" strokeWidth="3" />
         </g>
       );
     case "idcard":
     case "lanyard":
       return (
         <g stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="#ffffff" fillOpacity="0.9">
-          <path d="M100 20 L100 45" strokeWidth="4" stroke="var(--color-violet, #4a1e9e)" />
+          <path d="M100 20 L100 45" strokeWidth="4" stroke="var(--color-violet, #e53935)" />
           <rect x="60" y="45" width="80" height="120" rx="6" fill="#ffffff" strokeWidth="3" />
           <rect x="85" y="52" width="30" height="6" rx="3" fill="currentColor" stroke="none" />
-          <circle cx="100" cy="85" r="15" fill="var(--color-violet-wash, #f1edfb)" stroke="var(--color-violet, #4a1e9e)" strokeWidth="1.5" />
+          <circle cx="100" cy="85" r="15" fill="var(--color-violet-wash, #fef2f2)" stroke="var(--color-violet, #e53935)" strokeWidth="1.5" />
           <line x1="75" y1="115" x2="125" y2="115" stroke="currentColor" strokeWidth="2.5" />
           <line x1="80" y1="130" x2="120" y2="130" stroke="#a09aa9" strokeWidth="2" />
         </g>
@@ -224,7 +225,7 @@ function renderMockupSilhouette(kind: MockupKind) {
       return (
         <g stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="#ffffff" fillOpacity="0.9">
           <rect x="50" y="50" width="100" height="100" rx="8" fill="#ffffff" />
-          <path d="M80 80 L120 120 M120 80 L80 120" stroke="var(--color-violet, #4a1e9e)" strokeWidth="2" />
+          <path d="M80 80 L120 120 M120 80 L80 120" stroke="var(--color-violet, #e53935)" strokeWidth="2" />
           <circle cx="100" cy="100" r="35" stroke="#a09aa9" strokeWidth="1.5" strokeDasharray="3 3" fill="none" />
         </g>
       );

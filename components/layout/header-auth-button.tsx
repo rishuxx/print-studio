@@ -70,10 +70,10 @@ export function HeaderAuthButton() {
     return (
       <Link
         href="/login"
-        className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-ink hover:border-violet hover:text-violet hover:bg-violet-wash transition-all"
+        className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-zinc-200 px-4 py-2 text-xs font-semibold text-zinc-700 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all"
         aria-label="Customer Sign In"
       >
-        <LogIn className="size-3.5 text-violet" />
+        <LogIn className="size-3.5 stroke-[1.75] text-zinc-400 group-hover:text-primary" />
         <span>Sign In</span>
       </Link>
     );
@@ -88,11 +88,11 @@ export function HeaderAuthButton() {
         <button
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-paper px-3 py-2 text-xs font-bold text-ink hover:border-violet transition-all h-10"
+          className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3.5 py-2 text-xs font-bold text-zinc-700 hover:border-primary hover:text-primary transition-all h-10 shadow-2xs"
         >
-          <UserCheck className="size-3.5 text-violet" />
+          <UserCheck className="size-3.5 text-primary stroke-[1.75]" />
           <span className="max-w-24 truncate">{displayName}</span>
-          <ChevronDown className="size-3 text-muted-foreground" />
+          <ChevronDown className="size-3 text-zinc-400" />
         </button>
 
         {menuOpen && (

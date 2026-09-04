@@ -9,61 +9,61 @@
 
 @theme {
   /* ── Brand ──────────────────────────────────────────────────────── */
-  --color-ink: #1b0b2e; /* violet-black — the "K" in CMYK, warmed */
-  --color-ink-soft: #2c1848;
-  --color-ink-line: #3d2a5c;
+  --color-ink: #222225; /* light-black / charcoal — Pepperfry/Zepto modern body tone */
+  --color-ink-soft: #38383e;
+  --color-ink-line: #4b4b54;
 
-  --color-violet: #4a1e9e; /* brand primary */
-  --color-violet-lift: #6d3fd1; /* hover / gradient partner */
-  --color-violet-deep: #35146f;
-  --color-violet-wash: #f1edfb;
-  --color-violet-tint: #e4dcf7;
+  --color-violet: #e53935; /* Pepperfry vibrant primary red */
+  --color-violet-lift: #f04438; /* vibrant coral red hover */
+  --color-violet-deep: #b71c1c; /* deep crimson red */
+  --color-violet-wash: #fef2f2; /* soft pastel red wash */
+  --color-violet-tint: #fee2e2; /* light border red tint */
 
-  --color-marigold: #f2a31c; /* festive accent — genda phool */
-  --color-marigold-deep: #a85a08; /* accessible on light */
-  --color-marigold-wash: #fef6e7;
-  --color-marigold-tint: #fce8c2;
+  --color-marigold: #f97316; /* energetic warm orange accent */
+  --color-marigold-deep: #c2410c;
+  --color-marigold-wash: #fff7ed;
+  --color-marigold-tint: #ffedd5;
 
-  --color-paper: #f6f5f8; /* cool off-white, faint violet cast */
-  --color-paper-deep: #edebf2;
+  --color-paper: #fafafa; /* clean crisp white background */
+  --color-paper-deep: #f4f4f5;
 
   /* ── Process inks — SIGNATURE USE ONLY (colour bar, reg marks) ──── */
   --color-ink-c: #00aeef;
-  --color-ink-m: #ec008c;
-  --color-ink-y: #fff200;
-  --color-ink-k: #1b0b2e;
+  --color-ink-m: #e53935;
+  --color-ink-y: #fbbf24;
+  --color-ink-k: #222225;
 
   /* ── Semantic (shadcn-compatible surface) ───────────────────────── */
   --color-background: #ffffff;
-  --color-foreground: #1b0b2e;
+  --color-foreground: #222225;
 
   --color-card: #ffffff;
-  --color-card-foreground: #1b0b2e;
+  --color-card-foreground: #222225;
 
   --color-popover: #ffffff;
-  --color-popover-foreground: #1b0b2e;
+  --color-popover-foreground: #222225;
 
-  --color-primary: #4a1e9e;
+  --color-primary: #e53935;
   --color-primary-foreground: #ffffff;
 
-  --color-secondary: #f1edfb;
-  --color-secondary-foreground: #35146f;
+  --color-secondary: #fef2f2;
+  --color-secondary-foreground: #b71c1c;
 
-  --color-muted: #f1f0f4;
-  --color-muted-foreground: #6b6480;
+  --color-muted: #f4f4f5;
+  --color-muted-foreground: #71717a;
 
-  --color-accent: #f1edfb;
-  --color-accent-foreground: #35146f;
+  --color-accent: #fef2f2;
+  --color-accent-foreground: #b71c1c;
 
-  --color-destructive: #c62828;
+  --color-destructive: #dc2626;
   --color-destructive-foreground: #ffffff;
 
-  --color-success: #15803d;
+  --color-success: #16a34a;
   --color-success-foreground: #ffffff;
 
-  --color-border: #e5e2ed;
-  --color-input: #ded9ea;
-  --color-ring: #6d3fd1;
+  --color-border: #e4e4e7;
+  --color-input: #e4e4e7;
+  --color-ring: #e53935;
 
   /* ── Type ───────────────────────────────────────────────────────── */
   --font-display: var(--font-sora), ui-sans-serif, system-ui, sans-serif;

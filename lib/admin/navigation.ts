@@ -14,6 +14,8 @@ import {
   Bell,
   MessageSquare,
   RotateCcw,
+  LayoutTemplate,
+  Palette,
   LucideIcon,
 } from "lucide-react";
 import type { Permission } from "@/lib/auth/permissions";
@@ -101,20 +103,37 @@ export const ADMIN_NAVIGATION: AdminNavSection[] = [
     ],
   },
   {
-    title: "Manufacturing & Content",
+    title: "Homepage & Branding",
+    items: [
+      {
+        title: "Hero Banners",
+        href: "/admin/hero",
+        icon: LayoutTemplate,
+        badge: "New",
+        requiredPermission: "settings.view",
+      },
+      {
+        title: "Branding & Logo",
+        href: "/admin/branding",
+        icon: Palette,
+        requiredPermission: "settings.view",
+      },
+      {
+        title: "Store Settings",
+        href: "/admin/settings",
+        icon: Sliders,
+        requiredPermission: "settings.view",
+      },
+    ],
+  },
+  {
+    title: "Manufacturing & Production",
     items: [
       {
         title: "Production & Press Queue",
         href: "/admin/production",
         icon: Printer,
         requiredPermission: "orders.view",
-      },
-      {
-        title: "Content & SEO",
-        href: "/admin/content",
-        icon: FileText,
-        badge: "Phase 10I",
-        requiredPermission: "dashboard.view",
       },
     ],
   },
@@ -143,12 +162,6 @@ export const ADMIN_NAVIGATION: AdminNavSection[] = [
         title: "WhatsApp Business",
         href: "/admin/whatsapp",
         icon: MessageSquare,
-        requiredPermission: "settings.view",
-      },
-      {
-        title: "Store Settings",
-        href: "/admin/settings",
-        icon: Sliders,
         requiredPermission: "settings.view",
       },
     ],
