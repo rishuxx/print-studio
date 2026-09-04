@@ -1,6 +1,6 @@
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight, Sparkles, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Palette, CheckCircle2 } from "lucide-react";
 import { ProductMockup } from "@/components/shared/product-mockup";
 
 export function HomeHero() {
@@ -14,7 +14,7 @@ export function HomeHero() {
           {/* Left Column: Heading & Value Proposition */}
           <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
             <div className="inline-flex items-center gap-2 rounded-full border border-violet-tint/30 bg-violet/20 px-3.5 py-1 text-xs font-semibold text-violet-tint backdrop-blur-sm mx-auto lg:mx-0">
-              <Sparkles className="size-3.5 text-marigold" />
+              <Palette className="size-3.5 text-marigold stroke-[2]" />
               <span>Custom Printing & Personalised Products</span>
             </div>
 

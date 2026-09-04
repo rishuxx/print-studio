@@ -7,6 +7,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { categories } from "@/lib/data/categories";
 import { siteConfig } from "@/lib/site-config";
 import { Icon } from "@/lib/icon-map";
+import { cn } from "@/lib/utils";
 import { useStoreSettings } from "@/lib/settings/settings-context";
 
 interface MobileNavDrawerProps {
@@ -59,23 +60,36 @@ export function MobileNavDrawer({ open, onOpenChange }: MobileNavDrawerProps) {
                 </span>
               </div>
               <ul className="flex flex-col">
-                {categories.map((cat) => (
-                  <li key={cat.handle}>
-                    <Link
-                      href={`/category/${cat.handle}`}
-                      onClick={() => onOpenChange(false)}
-                      className="flex items-center justify-between px-4 py-3.5 text-sm font-bold text-ink hover:bg-violet-wash hover:text-violet transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-8 items-center justify-center rounded-lg bg-paper">
-                          <Icon name={cat.icon} className="size-4 text-violet" />
+                {categories.map((cat) => {
+                  const isSameDay = cat.handle === "same-day";
+                  const isFestive = cat.handle === "festive";
+                  return (
+                    <li key={cat.handle}>
+                      <Link
+                        href={`/category/${cat.handle}`}
+                        onClick={() => onOpenChange(false)}
+                        className="flex items-center justify-between px-4 py-3 text-sm font-semibold text-ink hover:bg-paper active:bg-paper/80 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={cn(
+                              "flex size-8 items-center justify-center rounded-xl border border-border/60",
+                              isSameDay
+                                ? "bg-amber-50 text-amber-700 border-amber-200/60"
+                                : isFestive
+                                ? "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200/60"
+                                : "bg-slate-50 text-slate-700"
+                            )}
+                          >
+                            <Icon name={cat.icon} className="size-4 stroke-[1.75]" />
+                          </div>
+                          <span>{cat.title}</span>
                         </div>
-                        {cat.title}
-                      </div>
-                      <ChevronRight className="size-4 text-muted-foreground" />
-                    </Link>
-                  </li>
-                ))}
+                        <ChevronRight className="size-4 text-muted-foreground/60" />
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
 

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ProofViewerModal } from "@/components/artwork/proof-viewer-modal";
+import { adminApproveArtworkAssetAction } from "@/lib/artwork/actions";
 
 interface AdminArtworkReviewCardProps {
   orderId: string;
@@ -32,6 +33,28 @@ export function AdminArtworkReviewCard({
   const [selectedAsset, setSelectedAsset] = React.useState<ArtworkAssetRecord | null>(null);
   const [proofUrl, setProofUrl] = React.useState<string | null>(null);
   const [loadingAction, setLoadingAction] = React.useState<string | null>(null);
+
+  const handleAdminApprove = async (asset: ArtworkAssetRecord) => {
+    setLoadingAction(`approve-${asset.id}`);
+    try {
+      const res = await adminApproveArtworkAssetAction({
+        orderId,
+        assetId: asset.id,
+        proofId: asset.currentProof?.id || null,
+      });
+
+      if (res.success) {
+        toast.success("Artwork approved! Production lock unlocked.");
+        onRefresh?.();
+      } else {
+        toast.error(res.error || "Failed to approve artwork.");
+      }
+    } catch {
+      toast.error("Network error during artwork approval.");
+    } finally {
+      setLoadingAction(null);
+    }
+  };
 
   const handleDownloadMaster = async (asset: ArtworkAssetRecord) => {
     if (!asset.currentVersion?.storagePath) {
@@ -142,6 +165,22 @@ export function AdminArtworkReviewCard({
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {asset.status !== "approved" && (
+                    <button
+                      type="button"
+                      onClick={() => handleAdminApprove(asset)}
+                      disabled={Boolean(loadingAction)}
+                      className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-lift hover:bg-emerald-700 disabled:opacity-50 transition-all"
+                    >
+                      {loadingAction === `approve-${asset.id}` ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <ShieldCheck className="size-3.5" />
+                      )}
+                      <span>Approve Artwork</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => handleInspectProof(asset)}

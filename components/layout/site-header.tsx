@@ -12,8 +12,8 @@ import {
   MapPin,
   ChevronDown,
   ArrowRight,
-  Sparkles,
-  Zap,
+  Clock,
+  Printer,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 import { categories, linkHref } from "@/lib/data/categories";
@@ -269,35 +269,55 @@ export function SiteHeader() {
         className="hidden md:block border-t border-border/60 bg-white"
         onMouseLeave={() => setActiveMegaCategory(null)}
       >
-        <div className="shell flex items-center justify-between">
-          <ul className="flex items-center gap-1">
+        <div className="shell flex items-center justify-between gap-1 xl:gap-2 px-3 lg:px-4 xl:px-6 2xl:px-8">
+          <ul className="flex items-center gap-0.5 lg:gap-1 xl:gap-1.5 min-w-0 overflow-x-auto no-scrollbar py-0.5">
             {categories.map((cat) => {
               const isActive = activeMegaCategory === cat.handle;
               const isSameDay = cat.handle === "same-day";
               const isFestive = cat.handle === "festive";
+              const hasDropdown = Boolean(cat.groups && cat.groups.length > 0);
 
               return (
                 <li
                   key={cat.handle}
-                  className="relative"
+                  className="relative shrink-0"
                   onMouseEnter={() => setActiveMegaCategory(cat.handle)}
                 >
                   <Link
                     href={`/category/${cat.handle}`}
+                    aria-expanded={hasDropdown ? isActive : undefined}
+                    aria-haspopup={hasDropdown ? "true" : undefined}
                     className={cn(
-                      "flex items-center gap-1.5 px-3 py-3 text-xs font-semibold uppercase tracking-wider transition-colors",
+                      "group flex items-center gap-1.5 lg:gap-2 px-2 lg:px-2.5 xl:px-3 py-2 rounded-xl text-[12px] lg:text-[12.5px] xl:text-[13px] font-semibold tracking-normal whitespace-nowrap transition-all duration-150 select-none",
                       isActive
-                        ? "text-violet bg-violet-wash/70"
-                        : "text-ink hover:text-violet hover:bg-paper",
-                      isSameDay && "text-marigold-deep font-bold",
-                      isFestive && "text-violet-deep font-bold"
+                        ? "text-violet bg-violet-wash/90 shadow-2xs"
+                        : "text-ink hover:text-violet hover:bg-paper/80"
                     )}
                   >
-                    {isSameDay && <Zap className="size-3 text-marigold fill-marigold" />}
-                    {isFestive && <Sparkles className="size-3 text-marigold" />}
-                    <span>{cat.title}</span>
-                    {cat.groups && cat.groups.length > 0 && (
-                      <ChevronDown className="size-3 text-muted-foreground transition-transform" />
+                    <span
+                      className={cn(
+                        "flex size-6 items-center justify-center rounded-lg transition-colors",
+                        isSameDay
+                          ? "bg-amber-100/70 text-amber-700"
+                          : isFestive
+                          ? "bg-fuchsia-100/70 text-fuchsia-700"
+                          : isActive
+                          ? "bg-violet-100/80 text-violet"
+                          : "bg-slate-100/80 text-slate-600 group-hover:bg-violet-50 group-hover:text-violet"
+                      )}
+                    >
+                      <Icon name={cat.icon} className="size-3.5 stroke-[1.75]" />
+                    </span>
+                    <span className={cn("leading-none", isSameDay && "font-bold text-amber-900")}>
+                      {cat.title}
+                    </span>
+                    {hasDropdown && (
+                      <ChevronDown
+                        className={cn(
+                          "size-3 lg:size-3.5 text-muted-foreground/70 shrink-0 transition-transform duration-200",
+                          isActive && "rotate-180 text-violet"
+                        )}
+                      />
                     )}
                   </Link>
                 </li>
@@ -305,14 +325,18 @@ export function SiteHeader() {
             })}
           </ul>
 
-          <div className="flex items-center gap-2 py-2">
-            <Link
-              href="/same-day"
-              className="inline-flex items-center gap-1 rounded-md bg-marigold-wash px-2.5 py-1 font-mono text-[0.625rem] font-bold uppercase text-marigold-deep border border-marigold/30 hover:brightness-95 transition-all"
+          <div className="flex items-center shrink-0 py-1.5 pl-1">
+            <Button
+              asChild
+              variant="express"
+              size="xs"
+              className="h-8 px-3 lg:px-3.5 text-[11px] lg:text-[11.5px] xl:text-xs font-semibold gap-1.5 whitespace-nowrap rounded-lg hover:shadow-xs transition-all"
             >
-              <Zap className="size-3 fill-marigold text-marigold-deep" />
-              <span>Express Printing</span>
-            </Link>
+              <Link href="/same-day">
+                <Printer className="size-3.5 text-amber-700 shrink-0 stroke-[2]" />
+                <span>Express Printing</span>
+              </Link>
+            </Button>
           </div>
         </div>
 

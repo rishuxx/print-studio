@@ -1,7 +1,7 @@
 import * as React from "react";
 import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { Layers, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -22,7 +22,7 @@ export default function SampleKitPage() {
       <div className="rounded-2xl border border-border bg-paper p-6 sm:p-10 space-y-6">
         <div className="space-y-2 text-center sm:text-left">
           <div className="inline-flex items-center gap-1.5 rounded-md bg-violet/10 px-2.5 py-1 font-mono text-xs font-bold text-violet">
-            <Sparkles className="size-3.5 text-violet" />
+            <Layers className="size-3.5 text-violet stroke-[2]" />
             <span>Tactile Swatch Kit</span>
           </div>
           <h1 className="font-display text-3xl font-extrabold text-ink sm:text-4xl">

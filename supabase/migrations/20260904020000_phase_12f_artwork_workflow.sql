@@ -364,12 +364,42 @@ USING (
   OR public.is_admin()
 );
 
+-- Customers can insert/update their own artwork assets
+DROP POLICY IF EXISTS "Customers manage own artwork assets" ON public.artwork_assets;
+CREATE POLICY "Customers manage own artwork assets"
+ON public.artwork_assets FOR ALL
+TO authenticated
+USING (
+  customer_id = auth.uid()
+  OR EXISTS (SELECT 1 FROM public.orders o WHERE o.id = artwork_assets.order_id AND o.user_id = auth.uid())
+  OR public.is_admin()
+)
+WITH CHECK (
+  customer_id = auth.uid()
+  OR EXISTS (SELECT 1 FROM public.orders o WHERE o.id = artwork_assets.order_id AND o.user_id = auth.uid())
+  OR public.is_admin()
+);
+
 -- Customers can view versions of their own assets
 DROP POLICY IF EXISTS "Customers view own artwork versions" ON public.artwork_versions;
 CREATE POLICY "Customers view own artwork versions"
 ON public.artwork_versions FOR SELECT
 TO authenticated
 USING (
+  EXISTS (
+    SELECT 1 FROM public.artwork_assets a
+    JOIN public.orders o ON o.id = a.order_id
+    WHERE a.id = artwork_versions.asset_id
+      AND (a.customer_id = auth.uid() OR o.user_id = auth.uid() OR public.is_admin())
+  )
+);
+
+-- Customers can insert versions for their own assets
+DROP POLICY IF EXISTS "Customers insert own artwork versions" ON public.artwork_versions;
+CREATE POLICY "Customers insert own artwork versions"
+ON public.artwork_versions FOR INSERT
+TO authenticated
+WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.artwork_assets a
     JOIN public.orders o ON o.id = a.order_id
@@ -391,6 +421,46 @@ USING (
     WHERE v.id = artwork_proofs.version_id
       AND (a.customer_id = auth.uid() OR o.user_id = auth.uid() OR public.is_admin())
   )
+);
+
+-- Customers can insert/update proofs for their own assets
+DROP POLICY IF EXISTS "Customers manage own artwork proofs" ON public.artwork_proofs;
+CREATE POLICY "Customers manage own artwork proofs"
+ON public.artwork_proofs FOR ALL
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.artwork_versions v
+    JOIN public.artwork_assets a ON a.id = v.asset_id
+    JOIN public.orders o ON o.id = a.order_id
+    WHERE v.id = artwork_proofs.version_id
+      AND (a.customer_id = auth.uid() OR o.user_id = auth.uid() OR public.is_admin())
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.artwork_versions v
+    JOIN public.artwork_assets a ON a.id = v.asset_id
+    JOIN public.orders o ON o.id = a.order_id
+    WHERE v.id = artwork_proofs.version_id
+      AND (a.customer_id = auth.uid() OR o.user_id = auth.uid() OR public.is_admin())
+  )
+);
+
+-- Customers can manage their own upload sessions
+DROP POLICY IF EXISTS "Customers manage own artwork upload sessions" ON public.artwork_upload_sessions;
+CREATE POLICY "Customers manage own artwork upload sessions"
+ON public.artwork_upload_sessions FOR ALL
+TO authenticated
+USING (
+  user_id = auth.uid()
+  OR EXISTS (SELECT 1 FROM public.orders o WHERE o.id = artwork_upload_sessions.order_id AND o.user_id = auth.uid())
+  OR public.is_admin()
+)
+WITH CHECK (
+  user_id = auth.uid()
+  OR EXISTS (SELECT 1 FROM public.orders o WHERE o.id = artwork_upload_sessions.order_id AND o.user_id = auth.uid())
+  OR public.is_admin()
 );
 
 -- Customers can view artwork events for their orders

@@ -7,8 +7,7 @@ import {
   Clock,
   ShieldCheck,
   Truck,
-  Sparkles,
-  Zap,
+  Headphones,
 } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 import { categories } from "@/lib/data/categories";
@@ -33,7 +32,7 @@ export function SiteFooter() {
         <div className="shell grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex items-start gap-3.5">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet/30 text-violet-tint">
-              <Zap className="size-5 text-marigold" />
+              <Clock className="size-5 text-marigold stroke-[2]" />
             </div>
             <div>
               <h4 className="text-sm font-bold text-white">Fast Local Dispatch</h4>
@@ -69,7 +68,7 @@ export function SiteFooter() {
 
           <div className="flex items-start gap-3.5">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet/30 text-violet-tint">
-              <Sparkles className="size-5 text-violet-lift" />
+              <Headphones className="size-5 text-violet-lift" />
             </div>
             <div>
               <h4 className="text-sm font-bold text-white">Dedicated Support</h4>

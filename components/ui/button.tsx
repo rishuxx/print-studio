@@ -37,6 +37,9 @@ const buttonVariants = cva(
         "ghost-invert": "text-white/80 hover:bg-white/10 hover:text-white",
         destructive:
           "bg-destructive text-white hover:brightness-110",
+        /** Express Printing / high-priority action navigation CTA */
+        express:
+          "bg-amber-500/10 text-amber-900 border border-amber-500/25 hover:bg-amber-500/15 hover:border-amber-500/40 hover:text-amber-950 shadow-2xs font-semibold",
         link: "text-violet underline-offset-4 hover:underline p-0 h-auto",
       },
       size: {

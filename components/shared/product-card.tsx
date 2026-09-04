@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Zap, ArrowRight, Star } from "lucide-react";
+import { Clock, ArrowRight, Star } from "lucide-react";
 import type { Product } from "@/lib/commerce/types";
 import { formatMoney } from "@/lib/pricing";
 import { CatalogBadge } from "@/components/ui/badge";
@@ -62,7 +62,7 @@ export function ProductCard({ product, className, compact = false }: ProductCard
           {primaryBadge && <CatalogBadge kind={primaryBadge} size="sm" />}
           {product.sameDayEligible && primaryBadge !== "same-day" && (
             <span className="inline-flex items-center gap-1 rounded-md bg-marigold-wash px-1.5 py-0.5 font-mono text-[0.625rem] font-semibold uppercase text-marigold-deep border border-marigold/30">
-              <Zap className="size-2.5" /> Express
+              <Clock className="size-2.5 stroke-[2]" /> Express
             </span>
           )}
         </div>

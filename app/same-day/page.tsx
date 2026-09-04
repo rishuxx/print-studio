@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getStorefrontAllProducts } from "@/lib/catalogue/storefront-queries";
 import { ProductCard } from "@/components/shared/product-card";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
-import { Zap } from "lucide-react";
+import { Clock } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
 export const metadata: Metadata = {
@@ -26,7 +26,7 @@ export default async function SameDayPage() {
 
       <div className="rounded-2xl border border-border bg-gradient-to-r from-ink via-ink-soft to-violet p-6 sm:p-10 text-white space-y-4 shadow-lift">
         <div className="inline-flex items-center gap-1.5 rounded-md bg-marigold px-2.5 py-1 font-mono text-xs font-bold uppercase text-ink">
-          <Zap className="size-3.5 fill-ink" />
+          <Clock className="size-3.5 text-ink stroke-[2]" />
           <span>Express Production</span>
         </div>
         <h1 className="font-display text-3xl font-extrabold text-white sm:text-4xl">

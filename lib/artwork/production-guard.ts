@@ -25,6 +25,17 @@ export async function verifyOrderProductionLock(orderId: string): Promise<Produc
     .eq("order_id", orderId);
 
   if (error) {
+    // If the artwork_assets table does not exist in the database schema yet (or schema cache unrefreshed),
+    // do not brick the entire order fulfillment workflow — log a warning and proceed gracefully.
+    if (error.code === "PGRST204" || error.code === "PGRST205" || error.message?.includes("artwork_assets")) {
+      console.warn("[Production Guard] 'artwork_assets' table not found in schema. Proceeding without artwork gate.");
+      return {
+        canProceedToProduction: true,
+        unapprovedSlots: [],
+        message: "Artwork table not yet initialized. Production guard bypassed.",
+      };
+    }
+
     return {
       canProceedToProduction: false,
       unapprovedSlots: [],
@@ -32,12 +43,37 @@ export async function verifyOrderProductionLock(orderId: string): Promise<Produc
     };
   }
 
-  // If no artwork assets exist (e.g. standard off-the-shelf catalog item with no print required)
+  // If no artwork assets exist in artwork_assets table, check order_items fallback
   if (!assets || assets.length === 0) {
+    const { data: orderItems } = await supabase
+      .from("order_items")
+      .select("id, artwork_summary")
+      .eq("order_id", orderId);
+
+    if (orderItems && orderItems.length > 0) {
+      const unapprovedItems = orderItems.filter((item) => {
+        const art = (item.artwork_summary as Record<string, unknown>) || {};
+        // If file was attached but not approved
+        return art.storagePath && art.status !== "approved" && !art.approvedAt;
+      });
+
+      if (unapprovedItems.length > 0) {
+        return {
+          canProceedToProduction: false,
+          unapprovedSlots: unapprovedItems.map((item) => ({
+            itemId: item.id,
+            slot: "front",
+            status: "proof_pending",
+          })),
+          message: `Production locked: ${unapprovedItems.length} artwork slot(s) require customer proof sign-off before press plate imaging.`,
+        };
+      }
+    }
+
     return {
       canProceedToProduction: true,
       unapprovedSlots: [],
-      message: "No custom print artwork assets required for this order.",
+      message: "No unapproved print artwork assets for this order.",
     };
   }
 

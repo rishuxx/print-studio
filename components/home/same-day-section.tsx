@@ -1,6 +1,6 @@
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight, Clock, Zap } from "lucide-react";
+import { ArrowRight, Clock } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 
 export function SameDaySection() {
@@ -11,7 +11,7 @@ export function SameDaySection() {
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-ink via-ink-soft to-violet p-6 sm:p-8 md:p-10 text-white shadow-lift">
         <div className="relative z-10 max-w-2xl space-y-3 sm:space-y-4">
           <div className="inline-flex items-center gap-1.5 rounded-md bg-marigold px-2.5 py-1 font-mono text-xs font-bold uppercase text-ink">
-            <Zap className="size-3.5 fill-ink" />
+            <Clock className="size-3.5 text-ink stroke-[2]" />
             <span>{isSameDay ? "Fast Turnaround" : "Urgent Orders"}</span>
           </div>
 

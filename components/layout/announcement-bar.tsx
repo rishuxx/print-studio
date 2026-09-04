@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, X, Sparkles, Tag, ArrowRight, Phone } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Tag, ArrowRight, Phone } from "lucide-react";
 import { siteConfig } from "@/lib/site-config";
 import { createClient } from "@/lib/supabase/client";
 import { useStoreSettings } from "@/lib/settings/settings-context";
@@ -131,7 +131,7 @@ export function AnnouncementBar() {
           )}
 
           <div className="flex items-center gap-2 font-medium">
-            {isLiveSale && <Sparkles className="size-3.5 text-amber-400 fill-amber-400 shrink-0" />}
+            {isLiveSale && <Tag className="size-3.5 text-amber-400 shrink-0" />}
             <span>{current.text}</span>
 
             {promoCode && (

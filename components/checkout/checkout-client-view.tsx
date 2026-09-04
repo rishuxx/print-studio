@@ -636,7 +636,7 @@ export function CheckoutClientView({
                   onClick={() => setShowCouponsDrawer(!showCouponsDrawer)}
                   className="text-violet font-semibold text-[0.6875rem] hover:underline flex items-center gap-1"
                 >
-                  <Sparkles className="size-3" />
+                  <Tag className="size-3 text-violet" />
                   <span>{availableCoupons.length} Available</span>
                   {showCouponsDrawer ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
                 </button>

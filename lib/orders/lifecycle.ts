@@ -103,12 +103,12 @@ export const ORDER_STATUS_METADATA: Record<OrderStatus, StatusMetadata> = {
  */
 export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   pending: ["confirmed", "artwork_review", "cancelled"],
-  confirmed: ["artwork_review", "cancelled"],
+  confirmed: ["artwork_review", "in_production", "cancelled"],
   artwork_review: ["proof_pending", "proof_approved", "in_production", "cancelled"],
-  proof_pending: ["proof_approved", "artwork_review", "cancelled"],
+  proof_pending: ["proof_approved", "in_production", "cancelled"],
   proof_approved: ["in_production"],
   in_production: ["quality_check"],
-  quality_check: ["ready", "in_production"],
+  quality_check: ["ready"],
   ready: ["shipped"],
   shipped: ["out_for_delivery", "delivered"],
   out_for_delivery: ["delivered"],

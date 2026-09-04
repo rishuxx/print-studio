@@ -218,17 +218,6 @@ export function AdminOrderDetailClientView({
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
         {/* Left Column (8 Cols): Status Machine, Timeline, Items */}
         <div className="lg:col-span-8 space-y-6">
-          {/* Direct Logistics Partner Pincode Serviceability & Assignment */}
-          <DirectDispatchCard
-            orderId={dbOrder.id}
-            orderNumber={dbOrder.order_number}
-            pincode={delivery.pincode || "248007"}
-            city={delivery.city || "Dehradun"}
-            state={delivery.state || "Uttarakhand"}
-            existingAwb={existingShipments[0]?.awb_number}
-            carrierName={existingShipments[0]?.carrier?.name}
-          />
-
           {/* Status Machine Action Card */}
           <div className="rounded-2xl border-2 border-violet/30 bg-violet/5 p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-violet/20 pb-3">
@@ -298,6 +287,33 @@ export function AdminOrderDetailClientView({
             )}
           </div>
 
+          {/* Pre-Press Quality Control & Digital Proofing Card */}
+          <AdminArtworkReviewCard
+            orderId={dbOrder.id}
+            assets={artworkAssets}
+            onRefresh={() => router.refresh()}
+          />
+
+          {/* Manufacturing Jobs & Production Work Orders */}
+          <AdminProductionJobsSection
+            orderId={dbOrder.id}
+            orderNumber={dbOrder.order_number}
+            orderStatus={dbOrder.status}
+            jobs={productionJobs}
+            onRefresh={() => router.refresh()}
+          />
+
+          {/* Direct Logistics Partner Pincode Serviceability & Assignment */}
+          <DirectDispatchCard
+            orderId={dbOrder.id}
+            orderNumber={dbOrder.order_number}
+            pincode={delivery.pincode || "248007"}
+            city={delivery.city || "Dehradun"}
+            state={delivery.state || "Uttarakhand"}
+            existingAwb={existingShipments[0]?.awb_number}
+            carrierName={existingShipments[0]?.carrier?.name}
+          />
+
           {/* Database Timeline History */}
           <div className="rounded-2xl border border-border bg-white p-6 shadow-sm space-y-6">
             <div className="flex items-center justify-between border-b border-border pb-3">
@@ -336,22 +352,6 @@ export function AdminOrderDetailClientView({
               )}
             </div>
           </div>
-
-          {/* Pre-Press Quality Control & Digital Proofing Card */}
-          <AdminArtworkReviewCard
-            orderId={dbOrder.id}
-            assets={artworkAssets}
-            onRefresh={() => router.refresh()}
-          />
-
-          {/* Manufacturing Jobs & Production Work Orders */}
-          <AdminProductionJobsSection
-            orderId={dbOrder.id}
-            orderNumber={dbOrder.order_number}
-            orderStatus={dbOrder.status}
-            jobs={productionJobs}
-            onRefresh={() => router.refresh()}
-          />
 
           {/* Returns & Post-Delivery Resolution Ticket Banner */}
           {resolution && (
