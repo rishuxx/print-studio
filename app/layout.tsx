@@ -29,7 +29,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.in"),
   title: {
     default: `${siteConfig.businessName} — Custom Online Printing, Business Cards, Apparel & Packaging`,
     template: `%s · ${siteConfig.businessName}`,

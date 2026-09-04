@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const category = await getStorefrontCategory(handle);
   if (!category) return { title: "Category Not Found · PreetyPrints" };
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.in";
   const canonicalUrl = `${baseUrl}/category/${category.handle}`;
 
   return {

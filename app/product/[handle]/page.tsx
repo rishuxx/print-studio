@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const product = await getStorefrontProduct(decodedHandle);
   if (!product) return { title: "Product Not Found · PreetyPrints" };
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.in";
   const canonicalUrl = `${baseUrl}/product/${product.handle}`;
   const primaryImage = product.images[0]?.url || `${baseUrl}/og-image.jpg`;
 

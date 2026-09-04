@@ -18,12 +18,12 @@ export const metadata: Metadata = {
   description:
     "PreetyPrints is India's premium custom printing destination. Order visiting cards, corporate merchandising, packaging, personalized t-shirts, mugs, and stationery online.",
   alternates: {
-    canonical: process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com",
+    canonical: process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.in",
   },
 };
 
 export default function HomePage() {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.com";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://preetyprints.in";
 
   // Schema.org WebSite & Organization Structured Data
   const websiteJsonLd = {
