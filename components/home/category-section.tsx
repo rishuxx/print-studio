@@ -5,8 +5,14 @@ import Link from "next/link";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { quickStripCategories } from "@/lib/data/categories";
 import { CategoryCard } from "@/components/shared/category-card";
+import type { Category } from "@/lib/commerce/types";
 
-export function CategorySection() {
+interface CategorySectionProps {
+  categories?: Category[];
+}
+
+export function CategorySection({ categories }: CategorySectionProps) {
+  const displayCategories = categories && categories.length > 0 ? categories : quickStripCategories;
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = React.useState(false);
   const [canScrollRight, setCanScrollRight] = React.useState(true);
@@ -94,7 +100,7 @@ export function CategorySection() {
           className="flex gap-4 overflow-x-auto scroll-smooth pb-3 pt-1 no-scrollbar snap-x snap-mandatory"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
-          {quickStripCategories.map((category) => (
+          {displayCategories.map((category) => (
             <div
               key={category.handle}
               className="w-[calc(50%-8px)] sm:w-[calc(33.333%-11px)] md:w-[calc(25%-12px)] lg:w-[calc(19%-12px)] xl:w-[calc(16.666%-14px)] shrink-0 snap-start"

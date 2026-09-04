@@ -13,6 +13,7 @@ import { BulkQuoteSection } from "@/components/home/bulk-quote-section";
 import { FaqSection } from "@/components/home/faq-section";
 import { FinalCta } from "@/components/home/final-cta";
 import { getActiveHeroBanners } from "@/lib/hero/queries";
+import { getStorefrontCategories } from "@/lib/catalogue/storefront-queries";
 
 export const metadata: Metadata = {
   title: `Custom Online Printing, Business Cards & Gifts | ${siteConfig.businessName}`,
@@ -58,7 +59,10 @@ export default async function HomePage() {
     },
   };
 
-  const heroBanners = await getActiveHeroBanners();
+  const [heroBanners, categories] = await Promise.all([
+    getActiveHeroBanners(),
+    getStorefrontCategories(),
+  ]);
 
   return (
     <div className="flex flex-col gap-12 sm:gap-16 pb-16">
@@ -78,7 +82,7 @@ export default async function HomePage() {
       <TrustStrip />
 
       {/* 3. Shop by Category */}
-      <CategorySection />
+      <CategorySection categories={categories} />
 
       {/* 4. Popular Printing Products */}
       <PopularProductsSection />

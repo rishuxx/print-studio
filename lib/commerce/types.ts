@@ -246,6 +246,8 @@ export interface Category {
   inQuickStrip?: boolean;
   seasonal?: boolean;
   mockup?: MockupKind;
+  image_url?: string | null;
+  banner_url?: string | null;
 }
 
 export interface CategoryGroup {

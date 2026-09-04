@@ -313,6 +313,42 @@ export async function getStorefrontCategory(handle: string) {
 }
 
 /**
+ * Fetch all categories for Storefront (merging DB categories with static defaults to preserve images, ordering, and structure)
+ */
+export async function getStorefrontCategories() {
+  try {
+    const supabase = getPublicClient();
+    if (!supabase) return staticCategories;
+
+    const { data: dbCats } = await supabase
+      .from("categories")
+      .select("*")
+      .eq("status", "active")
+      .order("sort_order", { ascending: true });
+
+    if (dbCats && dbCats.length > 0) {
+      const dbMap = new Map(dbCats.map((c) => [c.handle, c]));
+      return staticCategories.map((sc) => {
+        const dbCat = dbMap.get(sc.handle);
+        if (dbCat) {
+          return {
+            ...sc,
+            title: dbCat.title || sc.title,
+            blurb: dbCat.blurb !== null && dbCat.blurb !== undefined ? dbCat.blurb : sc.blurb,
+            image_url: dbCat.image_url || null,
+            banner_url: dbCat.banner_url || null,
+            inQuickStrip: dbCat.is_featured !== undefined ? dbCat.is_featured : sc.inQuickStrip,
+          };
+        }
+        return sc;
+      });
+    }
+  } catch {}
+
+  return staticCategories;
+}
+
+/**
  * Fetch a limited number of related products directly from the DB without downloading the full catalogue.
  */
 export async function getStorefrontRelatedProducts(

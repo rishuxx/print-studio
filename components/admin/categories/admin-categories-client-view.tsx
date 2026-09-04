@@ -14,7 +14,11 @@ import {
   Trash2,
   ExternalLink,
   ChevronRight,
+  Upload,
+  Image as ImageIcon,
+  X,
 } from "lucide-react";
+import { uploadBannerImageAction } from "@/lib/hero/actions";
 import type {
   DatabaseCategory,
   DatabaseAttributeDefinition,
@@ -57,6 +61,8 @@ export function AdminCategoriesClientView({
   const [catHandle, setCatHandle] = React.useState("");
   const [catBlurb, setCatBlurb] = React.useState("");
   const [catIcon, setCatIcon] = React.useState("Folder");
+  const [catImageUrl, setCatImageUrl] = React.useState("");
+  const [isUploadingImage, setIsUploadingImage] = React.useState(false);
   const [catIsFeatured, setCatIsFeatured] = React.useState(false);
   const [catSortOrder, setCatSortOrder] = React.useState(0);
   const [catSelectedAttrIds, setCatSelectedAttrIds] = React.useState<string[]>([]);
@@ -87,6 +93,7 @@ export function AdminCategoriesClientView({
     setCatHandle("");
     setCatBlurb("");
     setCatIcon("Folder");
+    setCatImageUrl("");
     setCatIsFeatured(false);
     setCatSortOrder(categories.length * 10);
     setCatSelectedAttrIds([]);
@@ -99,6 +106,7 @@ export function AdminCategoriesClientView({
     setCatHandle(cat.handle);
     setCatBlurb(cat.blurb || "");
     setCatIcon(cat.icon || "Folder");
+    setCatImageUrl(cat.image_url || "");
     setCatIsFeatured(cat.is_featured);
     setCatSortOrder(cat.sort_order);
     setCatSelectedAttrIds(cat.attribute_templates?.map((t) => t.attribute_id) || []);
@@ -144,6 +152,60 @@ export function AdminCategoriesClientView({
     setIsTemplateModalOpen(true);
   };
 
+  const handleCategoryImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingImage(true);
+    try {
+      // 1. Direct client-side upload to Supabase Storage
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const { PRODUCT_MEDIA_BUCKET } = await import("@/lib/storage/product-media-utils");
+        const supabase = createClient();
+
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const fileName = `categories/${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${ext}`;
+
+        const { error: clientUploadErr } = await supabase.storage
+          .from(PRODUCT_MEDIA_BUCKET)
+          .upload(fileName, file, {
+            contentType: file.type || "image/jpeg",
+            upsert: true,
+          });
+
+        if (!clientUploadErr) {
+          const { data } = supabase.storage.from(PRODUCT_MEDIA_BUCKET).getPublicUrl(fileName);
+          if (data?.publicUrl) {
+            setCatImageUrl(data.publicUrl);
+            toast.success("Category card image uploaded successfully.");
+            return;
+          }
+        }
+      } catch (clientErr) {
+        console.warn("Direct upload error, falling back to server action:", clientErr);
+      }
+
+      // 2. Server action fallback
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "categories");
+
+      const res = await uploadBannerImageAction(formData);
+      if (res.success && res.url) {
+        setCatImageUrl(res.url);
+        toast.success("Category card image uploaded successfully.");
+      } else {
+        toast.error(res.error || "Failed to upload category image.");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Error uploading image.");
+    } finally {
+      setIsUploadingImage(false);
+      e.target.value = "";
+    }
+  };
+
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -154,6 +216,7 @@ export function AdminCategoriesClientView({
       handle: normalizeHandle(catHandle),
       blurb: catBlurb.trim() || null,
       icon: catIcon,
+      image_url: catImageUrl.trim() || null,
       status: editingCategory?.status || "active",
       sort_order: Number(catSortOrder),
       is_featured: catIsFeatured,
@@ -315,9 +378,18 @@ export function AdminCategoriesClientView({
                 {categories.map((cat) => (
                   <tr key={cat.id} className="hover:bg-paper/40 transition-colors">
                     <td className="px-5 py-4 font-semibold text-ink">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-violet-wash text-violet">
-                          <Folder className="size-4" />
+                      <div className="flex items-center gap-3">
+                        <div className="relative size-10 shrink-0 overflow-hidden rounded-lg border border-border bg-paper flex items-center justify-center">
+                          {cat.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={cat.image_url}
+                              alt={cat.title}
+                              className="size-full object-cover"
+                            />
+                          ) : (
+                            <Folder className="size-4 text-violet" />
+                          )}
                         </div>
                         <div>
                           <div className="font-bold text-sm text-ink">{cat.title}</div>
@@ -507,6 +579,59 @@ export function AdminCategoriesClientView({
                   onChange={(e) => setCatBlurb(e.target.value)}
                   className="w-full rounded-xl border border-border px-3.5 py-2 text-xs focus:border-violet focus:outline-none"
                   placeholder="Premium custom frames in natural teak and solid oak..."
+                />
+              </div>
+
+              {/* Category Card Image (Homepage & Grid) */}
+              <div className="rounded-xl border border-zinc-200 p-3.5 space-y-2.5 bg-zinc-50/60">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-ink flex items-center gap-1.5 text-xs">
+                    <ImageIcon className="size-3.5 text-zinc-600" />
+                    <span>Homepage Category Card Image</span>
+                  </label>
+                  <span className="text-[10px] text-zinc-500 font-medium">Square or 4:3 (Auto-fits)</span>
+                </div>
+
+                {catImageUrl ? (
+                  <div className="relative size-24 rounded-lg overflow-hidden border border-zinc-200 bg-zinc-100 group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={catImageUrl}
+                      alt="Category preview"
+                      className="size-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setCatImageUrl("")}
+                      className="absolute top-1 right-1 size-5 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-red-600 transition-colors cursor-pointer"
+                      title="Remove image"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center h-24 border-2 border-dashed border-zinc-300 rounded-lg hover:border-violet/60 bg-white cursor-pointer transition-colors p-3 text-center">
+                    <Upload className="size-5 text-zinc-400 mb-1" />
+                    <span className="text-[11px] font-semibold text-zinc-700">
+                      {isUploadingImage ? "Uploading category image..." : "Upload Category Card Image"}
+                    </span>
+                    <span className="text-[10px] text-zinc-400">JPG, PNG, WEBP (up to 25MB)</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={isUploadingImage}
+                      onChange={handleCategoryImageUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+
+                <input
+                  type="text"
+                  value={catImageUrl}
+                  onChange={(e) => setCatImageUrl(e.target.value)}
+                  placeholder="Or paste direct image URL (https://...)"
+                  className="w-full rounded-lg border border-border px-3 py-1.5 text-[11px] bg-white text-ink focus:border-violet focus:outline-none"
                 />
               </div>
 

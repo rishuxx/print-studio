@@ -45,13 +45,23 @@ export function CategoryCard({ category, className, variant = "tile" }: Category
         className
       )}
     >
-      {/* Category Mockup Top Visual - Clean light neutral square area */}
-      <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-zinc-100/80 flex items-center justify-center">
-        <ProductMockup
-          kind={category.mockup || "card-stack"}
-          tone="transparent"
-          className="size-full p-3 transition-transform duration-300 group-hover:scale-110"
-        />
+      {/* Category Visual - Displays Custom Uploaded Image or Silhouette Graphic */}
+      <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-zinc-100/90 flex items-center justify-center">
+        {category.image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={category.image_url}
+            alt={category.title}
+            className="size-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <ProductMockup
+            kind={category.mockup || "card-stack"}
+            tone="transparent"
+            className="size-full p-3 transition-transform duration-300 group-hover:scale-110"
+          />
+        )}
         {/* Soft-cornered floating icon badge */}
         <div className="absolute right-2.5 top-2.5 flex size-7 items-center justify-center rounded-lg bg-white/95 shadow-2xs border border-zinc-200/70 text-zinc-500 backdrop-blur-xs transition-colors duration-200 group-hover:text-primary group-hover:border-primary/20">
           <Icon name={category.icon} className="size-3.5" />
