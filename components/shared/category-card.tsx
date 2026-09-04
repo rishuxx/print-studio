@@ -41,12 +41,12 @@ export function CategoryCard({ category, className, variant = "tile" }: Category
     <Link
       href={`/category/${category.handle}`}
       className={cn(
-        "group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-zinc-200/80 bg-white p-3.5 transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md",
+        "group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-zinc-200/80 bg-white transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md",
         className
       )}
     >
-      {/* Category Visual - Displays Custom Uploaded Image or Silhouette Graphic */}
-      <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-zinc-100/90 flex items-center justify-center">
+      {/* Category Visual - Takes full width edge-to-edge without outer white padding */}
+      <div className="relative aspect-square w-full overflow-hidden bg-zinc-100 flex items-center justify-center">
         {category.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -59,7 +59,7 @@ export function CategoryCard({ category, className, variant = "tile" }: Category
           <ProductMockup
             kind={category.mockup || "card-stack"}
             tone="transparent"
-            className="size-full p-3 transition-transform duration-300 group-hover:scale-110"
+            className="size-full p-4 transition-transform duration-300 group-hover:scale-110"
           />
         )}
         {/* Soft-cornered floating icon badge */}
@@ -68,15 +68,15 @@ export function CategoryCard({ category, className, variant = "tile" }: Category
         </div>
       </div>
 
-      {/* Info bottom - legible title and subtitle */}
-      <div className="mt-3 flex flex-col px-0.5">
+      {/* Info bottom - Clean padded area for title and blurb */}
+      <div className="flex flex-col p-3.5 pt-3">
         <div className="flex items-center justify-between gap-1.5">
           <h3 className="truncate text-xs font-bold text-zinc-900 transition-colors group-hover:text-primary sm:text-sm">
             {category.title}
           </h3>
           <ArrowRight className="size-3.5 shrink-0 text-zinc-400 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-primary" />
         </div>
-        <p className="mt-0.5 line-clamp-1 text-[11px] font-medium text-zinc-500">
+        <p className="mt-1 line-clamp-1 text-[11px] font-medium text-zinc-500">
           {category.blurb}
         </p>
       </div>
