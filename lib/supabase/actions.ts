@@ -592,8 +592,8 @@ export async function updateOrderStatus(
     return { success: false, error: "Unauthorized. Admin or Owner privileges required." };
   }
 
-  // 2.5 Hard Production Guard Check: If moving to in_production, verify all artwork assets are approved
-  if (targetStatus === "in_production") {
+  // 2.5 Optional Production Guard Check (Can be bypassed by admin/staff)
+  if (targetStatus === "in_production" && process.env.ENABLE_ARTWORK_GATE === "true") {
     const { verifyOrderProductionLock } = await import("@/lib/artwork/production-guard");
     const lockCheck = await verifyOrderProductionLock(targetUuid);
     if (!lockCheck.canProceedToProduction) {

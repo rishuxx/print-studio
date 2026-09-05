@@ -287,21 +287,36 @@ export function AdminOrderDetailClientView({
             )}
           </div>
 
-          {/* Pre-Press Quality Control & Digital Proofing Card */}
-          <AdminArtworkReviewCard
-            orderId={dbOrder.id}
-            assets={artworkAssets}
-            onRefresh={() => router.refresh()}
-          />
+          {/* Advanced Factory & Pre-Press Production Tools (Hidden by default, toggleable whenever needed) */}
+          <details className="group rounded-2xl border border-dashed border-border bg-paper/40 p-4 transition-all">
+            <summary className="cursor-pointer font-bold text-xs uppercase font-mono tracking-wider text-muted-foreground hover:text-ink flex items-center justify-between list-none select-none">
+              <span className="flex items-center gap-2">
+                <Layers className="size-4 text-muted-foreground group-open:text-violet" />
+                <span>Advanced Factory & Pre-Press Tools (Hidden)</span>
+              </span>
+              <span className="text-[10px] rounded-md border border-border px-2 py-0.5 group-open:bg-paper">
+                Click to expand / collapse
+              </span>
+            </summary>
 
-          {/* Manufacturing Jobs & Production Work Orders */}
-          <AdminProductionJobsSection
-            orderId={dbOrder.id}
-            orderNumber={dbOrder.order_number}
-            orderStatus={dbOrder.status}
-            jobs={productionJobs}
-            onRefresh={() => router.refresh()}
-          />
+            <div className="mt-4 space-y-6 pt-4 border-t border-border/60">
+              {/* Pre-Press Quality Control & Digital Proofing Card */}
+              <AdminArtworkReviewCard
+                orderId={dbOrder.id}
+                assets={artworkAssets}
+                onRefresh={() => router.refresh()}
+              />
+
+              {/* Manufacturing Jobs & Production Work Orders */}
+              <AdminProductionJobsSection
+                orderId={dbOrder.id}
+                orderNumber={dbOrder.order_number}
+                orderStatus={dbOrder.status}
+                jobs={productionJobs}
+                onRefresh={() => router.refresh()}
+              />
+            </div>
+          </details>
 
           {/* Direct Logistics Partner Pincode Serviceability & Assignment */}
           <DirectDispatchCard
