@@ -99,13 +99,47 @@ export function getSameDayProducts(limit = 8): Product[] {
 export function searchProducts(query: string, limit = 20): Product[] {
   const q = query.toLowerCase().trim();
   if (!q) return [];
+
+  // Generate normalized terms (e.g. "tshirt" -> ["tshirt", "t-shirt", "t shirt", "tee"])
+  const terms = new Set<string>();
+  terms.add(q);
+  if (q.includes("-")) {
+    terms.add(q.replace(/-/g, ""));
+    terms.add(q.replace(/-/g, " "));
+  }
+  if (q.includes(" ")) {
+    terms.add(q.replace(/\s+/g, "-"));
+    terms.add(q.replace(/\s+/g, ""));
+  }
+  if (q === "tshirt" || q === "tshirts") {
+    terms.add("t-shirt");
+    terms.add("t shirt");
+    terms.add("t-shirts");
+    terms.add("tee");
+  } else if (q === "t-shirt" || q === "t-shirts") {
+    terms.add("tshirt");
+    terms.add("tshirts");
+    terms.add("tee");
+  }
+
+  const termList = Array.from(terms);
+
   return products
-    .filter((p) =>
-      p.title.toLowerCase().includes(q) ||
-      p.subtitle.toLowerCase().includes(q) ||
-      p.tags.some((t) => t.toLowerCase().includes(q)) ||
-      p.productType.toLowerCase().includes(q)
-    )
+    .filter((p) => {
+      const titleLower = p.title.toLowerCase();
+      const subtitleLower = (p.subtitle || "").toLowerCase();
+      const typeLower = (p.productType || "").toLowerCase();
+      const handleLower = (p.handle || "").toLowerCase();
+      const tagsLower = (p.tags || []).map((t) => t.toLowerCase());
+
+      return termList.some((t) =>
+        titleLower.includes(t) ||
+        subtitleLower.includes(t) ||
+        typeLower.includes(t) ||
+        handleLower.includes(t) ||
+        tagsLower.some((tag) => tag.includes(t))
+      );
+    })
     .slice(0, limit);
 }
 

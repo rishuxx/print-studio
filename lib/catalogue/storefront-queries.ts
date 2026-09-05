@@ -54,8 +54,18 @@ export function mapDatabaseProductToStorefront(dbProduct: any, priceTiers: any[]
   const visibilityCheck = ProductService.getProductVisibility(dbProduct);
   const isPurchasableOverall = visibilityCheck.isPurchasable;
 
+  // Ensure base_price_minor has a valid fallback from the static catalogue if 0 or missing
+  const staticCatalogDef = getStaticProduct(dbProduct.handle) || getStaticProduct(dbProduct.id);
+  const effectiveProduct = {
+    ...dbProduct,
+    base_price_minor:
+      (typeof dbProduct.base_price_minor === "number" && dbProduct.base_price_minor > 0)
+        ? dbProduct.base_price_minor
+        : (staticCatalogDef?.priceFrom?.amount || 19900),
+  };
+
   const baseCalc = PricingService.calculateProductPrice({
-    product: dbProduct,
+    product: effectiveProduct,
     quantity: dbProduct.min_order_qty || 1,
   });
 

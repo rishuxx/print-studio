@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { products as staticProducts } from "@/lib/data/products";
 import { categories as staticCategories } from "@/lib/data/categories";
 import { autoSeedAttributesIfEmpty } from "./attributes";
+import { buildWebsearchQuery } from "./search-helpers";
 import type {
   AdminProductListFilter,
   AdminProductListResult,
@@ -345,8 +346,9 @@ export async function fetchAdminProducts(
     
     if (term.length > 0) {
       hasSearch = true;
-      // Use PostgREST textSearch which translates to websearch_to_tsquery
-      query = query.textSearch("search_vector", term, {
+      // Use PostgREST textSearch which translates to websearch_to_tsquery with synonym expansion
+      const expandedQuery = buildWebsearchQuery(term);
+      query = query.textSearch("search_vector", expandedQuery, {
         type: "websearch",
         config: "english"
       });
@@ -463,7 +465,8 @@ export async function fetchPublicCatalogue(
     
     if (term.length > 0) {
       hasSearch = true;
-      query = query.textSearch("search_vector", term, {
+      const expandedQuery = buildWebsearchQuery(term);
+      query = query.textSearch("search_vector", expandedQuery, {
         type: "websearch",
         config: "english"
       });

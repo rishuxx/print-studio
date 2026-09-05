@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchPublicCatalogue } from "@/lib/catalogue/queries";
+import { searchProducts as searchStaticProducts, getProduct as getStaticProduct } from "@/lib/data/products";
 import { formatMoney } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
@@ -15,30 +16,97 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { products } = await fetchPublicCatalogue({
+    // 1. Query database catalog (which now expands query synonyms e.g. tshirt -> t-shirt)
+    const { products: dbProducts } = await fetchPublicCatalogue({
       q,
-      pageSize: limit,
+      pageSize: limit * 2,
       page: 1,
-      sort: "relevance"
+      sort: "relevance",
     });
 
-    const results = products.map((p) => {
-      // Find base price or lowest tier price for formatting
-      const basePrice = p.variants?.[0]?.price_minor || 0;
-      
-      return {
-        id: p.id,
-        handle: p.handle,
-        title: p.title,
-        subtitle: p.subtitle || "",
-        productType: p.product_type || "Print",
-        priceUnit: p.unit || "piece",
+    // 2. Also query rich static catalog with lenient tags and title matching
+    const staticMatches = searchStaticProducts(q, limit * 2);
+
+    // 3. Merge results, deduplicate by handle
+    const seenHandles = new Set<string>();
+    const mergedResults: any[] = [];
+
+    // Helper to calculate non-zero display price
+    const resolveBasePrice = (p: any, staticDef?: any): number => {
+      if (typeof p.base_price_minor === "number" && p.base_price_minor > 0) {
+        return p.base_price_minor;
+      }
+      if (p.variants && p.variants.length > 0 && typeof p.variants[0]?.price_minor === "number" && p.variants[0].price_minor > 0) {
+        return p.variants[0].price_minor;
+      }
+      if (staticDef?.priceFrom?.amount && staticDef.priceFrom.amount > 0) {
+        return staticDef.priceFrom.amount;
+      }
+      return 19900; // Safe minimum default ₹199
+    };
+
+    // Helper to resolve product image
+    const resolveImage = (p: any, staticDef?: any): string => {
+      if (p.media && p.media.length > 0 && p.media[0]?.url) {
+        return p.media[0].url;
+      }
+      if (staticDef?.images && staticDef.images.length > 0 && staticDef.images[0]?.url) {
+        return staticDef.images[0].url;
+      }
+      return "/placeholder-product.png";
+    };
+
+    // Helper to resolve unit
+    const resolveUnit = (unitStr?: string): string => {
+      if (!unitStr) return "per piece";
+      return unitStr.startsWith("per ") ? unitStr : `per ${unitStr}`;
+    };
+
+    // Add DB products first
+    for (const dbP of dbProducts) {
+      if (seenHandles.has(dbP.handle)) continue;
+      seenHandles.add(dbP.handle);
+
+      const staticDef = getStaticProduct(dbP.handle);
+      const basePrice = resolveBasePrice(dbP, staticDef);
+
+      mergedResults.push({
+        id: dbP.id,
+        handle: dbP.handle,
+        title: dbP.title,
+        subtitle: dbP.subtitle || staticDef?.subtitle || "",
+        productType: dbP.product_type || staticDef?.productType || "Print",
+        priceUnit: resolveUnit(dbP.unit || staticDef?.priceUnit),
         priceFormatted: formatMoney({ amount: basePrice, currencyCode: "INR" }),
-        image: p.media && p.media.length > 0 ? p.media[0].url : "/placeholder-product.png",
-      };
-    });
+        priceFrom: { amount: basePrice, currencyCode: "INR" },
+        image: resolveImage(dbP, staticDef),
+      });
+    }
 
-    return NextResponse.json({ products: results });
+    // Add static matches if not already included
+    for (const sp of staticMatches) {
+      if (seenHandles.has(sp.handle)) continue;
+      seenHandles.add(sp.handle);
+
+      const basePrice = resolveBasePrice({}, sp);
+
+      mergedResults.push({
+        id: sp.id,
+        handle: sp.handle,
+        title: sp.title,
+        subtitle: sp.subtitle || "",
+        productType: sp.productType || "Print",
+        priceUnit: resolveUnit(sp.priceUnit),
+        priceFormatted: formatMoney({ amount: basePrice, currencyCode: "INR" }),
+        priceFrom: { amount: basePrice, currencyCode: "INR" },
+        image: resolveImage({}, sp),
+      });
+    }
+
+    // Slice to the requested limit
+    const finalResults = mergedResults.slice(0, limit);
+
+    return NextResponse.json({ products: finalResults });
   } catch (error) {
     console.error("Storefront Search API error:", error);
     return NextResponse.json({ products: [] }, { status: 500 });
