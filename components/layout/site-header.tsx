@@ -11,6 +11,8 @@ import {
   Phone,
   MapPin,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ArrowRight,
   Clock,
   Printer,
@@ -37,6 +39,34 @@ export function SiteHeader() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [searchFocused, setSearchFocused] = React.useState(false);
   const searchContainerRef = React.useRef<HTMLDivElement>(null);
+  const categoryNavRef = React.useRef<HTMLUListElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = React.useState(false);
+  const [canScrollRight, setCanScrollRight] = React.useState(false);
+
+  const checkNavScroll = React.useCallback(() => {
+    const el = categoryNavRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCanScrollLeft(scrollLeft > 4);
+    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 4);
+  }, []);
+
+  React.useEffect(() => {
+    checkNavScroll();
+    const handleResize = () => checkNavScroll();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [checkNavScroll]);
+
+  const scrollNav = (direction: "left" | "right") => {
+    const el = categoryNavRef.current;
+    if (!el) return;
+    const distance = 240;
+    el.scrollBy({
+      left: direction === "left" ? -distance : distance,
+      behavior: "smooth",
+    });
+  };
 
   const [searchResults, setSearchResults] = React.useState<any[]>([]);
   const [isSearching, setIsSearching] = React.useState(false);
@@ -252,74 +282,117 @@ export function SiteHeader() {
       {/* ── Desktop Mega Menu Navigation Bar ─────────────────────────── */}
       <nav
         aria-label="Main"
-        className="hidden md:block border-t border-border/60 bg-white"
+        className="hidden md:block border-t border-border/60 bg-white relative"
         onMouseLeave={() => setActiveMegaCategory(null)}
       >
-        <div className="shell flex items-center justify-between gap-1 xl:gap-2 px-3 lg:px-4 xl:px-6 2xl:px-8">
-          <ul className="flex items-center gap-0.5 lg:gap-1 xl:gap-1.5 min-w-0 overflow-x-auto no-scrollbar py-0.5">
-            {categories.map((cat) => {
-              const isActive = activeMegaCategory === cat.handle;
-              const isSameDay = cat.handle === "same-day";
-              const isFestive = cat.handle === "festive";
-              const hasDropdown = Boolean(cat.groups && cat.groups.length > 0);
+        <div className="shell relative flex items-center justify-between gap-1 xl:gap-2 px-2 sm:px-3 lg:px-4 xl:px-6 2xl:px-8">
+          {/* Scroll Left Button */}
+          {canScrollLeft && (
+            <div className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 z-10 hidden md:flex items-center">
+              <button
+                type="button"
+                onClick={() => scrollNav("left")}
+                className="flex size-7 items-center justify-center rounded-full bg-white/95 border border-zinc-200 text-zinc-700 shadow-md hover:bg-zinc-50 hover:text-primary transition-all active:scale-95"
+                aria-label="Scroll categories left"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+            </div>
+          )}
 
-              return (
-                <li
-                  key={cat.handle}
-                  className="relative shrink-0"
-                  onMouseEnter={() => setActiveMegaCategory(cat.handle)}
-                >
-                  <Link
-                    href={`/category/${cat.handle}`}
-                    aria-expanded={hasDropdown ? isActive : undefined}
-                    aria-haspopup={hasDropdown ? "true" : undefined}
-                    className={cn(
-                      "group relative flex items-center gap-1.5 lg:gap-2 px-2.5 lg:px-3 py-2.5 rounded-xl text-[12px] lg:text-[12.5px] xl:text-[13px] font-semibold tracking-normal whitespace-nowrap transition-colors duration-150 select-none",
-                      isActive
-                        ? "text-primary font-bold"
-                        : "text-zinc-600 hover:text-primary"
-                    )}
+          {/* Left subtle fade gradient if scrollable */}
+          {canScrollLeft && (
+            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white via-white/80 to-transparent z-[5]" />
+          )}
+
+          <div className="relative min-w-0 flex-1 overflow-hidden">
+            <ul
+              ref={categoryNavRef}
+              onScroll={checkNavScroll}
+              className="flex items-center gap-0.5 lg:gap-1 xl:gap-1.5 min-w-0 overflow-x-auto no-scrollbar py-0.5 scroll-smooth"
+            >
+              {categories.map((cat) => {
+                const isActive = activeMegaCategory === cat.handle;
+                const hasDropdown = Boolean(cat.groups && cat.groups.length > 0);
+
+                return (
+                  <li
+                    key={cat.handle}
+                    className="relative shrink-0"
+                    onMouseEnter={() => setActiveMegaCategory(cat.handle)}
                   >
-                    <span
+                    <Link
+                      href={`/category/${cat.handle}`}
+                      aria-expanded={hasDropdown ? isActive : undefined}
+                      aria-haspopup={hasDropdown ? "true" : undefined}
                       className={cn(
-                        "flex items-center justify-center transition-colors duration-150",
+                        "group relative flex items-center gap-1 sm:gap-1.5 lg:gap-2 px-1.5 sm:px-2 lg:px-2.5 xl:px-3 py-2.5 rounded-xl text-[11px] sm:text-[11.5px] lg:text-[12px] xl:text-[13px] font-semibold tracking-normal whitespace-nowrap transition-colors duration-150 select-none",
                         isActive
-                          ? "text-primary"
-                          : "text-zinc-400 group-hover:text-primary"
+                          ? "text-primary font-bold"
+                          : "text-zinc-600 hover:text-primary"
                       )}
                     >
-                      <Icon name={cat.icon} className="size-4 stroke-[1.5]" />
-                    </span>
-                    <span className="leading-none">
-                      {cat.title}
-                    </span>
-                    {hasDropdown && (
-                      <ChevronDown
+                      <span
                         className={cn(
-                          "size-3 lg:size-3.5 text-zinc-400 shrink-0 transition-transform duration-200 group-hover:text-primary",
-                          isActive && "rotate-180 text-primary"
+                          "flex items-center justify-center transition-colors duration-150",
+                          isActive
+                            ? "text-primary"
+                            : "text-zinc-400 group-hover:text-primary"
                         )}
-                      />
-                    )}
-                    {/* Pepperfry / Zepto Active Indicator line */}
-                    {isActive && (
-                      <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-primary" />
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+                      >
+                        <Icon name={cat.icon} className="size-3.5 sm:size-4 stroke-[1.5]" />
+                      </span>
+                      <span className="leading-none">
+                        {cat.title}
+                      </span>
+                      {hasDropdown && (
+                        <ChevronDown
+                          className={cn(
+                            "size-2.5 sm:size-3 lg:size-3.5 text-zinc-400 shrink-0 transition-transform duration-200 group-hover:text-primary",
+                            isActive && "rotate-180 text-primary"
+                          )}
+                        />
+                      )}
+                      {/* Pepperfry / Zepto Active Indicator line */}
+                      {isActive && (
+                        <span className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full bg-primary" />
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
 
-          <div className="flex items-center shrink-0 py-1.5 pl-1">
+          {/* Right subtle fade gradient if scrollable */}
+          {canScrollRight && (
+            <div className="pointer-events-none absolute right-[140px] sm:right-[150px] lg:right-[170px] top-0 bottom-0 w-8 bg-gradient-to-l from-white via-white/80 to-transparent z-[5]" />
+          )}
+
+          {/* Scroll Right Button */}
+          {canScrollRight && (
+            <div className="absolute right-[140px] sm:right-[150px] lg:right-[170px] top-1/2 -translate-y-1/2 z-10 hidden md:flex items-center">
+              <button
+                type="button"
+                onClick={() => scrollNav("right")}
+                className="flex size-7 items-center justify-center rounded-full bg-white/95 border border-zinc-200 text-zinc-700 shadow-md hover:bg-zinc-50 hover:text-primary transition-all active:scale-95"
+                aria-label="Scroll categories right"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Express Printing CTA - Fixed and always visible */}
+          <div className="flex items-center shrink-0 py-1.5 pl-1 z-10 bg-white">
             <Button
               asChild
               variant="express"
               size="xs"
-              className="h-8 px-3.5 text-[11px] lg:text-[11.5px] xl:text-xs font-semibold gap-1.5 whitespace-nowrap rounded-full hover:shadow-xs transition-all"
+              className="h-7 sm:h-8 px-2.5 sm:px-3.5 text-[10.5px] sm:text-[11px] lg:text-[11.5px] xl:text-xs font-semibold gap-1 sm:gap-1.5 whitespace-nowrap rounded-full hover:shadow-xs transition-all"
             >
               <Link href="/same-day">
-                <Printer className="size-3.5 stroke-[1.75]" />
+                <Printer className="size-3 sm:size-3.5 stroke-[1.75]" />
                 <span>Express Printing</span>
               </Link>
             </Button>
