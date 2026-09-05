@@ -13,6 +13,7 @@ export interface DatabaseBusinessSettings {
   business_short_name: string;
   legal_business_name: string;
   logo_url: string | null;
+  favicon_url?: string | null;
   tagline: string | null;
   description: string | null;
   email: string;

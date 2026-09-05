@@ -27,6 +27,9 @@ export function AdminBrandingManager({ initialSettings }: AdminBrandingManagerPr
   const [logoHeightMobile, setLogoHeightMobile] = React.useState<number>(
     Number((initialSettings as any).logo_height_mobile) || 40
   );
+  const [faviconUrl, setFaviconUrl] = React.useState<string>(
+    (initialSettings as any).favicon_url || ""
+  );
   const [businessName, setBusinessName] = React.useState<string>(initialSettings.business_name);
   const [primaryColor, setPrimaryColor] = React.useState<string>(
     (initialSettings as any).primary_brand_color || "#e53935"
@@ -39,7 +42,62 @@ export function AdminBrandingManager({ initialSettings }: AdminBrandingManagerPr
   );
 
   const [isUploadingLogo, setIsUploadingLogo] = React.useState(false);
+  const [isUploadingFavicon, setIsUploadingFavicon] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
+
+  const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingFavicon(true);
+    try {
+      // 1. Direct client-side upload to Supabase Storage
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const { PRODUCT_MEDIA_BUCKET } = await import("@/lib/storage/product-media-utils");
+        const supabase = createClient();
+
+        const ext = (file.name.split(".").pop() || "ico").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const fileName = `branding/favicon-${Date.now()}.${ext}`;
+
+        const { error: clientUploadErr } = await supabase.storage
+          .from(PRODUCT_MEDIA_BUCKET)
+          .upload(fileName, file, {
+            contentType: file.type || "image/x-icon",
+            upsert: true,
+          });
+
+        if (!clientUploadErr) {
+          const { data } = supabase.storage.from(PRODUCT_MEDIA_BUCKET).getPublicUrl(fileName);
+          if (data?.publicUrl) {
+            setFaviconUrl(data.publicUrl);
+            toast.success("Favicon uploaded successfully.");
+            return;
+          }
+        }
+      } catch (clientErr) {
+        console.warn("Direct favicon upload fallback:", clientErr);
+      }
+
+      // 2. Server action fallback
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "branding");
+
+      const res = await uploadBannerImageAction(formData);
+      if (res.success && res.url) {
+        setFaviconUrl(res.url);
+        toast.success("Favicon uploaded successfully.");
+      } else {
+        toast.error(res.error || "Failed to upload favicon.");
+      }
+    } catch {
+      toast.error("Favicon upload error.");
+    } finally {
+      setIsUploadingFavicon(false);
+      e.target.value = "";
+    }
+  };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, isMobile = false) => {
     const file = e.target.files?.[0];
@@ -114,6 +172,7 @@ export function AdminBrandingManager({ initialSettings }: AdminBrandingManagerPr
         logo_alt_text: logoAltText,
         logo_height_desktop: logoHeightDesktop,
         logo_height_mobile: logoHeightMobile,
+        favicon_url: faviconUrl || null,
         business_name: businessName,
         primary_brand_color: primaryColor,
         secondary_brand_color: secondaryColor,
@@ -121,7 +180,7 @@ export function AdminBrandingManager({ initialSettings }: AdminBrandingManagerPr
       });
 
       if (res.success) {
-        toast.success("Branding and logo settings saved! Updating storefront...");
+        toast.success("Branding, logo, and favicon settings saved! Updating storefront...");
       } else {
         toast.error(res.error || "Failed to save settings.");
       }
@@ -379,6 +438,172 @@ export function AdminBrandingManager({ initialSettings }: AdminBrandingManagerPr
             </div>
           </div>
         )}
+
+        {/* Website Favicon (Browser Tab Icon) */}
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-zinc-900 flex items-center gap-2">
+                <span>Website Favicon (Browser Tab Icon)</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                  Tab & Bookmark Icon
+                </span>
+              </h2>
+              <p className="text-xs text-zinc-500 mt-1">
+                Customize the icon displayed in browser tabs, bookmarks, and mobile home screen shortcuts across the entire website and admin panel.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+            {/* Live Browser Tab Mockup */}
+            <div className="rounded-xl border border-zinc-200 p-4 bg-zinc-50/70 space-y-3">
+              <label className="text-xs font-bold text-zinc-800 block">
+                Browser Tab Simulation
+              </label>
+              
+              {/* Chrome-like Tab Frame */}
+              <div className="rounded-lg border border-zinc-300 bg-zinc-200/80 p-2 space-y-2">
+                <div className="flex items-center gap-1.5 pb-1">
+                  <div className="size-2 rounded-full bg-rose-400" />
+                  <div className="size-2 rounded-full bg-amber-400" />
+                  <div className="size-2 rounded-full bg-emerald-400" />
+                </div>
+                <div className="flex items-center gap-2 bg-white rounded-md px-2.5 py-1.5 shadow-2xs border border-zinc-200 max-w-full">
+                  <div className="size-4 shrink-0 flex items-center justify-center rounded overflow-hidden bg-zinc-100">
+                    {faviconUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={faviconUrl}
+                        alt="Favicon"
+                        className="size-4 object-contain"
+                      />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src="/favicon.ico"
+                        alt="Default Favicon"
+                        className="size-4 object-contain"
+                      />
+                    )}
+                  </div>
+                  <span className="text-[11px] font-semibold text-zinc-800 truncate">
+                    {businessName || "PreetyPrints"} · Custom Printing
+                  </span>
+                  <span className="text-[10px] text-zinc-400 ml-auto">×</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 pt-1">
+                <div className="flex flex-col items-center gap-1">
+                  <div className="size-8 rounded-lg border border-zinc-200 bg-white flex items-center justify-center p-1 shadow-2xs">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={faviconUrl || "/favicon.ico"}
+                      alt="16px preview"
+                      className="size-4 object-contain"
+                    />
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-500">16×16</span>
+                </div>
+
+                <div className="flex flex-col items-center gap-1">
+                  <div className="size-10 rounded-lg border border-zinc-200 bg-white flex items-center justify-center p-1.5 shadow-2xs">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={faviconUrl || "/favicon.ico"}
+                      alt="32px preview"
+                      className="size-6 object-contain"
+                    />
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-500">32×32</span>
+                </div>
+
+                <div className="flex flex-col items-center gap-1">
+                  <div className="size-12 rounded-lg border border-zinc-200 bg-white flex items-center justify-center p-2 shadow-2xs">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={faviconUrl || "/favicon.ico"}
+                      alt="48px preview"
+                      className="size-8 object-contain"
+                    />
+                  </div>
+                  <span className="text-[10px] font-mono text-zinc-500">48×48</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Upload & URL Controls */}
+            <div className="md:col-span-2 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Upload Button */}
+                <label className="flex flex-col items-center justify-center h-28 border-2 border-dashed border-zinc-300 rounded-xl hover:border-primary/60 bg-zinc-50 hover:bg-white cursor-pointer transition-colors p-4 text-center">
+                  <Upload className="size-5 text-zinc-500 mb-1.5" />
+                  <span className="text-xs font-bold text-zinc-700">
+                    {isUploadingFavicon ? "Uploading Favicon..." : "Upload New Favicon"}
+                  </span>
+                  <span className="text-[10px] text-zinc-400 mt-0.5">
+                    Supports .ico, .png, or .svg (Square 1:1, min 32×32)
+                  </span>
+                  <input
+                    type="file"
+                    accept=".ico,image/png,image/svg+xml,image/x-icon,image/webp"
+                    disabled={isUploadingFavicon}
+                    onChange={handleFaviconUpload}
+                    className="hidden"
+                  />
+                </label>
+
+                {/* Reset / Clear Option */}
+                <div className="flex flex-col justify-between p-4 rounded-xl border border-zinc-200 bg-zinc-50/50">
+                  <div>
+                    <div className="text-xs font-bold text-zinc-800">Default Fallback</div>
+                    <p className="text-[11px] text-zinc-500 mt-1">
+                      Clear custom favicon to revert to the default high-resolution brand icon (`/favicon.ico`).
+                    </p>
+                  </div>
+                  {faviconUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setFaviconUrl("")}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-300 bg-white text-xs font-semibold text-zinc-700 hover:bg-zinc-100 cursor-pointer mt-2"
+                    >
+                      Reset to Default Favicon
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Direct URL input */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-zinc-800">
+                  Favicon CDN / Remote URL
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={faviconUrl}
+                    onChange={(e) => setFaviconUrl(e.target.value)}
+                    placeholder="https://.../favicon.ico or upload above"
+                    className="flex-1 rounded-xl border border-zinc-200 px-3 py-2 text-xs font-mono"
+                  />
+                  {faviconUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setFaviconUrl("")}
+                      className="px-3 py-2 rounded-xl border border-zinc-200 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-zinc-400">
+                  Upload an image above or paste any publicly hosted URL directly.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Brand Text & Colors */}
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xs space-y-4">

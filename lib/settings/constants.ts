@@ -10,6 +10,7 @@ export const DEFAULT_BUSINESS_SETTINGS: DatabaseBusinessSettings = {
   business_short_name: siteConfig.businessShortName || "PreetyPrints",
   legal_business_name: "PreetyPrints Private Limited",
   logo_url: null,
+  favicon_url: null,
   tagline: siteConfig.tagline,
   description: siteConfig.description,
   email: siteConfig.contact.email,

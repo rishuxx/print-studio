@@ -78,6 +78,15 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
+  icons: {
+    icon: [
+      { url: "/api/favicon", type: "image/png" },
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -90,6 +99,7 @@ import { getAuthoritativeBusinessSettings } from "@/lib/settings/queries";
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const initialSettings = await getAuthoritativeBusinessSettings();
+  const faviconUrl = initialSettings?.favicon_url || "/favicon.png";
 
   return (
     <html
@@ -97,6 +107,12 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
       className={`${sora.variable} ${inter.variable} ${jetbrains.variable}`}
     >
+      <head>
+        <link rel="icon" href={faviconUrl} type="image/png" sizes="any" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="shortcut icon" href={faviconUrl} />
+        <link rel="apple-touch-icon" href={faviconUrl} />
+      </head>
       <body className="flex min-h-dvh flex-col bg-paper">
         <Providers initialSettings={initialSettings}>
           <CustomerLayoutShell>{children}</CustomerLayoutShell>
@@ -105,3 +121,4 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     </html>
   );
 }
+

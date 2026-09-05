@@ -81,7 +81,7 @@ export async function updateStoreIdentityAction(
     let savedData: Record<string, unknown> | null = null;
 
     if (existing.data?.id) {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("business_settings")
         .update({
           business_name: updateFields.store_name,
@@ -90,6 +90,7 @@ export async function updateStoreIdentityAction(
           tagline: updateFields.tagline || null,
           description: updateFields.description || null,
           logo_url: updateFields.logo_url || null,
+          favicon_url: updateFields.favicon_url || null,
           email: updateFields.support_email || "hello@example.com",
           phone: updateFields.support_phone || "+91 XXXXX XXXXX",
           support_email: updateFields.support_email || "hello@example.com",
@@ -105,6 +106,35 @@ export async function updateStoreIdentityAction(
         .select("*")
         .maybeSingle();
 
+      if (error && error.message?.includes("favicon_url")) {
+        const retryRes = await supabase
+          .from("business_settings")
+          .update({
+            business_name: updateFields.store_name,
+            business_short_name: updateFields.display_name || updateFields.store_name,
+            legal_business_name: updateFields.legal_business_name || "Print Studio Private Limited",
+            tagline: updateFields.tagline || null,
+            description: updateFields.description || null,
+            logo_url: updateFields.logo_url || null,
+            email: updateFields.support_email || "hello@example.com",
+            phone: updateFields.support_phone || "+91 XXXXX XXXXX",
+            support_email: updateFields.support_email || "hello@example.com",
+            support_phone: updateFields.support_phone || "+91 XXXXX XXXXX",
+            canonical_site_url: updateFields.website_url || "http://localhost:3000",
+            site_title: `${updateFields.store_name} · High-Quality Custom Online Printing & Branding`,
+            site_description: updateFields.description || null,
+            version: newVersion,
+            updated_by: admin.userId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.data.id)
+          .select("*")
+          .maybeSingle();
+
+        data = retryRes.data;
+        error = retryRes.error;
+      }
+
       if (error || !data) {
         return { success: false, error: error?.message || "Failed to update business settings", code: "DATABASE_ERROR" };
       }
@@ -119,6 +149,7 @@ export async function updateStoreIdentityAction(
           tagline: updateFields.tagline || null,
           description: updateFields.description || null,
           logo_url: updateFields.logo_url || null,
+          favicon_url: updateFields.favicon_url || null,
           email: updateFields.support_email || "hello@example.com",
           phone: updateFields.support_phone || "+91 XXXXX XXXXX",
           support_email: updateFields.support_email || "hello@example.com",

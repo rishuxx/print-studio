@@ -241,6 +241,7 @@ export async function saveBrandingSettingsAction(payload: {
   logo_alt_text?: string | null;
   logo_height_desktop?: number;
   logo_height_mobile?: number;
+  favicon_url?: string | null;
   business_name: string;
   primary_brand_color?: string;
   secondary_brand_color?: string;
@@ -257,7 +258,8 @@ export async function saveBrandingSettingsAction(payload: {
       .single();
 
     if (existing) {
-      const { error } = await supabase
+      // 1. Attempt primary update with all fields
+      let { error } = await supabase
         .from("business_settings")
         .update({
           ...payload,
@@ -265,6 +267,28 @@ export async function saveBrandingSettingsAction(payload: {
           updated_at: new Date().toISOString(),
         })
         .eq("id", existing.id);
+
+      // 2. If PostgREST schema cache is missing favicon_url, retry without favicon_url
+      if (error && error.message?.includes("favicon_url")) {
+        console.warn("[saveBrandingSettingsAction] favicon_url column not found in schema cache. Fallback update without favicon_url:", error.message);
+        const { favicon_url: _, ...fallbackPayload } = payload;
+        const fallbackRes = await supabase
+          .from("business_settings")
+          .update({
+            ...fallbackPayload,
+            updated_by: user.id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
+
+        if (fallbackRes.error) {
+          return { success: false, error: fallbackRes.error.message };
+        }
+        return {
+          success: false,
+          error: "Saved logo and brand settings, but 'favicon_url' column is not yet applied in the database. Please run the SQL migration in Supabase SQL editor: ALTER TABLE public.business_settings ADD COLUMN IF NOT EXISTS favicon_url TEXT; NOTIFY pgrst, 'reload schema';",
+        };
+      }
 
       if (error) return { success: false, error: error.message };
     }

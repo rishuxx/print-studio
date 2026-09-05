@@ -115,6 +115,45 @@ export function StoreIdentityTab({ initialData, onSaved }: StoreIdentityTabProps
           </div>
         </div>
 
+        {/* Favicon URL */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-ink flex items-center justify-between">
+            <span>Website Favicon (Browser Tab Icon URL)</span>
+            <span className="text-[10px] text-muted-foreground font-normal">
+              Also configurable with file upload under Admin → Branding
+            </span>
+          </label>
+          <div className="flex gap-2 items-center">
+            <div className="size-8 rounded-lg border border-border bg-white flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={formData.favicon_url || "/favicon.ico"}
+                alt="Favicon preview"
+                className="size-4 object-contain"
+              />
+            </div>
+            <input
+              type="url"
+              value={formData.favicon_url || ""}
+              onChange={(e) => setFormData((prev) => ({ ...prev, favicon_url: e.target.value }))}
+              placeholder="https://example.com/favicon.ico or leave empty for default"
+              className="flex-1 rounded-xl border border-border bg-paper/60 px-3.5 py-2.5 text-xs font-semibold text-ink focus:bg-white focus:border-violet focus:outline-none"
+            />
+            {formData.favicon_url && (
+              <button
+                type="button"
+                onClick={() => setFormData((prev) => ({ ...prev, favicon_url: null }))}
+                className="px-3 py-2 rounded-xl border border-border text-xs font-semibold text-muted-foreground hover:bg-paper cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <p className="text-[0.6875rem] text-muted-foreground">
+            Specifies the icon displayed in browser tabs, bookmarks, and mobile shortcuts across the site.
+          </p>
+        </div>
+
         <div className="space-y-1.5">
           <label className="text-xs font-bold text-ink">Storefront Description (SEO & Social Sharing)</label>
           <textarea
