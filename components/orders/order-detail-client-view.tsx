@@ -386,9 +386,18 @@ export function OrderDetailClientView({
                           <span className="font-bold text-ink">{line.product_title}</span>
                           <span className="font-mono font-semibold text-ink">₹{line.line_price}</span>
                         </div>
-                        <div className="text-[0.6875rem] text-muted-foreground font-mono">
-                          Quantity: {line.quantity}
-                        </div>
+                        {(() => {
+                          const rawOpts = line.selected_options as any;
+                          const tierQty = rawOpts?.tierQty || rawOpts?.configurationSnapshot?.tierQty || null;
+                          const priceUnit = rawOpts?.priceUnit || "cards";
+                          const totalUnits = tierQty ? line.quantity * tierQty : line.quantity;
+
+                          return (
+                            <div className="text-[0.6875rem] text-muted-foreground font-mono">
+                              Quantity: <strong className="text-ink font-bold">{tierQty ? `${totalUnits} ${priceUnit} (${line.quantity} batch × ${tierQty})` : line.quantity}</strong>
+                            </div>
+                          );
+                        })()}
                         {opts.length > 0 && (
                           <div className="space-y-1 pt-1">
                             {opts.map((opt, oIdx) => (
@@ -548,17 +557,24 @@ export function OrderDetailClientView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60">
-                    {items.map((line) => (
-                      <tr key={line.id}>
-                        <td className="py-3 pr-4">
-                          <div className="font-bold text-ink">{line.product_title}</div>
-                        </td>
-                        <td className="py-3 px-3 font-mono text-muted-foreground">4911</td>
-                        <td className="py-3 px-3 text-center font-mono">{line.quantity}</td>
-                        <td className="py-3 px-3 text-right font-mono">₹{line.unit_price}</td>
-                        <td className="py-3 pl-4 text-right font-mono font-semibold text-ink">₹{line.line_price}</td>
-                      </tr>
-                    ))}
+                    {items.map((line) => {
+                      const rawOpts = line.selected_options as any;
+                      const tierQty = rawOpts?.tierQty || rawOpts?.configurationSnapshot?.tierQty || null;
+                      const totalUnits = tierQty ? line.quantity * tierQty : line.quantity;
+                      return (
+                        <tr key={line.id}>
+                          <td className="py-3 pr-4">
+                            <div className="font-bold text-ink">{line.product_title}</div>
+                          </td>
+                          <td className="py-3 px-3 font-mono text-muted-foreground">4911</td>
+                          <td className="py-3 px-3 text-center font-mono font-bold">
+                            {tierQty ? `${totalUnits} pcs (${line.quantity} batch)` : line.quantity}
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono">₹{line.unit_price}</td>
+                          <td className="py-3 pl-4 text-right font-mono font-semibold text-ink">₹{line.line_price}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

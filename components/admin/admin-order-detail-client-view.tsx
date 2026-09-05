@@ -435,10 +435,18 @@ export function AdminOrderDetailClientView({
                       <div className="font-mono font-bold text-ink">₹{line.line_price}</div>
                     </div>
 
-                    <div className="text-[0.6875rem] text-muted-foreground font-mono">
-                      Quantity: <strong>{line.quantity}</strong> · Unit Rate: <strong>₹{line.unit_price}</strong>
-                      {line.sku && ` · SKU: ${line.sku}`}
-                    </div>
+                    {(() => {
+                      const tierQty = rawOpts?.tierQty || configSnapshot?.tierQty || null;
+                      const priceUnit = rawOpts?.priceUnit || "cards";
+                      const totalUnits = tierQty ? line.quantity * tierQty : line.quantity;
+
+                      return (
+                        <div className="text-[0.6875rem] text-muted-foreground font-mono">
+                          Quantity: <strong className="text-ink font-bold">{tierQty ? `${totalUnits} ${priceUnit} (${line.quantity} batch × ${tierQty})` : line.quantity}</strong> · Unit Rate: <strong>₹{line.unit_price}</strong>
+                          {line.sku && ` · SKU: ${line.sku}`}
+                        </div>
+                      );
+                    })()}
 
                     {optsList.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 pt-1">

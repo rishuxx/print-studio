@@ -140,9 +140,17 @@ export function OrdersClientView({ dbOrders }: OrdersClientViewProps) {
                           </div>
                           <div>
                             <div className="font-bold text-ink">{line.product_title}</div>
-                            <div className="text-[0.6875rem] text-muted-foreground font-mono">
-                              Quantity: {line.quantity}
-                            </div>
+                            {(() => {
+                              const rawOpts = line.selected_options as any;
+                              const tierQty = rawOpts?.tierQty || rawOpts?.configurationSnapshot?.tierQty || null;
+                              const priceUnit = rawOpts?.priceUnit || "cards";
+                              const totalUnits = tierQty ? line.quantity * tierQty : line.quantity;
+                              return (
+                                <div className="text-[0.6875rem] text-muted-foreground font-mono">
+                                  Quantity: <strong className="text-ink font-bold">{tierQty ? `${totalUnits} ${priceUnit}` : line.quantity}</strong>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                         <div className="font-mono font-semibold text-ink">₹{line.line_price}</div>

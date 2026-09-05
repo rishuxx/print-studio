@@ -167,9 +167,11 @@ export async function POST(request: NextRequest) {
         artworkSummaryObj = { summary: l.design.summary };
       }
 
-      // Preserve rich configuration snapshot and options
+      // Preserve rich configuration snapshot, options, and print batch tier volume
       const finalSelectedOptions = {
         options: Array.isArray(l.selectedOptions) ? l.selectedOptions : [],
+        tierQty: (l as any).tierQty || (l as any).configurationSnapshot?.tierQty || null,
+        priceUnit: (l as any).priceUnit || null,
         configHash: l.configHash || null,
         configurationSnapshot: l.configurationSnapshot || null,
         capturedAt: new Date().toISOString(),
