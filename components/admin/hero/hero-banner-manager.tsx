@@ -204,7 +204,15 @@ export function HeroBannerManager({ initialBanners }: HeroBannerManagerProps) {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) {
+
+    // In image_only mode, require at least the image, and provide a fallback title if empty
+    if (contentMode === "image_only" && !desktopImageUrl.trim()) {
+      toast.error("Please upload or provide a desktop banner artwork image.");
+      return;
+    }
+
+    const resolvedTitle = title.trim() || (contentMode === "image_only" ? "Promotional Image Banner" : "");
+    if (!resolvedTitle) {
       toast.error("Banner title is required.");
       return;
     }
@@ -215,7 +223,7 @@ export function HeroBannerManager({ initialBanners }: HeroBannerManagerProps) {
         id: currentId,
         page_type: pageType,
         category_handle: pageType === "category" ? categoryHandle || null : null,
-        title: title.trim(),
+        title: resolvedTitle,
         subtitle: subtitle.trim() || null,
         eyebrow: eyebrow.trim() || null,
         description: description.trim() || null,
@@ -828,134 +836,191 @@ export function HeroBannerManager({ initialBanners }: HeroBannerManagerProps) {
                 </div>
               </div>
 
-              {/* Text Fields */}
-              <div className="rounded-xl border border-zinc-200 p-4 space-y-4 bg-white">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Text Fields: Adaptive based on Content Mode */}
+              {contentMode === "image_overlay" ? (
+                <div className="rounded-xl border border-zinc-200 p-4 space-y-4 bg-white">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-zinc-900">Banner Title *</label>
+                      <input
+                        type="text"
+                        required
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="e.g. Print Anything. Make It Yours."
+                        className="w-full rounded-xl border border-zinc-200 px-3.5 py-2 text-xs font-semibold text-zinc-800 focus:border-primary focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-zinc-900">Eyebrow / Small Marketing Label</label>
+                      <input
+                        type="text"
+                        value={eyebrow}
+                        onChange={(e) => setEyebrow(e.target.value)}
+                        placeholder="e.g. CUSTOM PRINTING & PERSONALISED PRODUCTS"
+                        className="w-full rounded-xl border border-zinc-200 px-3.5 py-2 text-xs text-zinc-800 focus:border-primary focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-900">Banner Title *</label>
+                    <label className="text-xs font-bold text-zinc-900">Subtitle / Tagline</label>
                     <input
                       type="text"
-                      required
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder="e.g. Print Anything. Make It Yours."
-                      className="w-full rounded-xl border border-zinc-200 px-3.5 py-2 text-xs font-semibold text-zinc-800 focus:border-primary focus:outline-none"
+                      value={subtitle}
+                      onChange={(e) => setSubtitle(e.target.value)}
+                      placeholder="e.g. India's Premier Custom Printing & Merchandise Platform"
+                      className="w-full rounded-xl border border-zinc-200 px-3.5 py-2 text-xs text-zinc-800 focus:border-primary focus:outline-none"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-zinc-900">Eyebrow / Small Marketing Label</label>
+                    <label className="text-xs font-bold text-zinc-900">Supporting Description</label>
+                    <textarea
+                      rows={2}
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Brief 1-2 sentence description explaining the offer or collection..."
+                      className="w-full rounded-xl border border-zinc-200 p-3 text-xs text-zinc-800 focus:border-primary focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-zinc-900">Image Alt Text (SEO)</label>
                     <input
                       type="text"
-                      value={eyebrow}
-                      onChange={(e) => setEyebrow(e.target.value)}
-                      placeholder="e.g. CUSTOM PRINTING & PERSONALISED PRODUCTS"
+                      value={altText}
+                      onChange={(e) => setAltText(e.target.value)}
+                      placeholder="e.g. PreetyPrints Custom Visiting Cards and Corporate Printing"
                       className="w-full rounded-xl border border-zinc-200 px-3.5 py-2 text-xs text-zinc-800 focus:border-primary focus:outline-none"
                     />
                   </div>
                 </div>
+              ) : (
+                /* Image Only Mode - Simplified Clean Settings */
+                <div className="rounded-xl border border-zinc-200 p-4 space-y-4 bg-zinc-50/50">
+                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-900">
+                    <strong>Image Only Mode Active:</strong> No text, subtitles, or buttons will overlay on top of your artwork. Your uploaded graphic is displayed in full fidelity.
+                  </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-zinc-900">Subtitle / Tagline</label>
-                  <input
-                    type="text"
-                    value={subtitle}
-                    onChange={(e) => setSubtitle(e.target.value)}
-                    placeholder="e.g. India's Premier Custom Printing & Merchandise Platform"
-                    className="w-full rounded-xl border border-zinc-200 px-3.5 py-2 text-xs text-zinc-800 focus:border-primary focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-zinc-900">Supporting Description</label>
-                  <textarea
-                    rows={2}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Brief 1-2 sentence description explaining the offer or collection..."
-                    className="w-full rounded-xl border border-zinc-200 p-3 text-xs text-zinc-800 focus:border-primary focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-zinc-900">Image Alt Text (SEO)</label>
-                  <input
-                    type="text"
-                    value={altText}
-                    onChange={(e) => setAltText(e.target.value)}
-                    placeholder="e.g. PreetyPrints Custom Visiting Cards and Corporate Printing"
-                    className="w-full rounded-xl border border-zinc-200 px-3.5 py-2 text-xs text-zinc-800 focus:border-primary focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* CTAs Configuration */}
-              <div className="rounded-xl border border-zinc-200 p-4 space-y-4 bg-white">
-                <h4 className="text-xs font-bold text-zinc-900">Call To Action Buttons</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Primary CTA */}
-                  <div className="p-3.5 rounded-xl border border-zinc-200 space-y-3 bg-zinc-50/50">
-                    <span className="text-xs font-bold text-zinc-800 block">Primary CTA</span>
-                    <div className="space-y-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-zinc-800">
+                        Banner Name / Internal Label (Optional)
+                      </label>
                       <input
                         type="text"
-                        value={primaryCtaText}
-                        onChange={(e) => setPrimaryCtaText(e.target.value)}
-                        placeholder="Button Text (e.g. Explore Products)"
-                        className="w-full rounded-lg border border-zinc-200 px-3 py-1.5 text-xs bg-white"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="e.g. Diwali Gift Customization Promo"
+                        className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs text-zinc-800 focus:border-primary focus:outline-none"
                       />
+                      <span className="text-[10px] text-zinc-400">Used only for admin reference in your dashboard list</span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-zinc-800">
+                        Image Alt Text (SEO & Accessibility)
+                      </label>
                       <input
                         type="text"
-                        value={primaryCtaUrl}
-                        onChange={(e) => setPrimaryCtaUrl(e.target.value)}
-                        placeholder="Destination URL (e.g. /products)"
-                        className="w-full rounded-lg border border-zinc-200 px-3 py-1.5 text-xs bg-white"
+                        value={altText}
+                        onChange={(e) => setAltText(e.target.value)}
+                        placeholder="e.g. Custom Corporate Gifts and Hampers"
+                        className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs text-zinc-800 focus:border-primary focus:outline-none"
                       />
-                      <div className="flex items-center gap-3 pt-1">
-                        <label className="text-[11px] text-zinc-500">Color:</label>
-                        <input
-                          type="color"
-                          value={primaryCtaBgColor}
-                          onChange={(e) => setPrimaryCtaBgColor(e.target.value)}
-                          className="size-7 rounded border border-zinc-300 cursor-pointer"
-                        />
-                        <span className="text-[11px] font-mono text-zinc-600">{primaryCtaBgColor}</span>
-                      </div>
                     </div>
                   </div>
 
-                  {/* Secondary CTA */}
-                  <div className="p-3.5 rounded-xl border border-zinc-200 space-y-3 bg-zinc-50/50">
-                    <span className="text-xs font-bold text-zinc-800 block">Secondary CTA (Optional)</span>
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        value={secondaryCtaText}
-                        onChange={(e) => setSecondaryCtaText(e.target.value)}
-                        placeholder="Button Text (e.g. Get a Quote)"
-                        className="w-full rounded-lg border border-zinc-200 px-3 py-1.5 text-xs bg-white"
-                      />
-                      <input
-                        type="text"
-                        value={secondaryCtaUrl}
-                        onChange={(e) => setSecondaryCtaUrl(e.target.value)}
-                        placeholder="Destination URL (e.g. /bulk-quote)"
-                        className="w-full rounded-lg border border-zinc-200 px-3 py-1.5 text-xs bg-white"
-                      />
-                      <div className="flex items-center gap-3 pt-1">
-                        <label className="text-[11px] text-zinc-500">Color:</label>
+                  {/* Single Click Destination URL for Image Only Banner */}
+                  <div className="space-y-1 pt-1 border-t border-zinc-200">
+                    <label className="text-xs font-bold text-zinc-800">
+                      Click Destination URL (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={primaryCtaUrl}
+                      onChange={(e) => setPrimaryCtaUrl(e.target.value)}
+                      placeholder="e.g. /category/personalised-gifts or /products/mug"
+                      className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2 text-xs text-zinc-800 focus:border-primary focus:outline-none"
+                    />
+                    <span className="text-[10px] text-zinc-500">
+                      When customers click anywhere on this image banner, they will be taken to this link.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* CTAs Configuration: Only relevant for Image + Content Overlay mode */}
+              {contentMode === "image_overlay" && (
+                <div className="rounded-xl border border-zinc-200 p-4 space-y-4 bg-white">
+                  <h4 className="text-xs font-bold text-zinc-900">Call To Action Buttons</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Primary CTA */}
+                    <div className="p-3.5 rounded-xl border border-zinc-200 space-y-3 bg-zinc-50/50">
+                      <span className="text-xs font-bold text-zinc-800 block">Primary CTA</span>
+                      <div className="space-y-2">
                         <input
-                          type="color"
-                          value={secondaryCtaBgColor}
-                          onChange={(e) => setSecondaryCtaBgColor(e.target.value)}
-                          className="size-7 rounded border border-zinc-300 cursor-pointer"
+                          type="text"
+                          value={primaryCtaText}
+                          onChange={(e) => setPrimaryCtaText(e.target.value)}
+                          placeholder="Button Text (e.g. Explore Products)"
+                          className="w-full rounded-lg border border-zinc-200 px-3 py-1.5 text-xs bg-white"
                         />
-                        <span className="text-[11px] font-mono text-zinc-600">{secondaryCtaBgColor}</span>
+                        <input
+                          type="text"
+                          value={primaryCtaUrl}
+                          onChange={(e) => setPrimaryCtaUrl(e.target.value)}
+                          placeholder="Destination URL (e.g. /products)"
+                          className="w-full rounded-lg border border-zinc-200 px-3 py-1.5 text-xs bg-white"
+                        />
+                        <div className="flex items-center gap-3 pt-1">
+                          <label className="text-[11px] text-zinc-500">Color:</label>
+                          <input
+                            type="color"
+                            value={primaryCtaBgColor}
+                            onChange={(e) => setPrimaryCtaBgColor(e.target.value)}
+                            className="size-7 rounded border border-zinc-300 cursor-pointer"
+                          />
+                          <span className="text-[11px] font-mono text-zinc-600">{primaryCtaBgColor}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Secondary CTA */}
+                    <div className="p-3.5 rounded-xl border border-zinc-200 space-y-3 bg-zinc-50/50">
+                      <span className="text-xs font-bold text-zinc-800 block">Secondary CTA (Optional)</span>
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          value={secondaryCtaText}
+                          onChange={(e) => setSecondaryCtaText(e.target.value)}
+                          placeholder="Button Text (e.g. Get a Quote)"
+                          className="w-full rounded-lg border border-zinc-200 px-3 py-1.5 text-xs bg-white"
+                        />
+                        <input
+                          type="text"
+                          value={secondaryCtaUrl}
+                          onChange={(e) => setSecondaryCtaUrl(e.target.value)}
+                          placeholder="Destination URL (e.g. /bulk-quote)"
+                          className="w-full rounded-lg border border-zinc-200 px-3 py-1.5 text-xs bg-white"
+                        />
+                        <div className="flex items-center gap-3 pt-1">
+                          <label className="text-[11px] text-zinc-500">Color:</label>
+                          <input
+                            type="color"
+                            value={secondaryCtaBgColor}
+                            onChange={(e) => setSecondaryCtaBgColor(e.target.value)}
+                            className="size-7 rounded border border-zinc-300 cursor-pointer"
+                          />
+                          <span className="text-[11px] font-mono text-zinc-600">{secondaryCtaBgColor}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Visibility & Ordering */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
