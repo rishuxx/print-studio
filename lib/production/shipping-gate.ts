@@ -15,11 +15,23 @@ export interface ShippingGateResult {
 
 /**
  * Hard Shipping Gate:
- * Strictly enforces that carrier dispatch, manifesting, and AWB allocation
- * CANNOT proceed until all production jobs for the order are completed
- * and have passed studio quality control.
+ * Can be enabled/disabled. Currently BYPASS is enabled so admin can seamlessly
+ * dispatch orders without friction or blockers.
  */
 export async function verifyOrderShippingGate(orderId: string): Promise<ShippingGateResult> {
+  // BYPASS: Seamless admin dispatch mode active
+  const enforceStrictGate = process.env.ENFORCE_PRODUCTION_SHIPPING_GATE === "true";
+
+  if (!enforceStrictGate) {
+    return {
+      canProceedToShipping: true,
+      orderId,
+      totalJobs: 0,
+      completedJobs: 0,
+      incompleteJobs: [],
+    };
+  }
+
   const supabase = await createClient();
 
   // Find all production jobs for this order

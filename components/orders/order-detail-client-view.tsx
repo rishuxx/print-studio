@@ -101,7 +101,11 @@ export function OrderDetailClientView({
   }) || {};
 
   const items = dbOrder.order_items || [];
-  const events = dbOrder.order_events || [];
+  const events = React.useMemo(() => {
+    return [...(dbOrder.order_events || [])].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+  }, [dbOrder.order_events]);
   const isCancelled = dbOrder.status === "cancelled";
 
   const hasRefund =

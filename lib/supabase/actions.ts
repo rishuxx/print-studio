@@ -760,6 +760,12 @@ export async function updateOrderStatus(
   revalidatePath("/orders");
   revalidatePath(`/orders/${orderId}`);
   revalidatePath("/account");
+  revalidatePath("/admin/orders");
+  revalidatePath(`/admin/orders/${orderId}`);
+  if (targetUuid !== orderId) {
+    revalidatePath(`/admin/orders/${targetUuid}`);
+    revalidatePath(`/orders/${targetUuid}`);
+  }
 
   return { success: true, newStatus, whatsappNotice: whatsappNotice || undefined };
 }

@@ -99,19 +99,35 @@ export const ORDER_STATUS_METADATA: Record<OrderStatus, StatusMetadata> = {
 };
 
 /**
- * Centralized State Machine: Defines strictly allowed transitions from each state
+ * Centralized State Machine: Defines allowed transitions from each state.
+ * Configured with seamless admin bypass so operations can transition orders
+ * directly to any operational milestone without lifecycle blocking or collision.
  */
+const ALL_OPERATIONAL_TARGETS: OrderStatus[] = [
+  "confirmed",
+  "artwork_review",
+  "proof_pending",
+  "proof_approved",
+  "in_production",
+  "quality_check",
+  "ready",
+  "shipped",
+  "out_for_delivery",
+  "delivered",
+  "cancelled",
+];
+
 export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  pending: ["confirmed", "artwork_review", "cancelled"],
-  confirmed: ["artwork_review", "in_production", "cancelled"],
-  artwork_review: ["proof_pending", "proof_approved", "in_production", "cancelled"],
-  proof_pending: ["proof_approved", "in_production", "cancelled"],
-  proof_approved: ["in_production"],
-  in_production: ["quality_check"],
-  quality_check: ["ready"],
-  ready: ["shipped"],
-  shipped: ["out_for_delivery", "delivered"],
-  out_for_delivery: ["delivered"],
+  pending: ALL_OPERATIONAL_TARGETS.filter((s) => s !== "pending"),
+  confirmed: ALL_OPERATIONAL_TARGETS.filter((s) => s !== "pending" && s !== "confirmed"),
+  artwork_review: ALL_OPERATIONAL_TARGETS.filter((s) => s !== "pending" && s !== "artwork_review"),
+  proof_pending: ALL_OPERATIONAL_TARGETS.filter((s) => s !== "pending" && s !== "proof_pending"),
+  proof_approved: ALL_OPERATIONAL_TARGETS.filter((s) => s !== "pending" && s !== "proof_approved"),
+  in_production: ALL_OPERATIONAL_TARGETS.filter((s) => s !== "pending" && s !== "in_production"),
+  quality_check: ALL_OPERATIONAL_TARGETS.filter((s) => s !== "pending" && s !== "quality_check"),
+  ready: ALL_OPERATIONAL_TARGETS.filter((s) => s !== "pending" && s !== "ready"),
+  shipped: ["out_for_delivery", "delivered", "ready"],
+  out_for_delivery: ["delivered", "shipped"],
   delivered: [],
   cancelled: [],
 };
@@ -120,7 +136,7 @@ export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
  * Check if a status can be cancelled
  */
 export function canCancelOrderStatus(status: OrderStatus): boolean {
-  return status === "pending" || status === "confirmed" || status === "artwork_review" || status === "proof_pending";
+  return status !== "delivered" && status !== "cancelled";
 }
 
 /**
@@ -130,6 +146,7 @@ export function isValidStatusTransition(
   currentStatus: OrderStatus,
   targetStatus: OrderStatus
 ): boolean {
+  if (currentStatus === targetStatus) return true;
   const allowed = ALLOWED_STATUS_TRANSITIONS[currentStatus];
   return Boolean(allowed && allowed.includes(targetStatus));
 }

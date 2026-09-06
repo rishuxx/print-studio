@@ -85,7 +85,11 @@ export function AdminOrderDetailClientView({
   }) || {};
 
   const items = dbOrder.order_items || [];
-  const events = dbOrder.order_events || [];
+  const events = React.useMemo(() => {
+    return [...(dbOrder.order_events || [])].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+  }, [dbOrder.order_events]);
 
   const formattedDate = new Date(dbOrder.created_at).toLocaleDateString("en-IN", {
     day: "numeric",
@@ -287,36 +291,45 @@ export function AdminOrderDetailClientView({
             )}
           </div>
 
-          {/* Advanced Factory & Pre-Press Production Tools (Hidden by default, toggleable whenever needed) */}
-          <details className="group rounded-2xl border border-dashed border-border bg-paper/40 p-4 transition-all">
-            <summary className="cursor-pointer font-bold text-xs uppercase font-mono tracking-wider text-muted-foreground hover:text-ink flex items-center justify-between list-none select-none">
-              <span className="flex items-center gap-2">
-                <Layers className="size-4 text-muted-foreground group-open:text-violet" />
-                <span>Advanced Factory & Pre-Press Tools (Hidden)</span>
-              </span>
-              <span className="text-[10px] rounded-md border border-border px-2 py-0.5 group-open:bg-paper">
-                Click to expand / collapse
-              </span>
-            </summary>
+          {/* Advanced Factory & Pre-Press Production Tools (BYPASSED by default, can be toggled if needed) */}
+          {(artworkAssets.length > 0 || productionJobs.length > 0) && (
+            <details className="group rounded-2xl border border-dashed border-border bg-paper/30 p-4 transition-all">
+              <summary className="cursor-pointer font-bold text-xs uppercase font-mono tracking-wider text-muted-foreground hover:text-ink flex items-center justify-between list-none select-none">
+                <span className="flex items-center gap-2">
+                  <Layers className="size-4 text-muted-foreground group-open:text-violet" />
+                  <span>Factory & Pre-Press Tools (Bypassed & Disabled)</span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-mono font-normal">
+                    Bypass Active
+                  </span>
+                </span>
+                <span className="text-[10px] rounded-md border border-border px-2 py-0.5 group-open:bg-paper">
+                  Click to inspect
+                </span>
+              </summary>
 
-            <div className="mt-4 space-y-6 pt-4 border-t border-border/60">
-              {/* Pre-Press Quality Control & Digital Proofing Card */}
-              <AdminArtworkReviewCard
-                orderId={dbOrder.id}
-                assets={artworkAssets}
-                onRefresh={() => router.refresh()}
-              />
+              <div className="mt-4 space-y-6 pt-4 border-t border-border/60">
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
+                  <strong>Notice:</strong> Manufacturing and artwork approval gates are currently bypassed. You can advance orders and dispatch logistics directly above without waiting for factory job sign-off.
+                </div>
 
-              {/* Manufacturing Jobs & Production Work Orders */}
-              <AdminProductionJobsSection
-                orderId={dbOrder.id}
-                orderNumber={dbOrder.order_number}
-                orderStatus={dbOrder.status}
-                jobs={productionJobs}
-                onRefresh={() => router.refresh()}
-              />
-            </div>
-          </details>
+                {/* Pre-Press Quality Control & Digital Proofing Card */}
+                <AdminArtworkReviewCard
+                  orderId={dbOrder.id}
+                  assets={artworkAssets}
+                  onRefresh={() => router.refresh()}
+                />
+
+                {/* Manufacturing Jobs & Production Work Orders */}
+                <AdminProductionJobsSection
+                  orderId={dbOrder.id}
+                  orderNumber={dbOrder.order_number}
+                  orderStatus={dbOrder.status}
+                  jobs={productionJobs}
+                  onRefresh={() => router.refresh()}
+                />
+              </div>
+            </details>
+          )}
 
           {/* Direct Logistics Partner Pincode Serviceability & Assignment */}
           <DirectDispatchCard
