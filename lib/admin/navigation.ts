@@ -16,6 +16,7 @@ import {
   RotateCcw,
   LayoutTemplate,
   Palette,
+  Sparkles,
   LucideIcon,
 } from "lucide-react";
 import type { Permission } from "@/lib/auth/permissions";
@@ -110,6 +111,13 @@ export const ADMIN_NAVIGATION: AdminNavSection[] = [
         href: "/admin/hero",
         icon: LayoutTemplate,
         badge: "New",
+        requiredPermission: "settings.view",
+      },
+      {
+        title: "Mega-Menu Ad Cards",
+        href: "/admin/flash-cards",
+        icon: Sparkles,
+        badge: "Hot",
         requiredPermission: "settings.view",
       },
       {

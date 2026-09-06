@@ -30,18 +30,35 @@ import { cn } from "@/lib/utils";
 
 import { useStoreSettings } from "@/lib/settings/settings-context";
 import { SiteLogo } from "@/components/shared/site-logo";
+import { CategoryFlashAdCard } from "@/components/layout/category-flash-ad-card";
+import { DEFAULT_FLASH_CARDS, CategoryFlashCard } from "@/lib/flash-cards/types";
 
 export function SiteHeader() {
   const router = useRouter();
   const settings = useStoreSettings();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [activeMegaCategory, setActiveMegaCategory] = React.useState<string | null>(null);
+  const [flashCards, setFlashCards] = React.useState<Record<string, CategoryFlashCard>>(DEFAULT_FLASH_CARDS);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [searchFocused, setSearchFocused] = React.useState(false);
   const searchContainerRef = React.useRef<HTMLDivElement>(null);
   const categoryNavRef = React.useRef<HTMLUListElement>(null);
   const [canScrollLeft, setCanScrollLeft] = React.useState(false);
   const [canScrollRight, setCanScrollRight] = React.useState(false);
+
+  // Load dynamic flash cards from API on mount
+  React.useEffect(() => {
+    fetch("/api/flash-cards")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.flashCards) {
+          setFlashCards((prev) => ({ ...prev, ...data.flashCards }));
+        }
+      })
+      .catch(() => {
+        // Keeps verified defaults
+      });
+  }, []);
 
   const checkNavScroll = React.useCallback(() => {
     const el = categoryNavRef.current;
@@ -442,52 +459,12 @@ export function SiteHeader() {
                   ))}
                 </div>
 
-                {/* Feature Card Panel */}
+                {/* Dynamic & Modern Flash Ad Card Panel */}
                 <div className="col-span-4 lg:col-span-3">
-                  {cat.feature ? (
-                    <div
-                      className={cn(
-                        "flex h-full flex-col justify-between rounded-2xl p-6 transition-all",
-                        cat.feature.tone === "marigold" && "bg-marigold-wash text-ink border border-marigold/30",
-                        cat.feature.tone === "violet" && "bg-violet-wash text-ink border border-violet/20",
-                        cat.feature.tone === "ink" && "bg-ink text-white"
-                      )}
-                    >
-                      <div>
-                        <span className="font-mono text-[0.625rem] font-bold uppercase tracking-wider opacity-75">
-                          {cat.feature.eyebrow}
-                        </span>
-                        <h4 className="mt-1 text-base font-bold leading-tight">
-                          {cat.feature.title}
-                        </h4>
-                        <p className="mt-2 text-xs leading-relaxed opacity-85">
-                          {cat.feature.body}
-                        </p>
-                      </div>
-
-                      <div className="mt-6">
-                        <Button asChild size="sm" variant={cat.feature.tone === "ink" ? "secondary" : "primary"}>
-                          <Link href={cat.feature.href}>
-                            {cat.feature.cta}
-                            <ArrowRight className="size-3.5 ml-1" />
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex h-full flex-col justify-between rounded-2xl border border-border bg-paper p-6">
-                      <div>
-                        <h4 className="text-sm font-bold text-ink">{cat.title}</h4>
-                        <p className="mt-1.5 text-xs text-muted-foreground">{cat.blurb}</p>
-                      </div>
-                      <Link
-                        href={`/category/${cat.handle}`}
-                        className="text-xs font-bold text-violet hover:underline inline-flex items-center gap-1"
-                      >
-                        View all products &rarr;
-                      </Link>
-                    </div>
-                  )}
+                  <CategoryFlashAdCard
+                    card={flashCards[cat.handle]}
+                    category={cat}
+                  />
                 </div>
               </div>
             </div>
