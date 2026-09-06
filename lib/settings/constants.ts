@@ -52,13 +52,6 @@ export const DEFAULT_BUSINESS_SETTINGS: DatabaseBusinessSettings = {
   announcement_message: siteConfig.announcements?.[0]?.text || "Fast local printing and express dispatch on select products",
   announcement_link: siteConfig.announcements?.[0]?.href || "/same-day",
 
-  page_loader_enabled: true,
-  page_loader_lottie_url: "https://lottie.host/d81c2a5a-19a8-4153-8e46-4aee9b50cf2b/U0uqeX0LSG.lottie",
-  page_loader_size_px: 160,
-  page_loader_bg_mode: "glass",
-  page_loader_max_duration_ms: 1200,
-  page_loader_scope: "initial_session",
-
   invoice_prefix: "INV",
   invoice_footer: "Computer generated tax invoice. No physical signature required.",
 

@@ -246,12 +246,6 @@ export async function saveBrandingSettingsAction(payload: {
   primary_brand_color?: string;
   secondary_brand_color?: string;
   accent_brand_color?: string;
-  page_loader_enabled?: boolean;
-  page_loader_lottie_url?: string | null;
-  page_loader_size_px?: number;
-  page_loader_bg_mode?: "glass" | "light" | "dark";
-  page_loader_max_duration_ms?: number;
-  page_loader_scope?: "initial_session" | "all_navigations";
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const { user } = await requireAdminAuth("/admin/branding");
@@ -274,19 +268,10 @@ export async function saveBrandingSettingsAction(payload: {
         })
         .eq("id", existing.id);
 
-      // 2. If PostgREST schema cache is missing new columns (e.g. favicon_url or page_loader_*), gracefully retry without missing columns
-      if (error && (error.message?.includes("favicon_url") || error.message?.includes("page_loader"))) {
-        console.warn("[saveBrandingSettingsAction] Column not yet in schema cache. Fallback update without pending columns:", error.message);
-        const {
-          favicon_url: _fav,
-          page_loader_enabled: _ple,
-          page_loader_lottie_url: _plu,
-          page_loader_size_px: _pls,
-          page_loader_bg_mode: _plb,
-          page_loader_max_duration_ms: _pld,
-          page_loader_scope: _plsc,
-          ...fallbackPayload
-        } = payload;
+      // 2. If PostgREST schema cache is missing favicon_url, retry without favicon_url
+      if (error && error.message?.includes("favicon_url")) {
+        console.warn("[saveBrandingSettingsAction] favicon_url column not found in schema cache. Fallback update without favicon_url:", error.message);
+        const { favicon_url: _, ...fallbackPayload } = payload;
         const fallbackRes = await supabase
           .from("business_settings")
           .update({

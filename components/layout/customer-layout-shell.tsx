@@ -10,7 +10,6 @@ import { AnnouncementBar } from "@/components/layout/announcement-bar";
 import { AdminControlTopBar } from "@/components/layout/admin-control-top-bar";
 import { useStoreSettings } from "@/lib/settings/settings-context";
 import { StorefrontMaintenanceScreen } from "@/components/layout/storefront-maintenance-screen";
-import { PageLoaderAnimation } from "@/components/shared/page-loader-animation";
 import { createClient } from "@/lib/supabase/client";
 import { ShieldAlert, Settings, Eye, EyeOff } from "lucide-react";
 
@@ -154,7 +153,6 @@ export function CustomerLayoutShell({ children }: CustomerLayoutShellProps) {
         </aside>
       )}
 
-      <PageLoaderAnimation />
       <AdminControlTopBar />
       <AnnouncementBar />
       <MobileHeader />
