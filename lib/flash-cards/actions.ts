@@ -46,6 +46,8 @@ export async function saveCategoryFlashCardAction(
 
     if (input.banner_style) dbPayload.banner_style = input.banner_style;
     if (input.cta_style) dbPayload.cta_style = input.cta_style;
+    if (input.card_size) dbPayload.card_size = input.card_size;
+    if (input.aspect_ratio) dbPayload.aspect_ratio = input.aspect_ratio;
     if (input.show_cta !== undefined) dbPayload.show_cta = input.show_cta;
 
     if (isUuid) {
@@ -57,6 +59,8 @@ export async function saveCategoryFlashCardAction(
       id: dbPayload.id || `card-${input.category_handle}`,
       banner_style: input.banner_style || "full_overlay",
       cta_style: input.cta_style || "primary_red",
+      card_size: input.card_size || "wide",
+      aspect_ratio: input.aspect_ratio || "cover",
       show_cta: input.show_cta !== undefined ? input.show_cta : true,
     };
 

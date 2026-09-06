@@ -427,44 +427,48 @@ export function SiteHeader() {
               onMouseEnter={() => setActiveMegaCategory(cat.handle)}
               onMouseLeave={() => setActiveMegaCategory(null)}
             >
-              <div className="shell grid grid-cols-12 gap-8 py-8">
-                {/* Column Links */}
-                <div className="col-span-8 lg:col-span-9 grid grid-cols-3 gap-6">
-                  {cat.groups.map((group, gIdx) => (
-                    <div key={`${group.title}-${gIdx}`} className="flex flex-col">
-                      <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-ink pb-2 mb-2 border-b border-border/80">
-                        {group.title}
-                      </h4>
-                      <ul className="flex flex-col space-y-1.5">
-                        {group.items.map((item, iIdx) => {
-                          const href = linkHref(item);
-                          return (
-                            <li key={`${item.title}-${iIdx}`}>
-                              <Link
-                                href={href}
-                                className="group flex items-center justify-between py-1 text-xs text-muted-foreground hover:text-violet transition-colors"
-                              >
-                                <span className="truncate group-hover:translate-x-0.5 transition-transform">
-                                  {item.title}
-                                </span>
-                                {item.badge && (
-                                  <CatalogBadge kind={item.badge} size="sm" className="ml-2 shrink-0" />
-                                )}
-                              </Link>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
+              {/* Full-width container using the full desktop width without wasteful margins */}
+              <div className="w-full max-w-[1440px] 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8">
+                <div className="grid grid-cols-12 gap-6 lg:gap-8 xl:gap-10 items-stretch">
+                  {/* Category Column Links: takes 7 cols on xl/2xl, leaving generous room for the ad card */}
+                  <div className="col-span-12 md:col-span-7 lg:col-span-8 xl:col-span-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+                    {cat.groups.map((group, gIdx) => (
+                      <div key={`${group.title}-${gIdx}`} className="flex flex-col">
+                        <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-ink pb-2 mb-2.5 border-b border-border/80">
+                          {group.title}
+                        </h4>
+                        <ul className="flex flex-col space-y-1.5">
+                          {group.items.map((item, iIdx) => {
+                            const href = linkHref(item);
+                            return (
+                              <li key={`${item.title}-${iIdx}`}>
+                                <Link
+                                  href={href}
+                                  className="group flex items-center justify-between py-1 text-xs text-muted-foreground hover:text-violet transition-colors"
+                                >
+                                  <span className="truncate group-hover:translate-x-0.5 transition-transform">
+                                    {item.title}
+                                  </span>
+                                  {item.badge && (
+                                    <CatalogBadge kind={item.badge} size="sm" className="ml-2 shrink-0" />
+                                  )}
+                                </Link>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
 
-                {/* Dynamic & Modern Flash Ad Card Panel */}
-                <div className="col-span-4 lg:col-span-3">
-                  <CategoryFlashAdCard
-                    card={flashCards[cat.handle]}
-                    category={cat}
-                  />
+                  {/* Dynamic & Modern Flash Ad Card Panel: Generous 4-5 col width with full visibility */}
+                  <div className="col-span-12 md:col-span-5 lg:col-span-4 xl:col-span-4 flex flex-col justify-stretch">
+                    <CategoryFlashAdCard
+                      card={flashCards[cat.handle]}
+                      category={cat}
+                      className="h-full min-h-[360px] lg:min-h-[400px] xl:min-h-[440px]"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

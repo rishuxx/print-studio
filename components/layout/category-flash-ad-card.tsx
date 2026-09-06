@@ -144,6 +144,22 @@ export function CategoryFlashAdCard({ card, category, className }: CategoryFlash
   const bannerStyle: "full_overlay" | "photo_only" = card?.banner_style || "full_overlay";
   const ctaStyle = card?.cta_style || "primary_red";
   const showCta = card?.show_cta !== false;
+  const aspectRatio = card?.aspect_ratio || "cover";
+
+  // Dynamic Image fit classes based on aspect_ratio setting
+  const imageFitClass = React.useMemo(() => {
+    switch (aspectRatio) {
+      case "auto":
+        return "object-contain bg-zinc-950/80";
+      case "portrait":
+        return "object-cover object-top";
+      case "square":
+        return "object-cover object-center";
+      case "cover":
+      default:
+        return "object-cover";
+    }
+  }, [aspectRatio]);
 
   // Resolve CTA button styling based on selected control
   const ctaBtnClasses = React.useMemo(() => {
@@ -168,7 +184,7 @@ export function CategoryFlashAdCard({ card, category, className }: CategoryFlash
         <Link
           href={ctaHref}
           className={cn(
-            "group relative flex h-full min-h-[320px] w-full flex-col justify-end overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-900 transition-all duration-300 hover:shadow-xl hover:border-red-400 select-none",
+            "group relative flex h-full min-h-[340px] sm:min-h-[380px] lg:min-h-[420px] w-full flex-col justify-end overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-950 transition-all duration-300 hover:shadow-2xl hover:border-red-400 select-none",
             className
           )}
         >
@@ -177,12 +193,15 @@ export function CategoryFlashAdCard({ card, category, className }: CategoryFlash
           <img
             src={card.image_url}
             alt={title || "Promotional Banner"}
-            className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className={cn(
+              "absolute inset-0 size-full transition-transform duration-500 group-hover:scale-105",
+              imageFitClass
+            )}
           />
 
           {/* If CTA is enabled, show an elegant floating bottom CTA pill or button */}
           {showCta && ctaStyle !== "none" && (
-            <div className="relative z-10 p-3.5 bg-gradient-to-t from-black/85 via-black/30 to-transparent">
+            <div className="relative z-10 p-4 bg-gradient-to-t from-black/90 via-black/40 to-transparent">
               <span
                 className={cn(
                   "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all group-hover:brightness-110 active:scale-[0.98]",
@@ -203,7 +222,7 @@ export function CategoryFlashAdCard({ card, category, className }: CategoryFlash
       <Link
         href={ctaHref}
         className={cn(
-          "group relative flex h-full min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-900 transition-all duration-300 hover:shadow-xl hover:border-red-400 select-none",
+          "group relative flex h-full min-h-[340px] sm:min-h-[380px] lg:min-h-[420px] w-full flex-col justify-between overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-950 transition-all duration-300 hover:shadow-2xl hover:border-red-400 select-none",
           className
         )}
       >
@@ -212,12 +231,15 @@ export function CategoryFlashAdCard({ card, category, className }: CategoryFlash
         <img
           src={card.image_url}
           alt={title}
-          className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className={cn(
+            "absolute inset-0 size-full transition-transform duration-500 group-hover:scale-105",
+            imageFitClass
+          )}
         />
 
         {/* Ambient dual gradients: top for badges, bottom for readable text */}
-        <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/70 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent pointer-events-none" />
 
         {/* Top Badges overlay: Clean text eyebrow + badge */}
         <div className="relative z-10 flex flex-wrap items-center justify-between gap-1.5 p-4">

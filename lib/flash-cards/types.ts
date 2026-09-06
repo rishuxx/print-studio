@@ -9,6 +9,8 @@ export type FlashCardTone =
 
 export type FlashCardBannerStyle = "full_overlay" | "photo_only";
 export type FlashCardCtaStyle = "primary_red" | "dark" | "white" | "outline" | "none";
+export type FlashCardCardSize = "normal" | "wide" | "compact";
+export type FlashCardAspectRatio = "auto" | "portrait" | "square" | "cover";
 
 export interface CategoryFlashCard {
   id: string;
@@ -24,6 +26,8 @@ export interface CategoryFlashCard {
   image_url: string | null;
   banner_style?: FlashCardBannerStyle;
   cta_style?: FlashCardCtaStyle;
+  card_size?: FlashCardCardSize;
+  aspect_ratio?: FlashCardAspectRatio;
   show_cta?: boolean;
   is_active: boolean;
   display_order: number;
@@ -45,6 +49,8 @@ export interface SaveCategoryFlashCardInput {
   image_url?: string | null;
   banner_style?: FlashCardBannerStyle;
   cta_style?: FlashCardCtaStyle;
+  card_size?: FlashCardCardSize;
+  aspect_ratio?: FlashCardAspectRatio;
   show_cta?: boolean;
   is_active?: boolean;
 }

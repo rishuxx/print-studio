@@ -6,6 +6,8 @@ import {
   FlashCardTone,
   FlashCardBannerStyle,
   FlashCardCtaStyle,
+  FlashCardCardSize,
+  FlashCardAspectRatio,
   SaveCategoryFlashCardInput,
   DEFAULT_FLASH_CARDS,
 } from "@/lib/flash-cards/types";
@@ -99,6 +101,8 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
   const [formImageUrl, setFormImageUrl] = React.useState("");
   const [formBannerStyle, setFormBannerStyle] = React.useState<FlashCardBannerStyle>("full_overlay");
   const [formCtaStyle, setFormCtaStyle] = React.useState<FlashCardCtaStyle>("primary_red");
+  const [formCardSize, setFormCardSize] = React.useState<FlashCardCardSize>("wide");
+  const [formAspectRatio, setFormAspectRatio] = React.useState<FlashCardAspectRatio>("auto");
   const [formShowCta, setFormShowCta] = React.useState(true);
   const [formIsActive, setFormIsActive] = React.useState(true);
 
@@ -121,6 +125,8 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
         image_url: null,
         banner_style: "full_overlay",
         cta_style: "primary_red",
+        card_size: "wide",
+        aspect_ratio: "auto",
         show_cta: true,
         is_active: true,
         display_order: 1,
@@ -146,6 +152,8 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
     setFormImageUrl(cardToEdit.image_url || "");
     setFormBannerStyle(cardToEdit.banner_style || "full_overlay");
     setFormCtaStyle(cardToEdit.cta_style || "primary_red");
+    setFormCardSize(cardToEdit.card_size || "wide");
+    setFormAspectRatio(cardToEdit.aspect_ratio || "auto");
     setFormShowCta(cardToEdit.show_cta !== false);
     setFormIsActive(cardToEdit.is_active !== undefined ? cardToEdit.is_active : true);
     setIsEditing(true);
@@ -166,6 +174,8 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
       setFormImageUrl(def.image_url || "");
       setFormBannerStyle(def.banner_style || "full_overlay");
       setFormCtaStyle(def.cta_style || "primary_red");
+      setFormCardSize("wide");
+      setFormAspectRatio("auto");
       setFormShowCta(true);
       setFormIsActive(true);
       toast.info(`Loaded standard e-commerce template for ${formCategoryHandle}`);
@@ -261,6 +271,8 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
       image_url: formImageUrl.trim() || null,
       banner_style: formBannerStyle,
       cta_style: formCtaStyle,
+      card_size: formCardSize,
+      aspect_ratio: formAspectRatio,
       show_cta: formShowCta,
       is_active: formIsActive,
     };
@@ -325,6 +337,8 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
       image_url: formImageUrl || null,
       banner_style: formBannerStyle,
       cta_style: formCtaStyle,
+      card_size: formCardSize,
+      aspect_ratio: formAspectRatio,
       show_cta: formShowCta,
       is_active: formIsActive,
       display_order: 1,
@@ -344,6 +358,8 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
     formImageUrl,
     formBannerStyle,
     formCtaStyle,
+    formCardSize,
+    formAspectRatio,
     formShowCta,
     formIsActive,
   ]);
@@ -620,6 +636,67 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
                         Image background with high-contrast headline, body copy, eyebrow, and discount pill.
                       </p>
                     </button>
+                  </div>
+                </div>
+
+                {/* 2. CARD SIZE & IMAGE FIT CONTROLS (Requested to use full left-right white space) */}
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Card Size in Menu */}
+                    <div>
+                      <label className="text-xs font-bold text-zinc-900 uppercase tracking-wider block mb-1.5">
+                        Card Width in Dropdown
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { id: "wide", label: "Wide (Fill)", desc: "Uses full space" },
+                          { id: "normal", label: "Standard", desc: "Balanced" },
+                          { id: "compact", label: "Compact", desc: "Slim" },
+                        ].map((sz) => (
+                          <button
+                            key={sz.id}
+                            type="button"
+                            onClick={() => setFormCardSize(sz.id as FlashCardCardSize)}
+                            className={`p-2 rounded-xl border text-center transition-all ${
+                              formCardSize === sz.id
+                                ? "border-red-500 bg-red-50 text-red-700 font-bold ring-2 ring-red-500/20"
+                                : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300"
+                            }`}
+                          >
+                            <span className="text-xs block">{sz.label}</span>
+                            <span className="text-[10px] text-zinc-400 block">{sz.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Image Aspect Ratio / Fit */}
+                    <div>
+                      <label className="text-xs font-bold text-zinc-900 uppercase tracking-wider block mb-1.5">
+                        Image Fit & Proportions
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { id: "cover", label: "Cover (Fill)", desc: "100% card" },
+                          { id: "auto", label: "Natural", desc: "Preserve image" },
+                          { id: "portrait", label: "Poster 4:5", desc: "Tall banner" },
+                        ].map((fit) => (
+                          <button
+                            key={fit.id}
+                            type="button"
+                            onClick={() => setFormAspectRatio(fit.id as FlashCardAspectRatio)}
+                            className={`p-2 rounded-xl border text-center transition-all ${
+                              formAspectRatio === fit.id
+                                ? "border-red-500 bg-red-50 text-red-700 font-bold ring-2 ring-red-500/20"
+                                : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300"
+                            }`}
+                          >
+                            <span className="text-xs block">{fit.label}</span>
+                            <span className="text-[10px] text-zinc-400 block">{fit.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
