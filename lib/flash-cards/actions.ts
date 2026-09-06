@@ -25,8 +25,10 @@ export async function saveCategoryFlashCardAction(
       return { success: false, error: "Category handle is required." };
     }
 
-    const payload: CategoryFlashCard = {
-      id: input.id || `card-${input.category_handle}`,
+    // Validate if input.id is a valid UUID; if not (e.g. "card-same-day" or "default-same-day"), omit it
+    const isUuid = input.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.id);
+
+    const dbPayload: any = {
       category_handle: input.category_handle,
       eyebrow: input.eyebrow ? input.eyebrow.trim() : null,
       title: input.title.trim(),
@@ -42,10 +44,19 @@ export async function saveCategoryFlashCardAction(
       updated_at: new Date().toISOString(),
     };
 
+    if (isUuid) {
+      dbPayload.id = input.id;
+    }
+
+    const payload: CategoryFlashCard = {
+      ...dbPayload,
+      id: dbPayload.id || `card-${input.category_handle}`,
+    };
+
     // 1. Try upserting to category_flash_cards table
     const { data, error } = await supabase
       .from("category_flash_cards")
-      .upsert(payload, { onConflict: "category_handle" })
+      .upsert(dbPayload, { onConflict: "category_handle" })
       .select()
       .single();
 
