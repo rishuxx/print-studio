@@ -1,15 +1,9 @@
 "use client";
 
 import * as React from "react";
-import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useStoreSettings } from "@/lib/settings/settings-context";
-
-// Dynamically import DotLottieReact with SSR turned off so it NEVER bloats initial HTML or server rendering
-const DotLottieReact = dynamic(
-  () => import("@lottiefiles/dotlottie-react").then((mod) => mod.DotLottieReact),
-  { ssr: false }
-);
+import { Lottie } from "lottie-react";
 
 const SESSION_STORAGE_KEY = "preetyprints_anim_loaded";
 
@@ -22,19 +16,24 @@ export function PageLoaderAnimation() {
 
   // Read config from store settings with ultra-safe fallbacks
   const isEnabled = settings.page_loader_enabled ?? true;
-  const lottieUrl =
-    settings.page_loader_lottie_url ||
-    "https://lottie.host/d81c2a5a-19a8-4153-8e46-4aee9b50cf2b/U0uqeX0LSG.lottie";
+  const configuredUrl = settings.page_loader_lottie_url;
   const sizePx = Number(settings.page_loader_size_px) || 160;
   const bgMode = settings.page_loader_bg_mode || "glass";
   const maxDurationMs = Number(settings.page_loader_max_duration_ms) || 1200;
   const scope = settings.page_loader_scope || "initial_session";
 
+  const [mounted, setMounted] = React.useState(false);
   const [visible, setVisible] = React.useState(false);
   const [fadingOut, setFadingOut] = React.useState(false);
+  const [animationSrc, setAnimationSrc] = React.useState<string | object>("/animations/loader.json");
 
   React.useEffect(() => {
-    if (isAdminRoute || !isEnabled) {
+    setMounted(true);
+  }, []);
+
+  // Determine visibility & load animation src
+  React.useEffect(() => {
+    if (!mounted || isAdminRoute || !isEnabled) {
       setVisible(false);
       return;
     }
@@ -50,7 +49,17 @@ export function PageLoaderAnimation() {
       }
     }
 
-    // Mark as active for this session
+    // Resolve URL safely
+    let target = "/animations/loader.json";
+    if (
+      configuredUrl &&
+      configuredUrl.startsWith("http") &&
+      configuredUrl.endsWith(".json")
+    ) {
+      target = configuredUrl;
+    }
+
+    setAnimationSrc(target);
     setVisible(true);
 
     const dismissAnimation = () => {
@@ -60,22 +69,18 @@ export function PageLoaderAnimation() {
         if (typeof window !== "undefined" && scope === "initial_session") {
           sessionStorage.setItem(SESSION_STORAGE_KEY, "true");
         }
-      }, 350); // smooth 350ms fade out transition
+      }, 350);
     };
 
-    // FAST & RELAXED: Dismiss as soon as document completes loading
     if (typeof document !== "undefined") {
       if (document.readyState === "complete") {
-        // Hydrated and page complete: display briefly (min 400ms for smooth visual feel) then fade out
-        const minTimer = setTimeout(dismissAnimation, 600);
+        const minTimer = setTimeout(dismissAnimation, 650);
         return () => clearTimeout(minTimer);
       } else {
         const onPageLoaded = () => {
-          setTimeout(dismissAnimation, 300);
+          setTimeout(dismissAnimation, 350);
         };
         window.addEventListener("load", onPageLoaded, { once: true });
-
-        // Hard failsafe: Never let it block longer than maxDurationMs even on slow mobile networks
         const failsafeTimer = setTimeout(dismissAnimation, maxDurationMs);
 
         return () => {
@@ -84,9 +89,9 @@ export function PageLoaderAnimation() {
         };
       }
     }
-  }, [isAdminRoute, isEnabled, scope, maxDurationMs]);
+  }, [mounted, isAdminRoute, isEnabled, scope, configuredUrl, maxDurationMs]);
 
-  if (!visible) return null;
+  if (!mounted || !visible) return null;
 
   // Background overlay styling based on admin settings
   const bgClass =
@@ -107,8 +112,8 @@ export function PageLoaderAnimation() {
         className="relative flex flex-col items-center justify-center"
         style={{ width: `${sizePx}px`, height: `${sizePx}px` }}
       >
-        <DotLottieReact
-          src={lottieUrl}
+        <Lottie
+          src={animationSrc}
           loop
           autoplay
           style={{ width: "100%", height: "100%" }}

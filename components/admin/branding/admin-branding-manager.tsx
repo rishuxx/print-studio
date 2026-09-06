@@ -742,7 +742,7 @@ export function AdminBrandingManager({ initialSettings }: AdminBrandingManagerPr
                 className="w-full rounded-xl border border-zinc-200 px-3.5 py-2 text-xs font-mono text-zinc-800 focus:outline-none focus:ring-2 focus:ring-violet-500"
               />
               <p className="text-[10px] text-zinc-400">
-                Current active: <code className="text-violet-600">https://lottie.host/d81c2a5a-19a8-4153-8e46-4aee9b50cf2b/U0uqeX0LSG.lottie</code>
+                Default: <code className="text-violet-600">/animations/loader.json</code> (Downloaded & pre-optimized local vector asset). Accepts remote JSON URLs as well.
               </p>
             </div>
 
