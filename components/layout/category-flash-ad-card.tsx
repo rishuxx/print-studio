@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight, Sparkles, Tag, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Tag, Sparkles } from "lucide-react";
 import { CategoryFlashCard, FlashCardTone } from "@/lib/flash-cards/types";
 import { Category } from "@/lib/commerce/types";
 import { cn } from "@/lib/utils";
@@ -13,102 +13,125 @@ interface CategoryFlashAdCardProps {
   className?: string;
 }
 
+/**
+ * E-commerce style card themes (Blinkit / Swiggy / Zepto quick-commerce aesthetic)
+ * Clean, crisp white & red primary branding, soft subtle tint backdrops, high-contrast typography.
+ */
 const TONE_STYLES: Record<
   FlashCardTone,
   {
-    wrapper: string;
-    glow: string;
-    eyebrow: string;
-    title: string;
-    body: string;
-    badge: string;
-    button: string;
-    arrow: string;
+    cardBg: string;
+    border: string;
+    eyebrowBg: string;
+    eyebrowText: string;
+    titleText: string;
+    bodyText: string;
+    badgeBg: string;
+    badgeText: string;
+    btnBg: string;
+    btnText: string;
+    btnHover: string;
+    accentDot: string;
   }
 > = {
-  emerald: {
-    wrapper:
-      "bg-gradient-to-br from-emerald-950 via-zinc-900 to-zinc-950 text-white border border-emerald-500/30 shadow-[0_8px_30px_rgb(16,185,129,0.15)]",
-    glow: "bg-emerald-500/20",
-    eyebrow: "text-emerald-400 font-mono",
-    title: "text-white",
-    body: "text-zinc-300",
-    badge: "bg-emerald-500/20 text-emerald-300 border border-emerald-400/30",
-    button:
-      "bg-emerald-500 text-zinc-950 hover:bg-emerald-400 font-bold shadow-[0_4px_14px_rgba(16,185,129,0.39)]",
-    arrow: "text-zinc-950",
-  },
-  violet: {
-    wrapper:
-      "bg-gradient-to-br from-[#1e0e4b] via-zinc-900 to-[#0e0720] text-white border border-violet-500/30 shadow-[0_8px_30px_rgb(124,58,237,0.2)]",
-    glow: "bg-violet-500/20",
-    eyebrow: "text-violet-300 font-mono",
-    title: "text-white",
-    body: "text-zinc-300",
-    badge: "bg-violet-500/20 text-violet-200 border border-violet-400/30",
-    button:
-      "bg-violet text-white hover:bg-violet-lift font-bold shadow-[0_4px_14px_rgba(124,58,237,0.4)]",
-    arrow: "text-white",
-  },
-  marigold: {
-    wrapper:
-      "bg-gradient-to-br from-[#3b1f04] via-zinc-900 to-zinc-950 text-white border border-amber-500/30 shadow-[0_8px_30px_rgb(245,158,11,0.15)]",
-    glow: "bg-amber-500/20",
-    eyebrow: "text-amber-400 font-mono",
-    title: "text-white",
-    body: "text-zinc-300",
-    badge: "bg-amber-500/20 text-amber-200 border border-amber-400/30",
-    button:
-      "bg-amber-500 text-zinc-950 hover:bg-amber-400 font-bold shadow-[0_4px_14px_rgba(245,158,11,0.35)]",
-    arrow: "text-zinc-950",
-  },
-  indigo: {
-    wrapper:
-      "bg-gradient-to-br from-[#0c1b40] via-zinc-900 to-zinc-950 text-white border border-indigo-500/30 shadow-[0_8px_30px_rgb(99,102,241,0.18)]",
-    glow: "bg-indigo-500/20",
-    eyebrow: "text-indigo-400 font-mono",
-    title: "text-white",
-    body: "text-zinc-300",
-    badge: "bg-indigo-500/20 text-indigo-200 border border-indigo-400/30",
-    button:
-      "bg-indigo-600 text-white hover:bg-indigo-500 font-bold shadow-[0_4px_14px_rgba(99,102,241,0.35)]",
-    arrow: "text-white",
-  },
   rose: {
-    wrapper:
-      "bg-gradient-to-br from-[#3f0d23] via-zinc-900 to-zinc-950 text-white border border-rose-500/30 shadow-[0_8px_30px_rgb(244,63,94,0.18)]",
-    glow: "bg-rose-500/20",
-    eyebrow: "text-rose-400 font-mono",
-    title: "text-white",
-    body: "text-zinc-300",
-    badge: "bg-rose-500/20 text-rose-200 border border-rose-400/30",
-    button:
-      "bg-rose-600 text-white hover:bg-rose-500 font-bold shadow-[0_4px_14px_rgba(244,63,94,0.35)]",
-    arrow: "text-white",
-  },
-  amber: {
-    wrapper:
-      "bg-gradient-to-br from-[#3a2203] via-zinc-900 to-zinc-950 text-white border border-orange-500/30 shadow-[0_8px_30px_rgb(249,115,22,0.18)]",
-    glow: "bg-orange-500/20",
-    eyebrow: "text-orange-400 font-mono",
-    title: "text-white",
-    body: "text-zinc-300",
-    badge: "bg-orange-500/20 text-orange-200 border border-orange-400/30",
-    button:
-      "bg-orange-500 text-zinc-950 hover:bg-orange-400 font-bold shadow-[0_4px_14px_rgba(249,115,22,0.35)]",
-    arrow: "text-zinc-950",
+    cardBg: "bg-gradient-to-b from-red-50/80 via-white to-white",
+    border: "border-red-200/80 shadow-[0_4px_20px_-4px_rgba(229,57,53,0.12)]",
+    eyebrowBg: "bg-red-100 text-red-700 border-red-200",
+    eyebrowText: "text-red-600",
+    titleText: "text-zinc-900",
+    bodyText: "text-zinc-600",
+    badgeBg: "bg-red-500 text-white",
+    badgeText: "text-white",
+    btnBg: "bg-[#e53935]",
+    btnText: "text-white",
+    btnHover: "hover:bg-[#d32f2f]",
+    accentDot: "bg-[#e53935]",
   },
   ink: {
-    wrapper:
-      "bg-gradient-to-br from-zinc-900 via-zinc-900 to-black text-white border border-zinc-700/60 shadow-[0_8px_30px_rgb(0,0,0,0.3)]",
-    glow: "bg-primary/15",
-    eyebrow: "text-zinc-400 font-mono",
-    title: "text-white",
-    body: "text-zinc-300",
-    badge: "bg-white/10 text-zinc-200 border border-white/15",
-    button:
-      "bg-white text-zinc-950 hover:bg-zinc-100 font-bold shadow-[0_4px_14px_rgba(255,255,255,0.25)]",
-    arrow: "text-zinc-950",
+    // Pure clean Red & White Printo style
+    cardBg: "bg-white",
+    border: "border-zinc-200 shadow-sm hover:border-red-300",
+    eyebrowBg: "bg-red-50 text-red-700 border-red-100",
+    eyebrowText: "text-red-600",
+    titleText: "text-zinc-950",
+    bodyText: "text-zinc-600",
+    badgeBg: "bg-red-600 text-white",
+    badgeText: "text-white",
+    btnBg: "bg-[#e53935]",
+    btnText: "text-white",
+    btnHover: "hover:bg-[#c62828]",
+    accentDot: "bg-red-600",
+  },
+  marigold: {
+    cardBg: "bg-gradient-to-b from-amber-50/70 via-white to-white",
+    border: "border-amber-200 shadow-[0_4px_20px_-4px_rgba(245,158,11,0.12)]",
+    eyebrowBg: "bg-amber-100 text-amber-800 border-amber-200",
+    eyebrowText: "text-amber-700",
+    titleText: "text-zinc-900",
+    bodyText: "text-zinc-600",
+    badgeBg: "bg-amber-500 text-white",
+    badgeText: "text-white",
+    btnBg: "bg-[#e53935]",
+    btnText: "text-white",
+    btnHover: "hover:bg-[#d32f2f]",
+    accentDot: "bg-amber-500",
+  },
+  emerald: {
+    cardBg: "bg-gradient-to-b from-emerald-50/70 via-white to-white",
+    border: "border-emerald-200 shadow-[0_4px_20px_-4px_rgba(16,185,129,0.12)]",
+    eyebrowBg: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    eyebrowText: "text-emerald-700",
+    titleText: "text-zinc-900",
+    bodyText: "text-zinc-600",
+    badgeBg: "bg-emerald-600 text-white",
+    badgeText: "text-white",
+    btnBg: "bg-[#e53935]",
+    btnText: "text-white",
+    btnHover: "hover:bg-[#d32f2f]",
+    accentDot: "bg-emerald-600",
+  },
+  violet: {
+    cardBg: "bg-gradient-to-b from-purple-50/70 via-white to-white",
+    border: "border-purple-200 shadow-[0_4px_20px_-4px_rgba(147,51,234,0.12)]",
+    eyebrowBg: "bg-purple-100 text-purple-800 border-purple-200",
+    eyebrowText: "text-purple-700",
+    titleText: "text-zinc-900",
+    bodyText: "text-zinc-600",
+    badgeBg: "bg-purple-600 text-white",
+    badgeText: "text-white",
+    btnBg: "bg-[#e53935]",
+    btnText: "text-white",
+    btnHover: "hover:bg-[#d32f2f]",
+    accentDot: "bg-purple-600",
+  },
+  indigo: {
+    cardBg: "bg-gradient-to-b from-blue-50/70 via-white to-white",
+    border: "border-blue-200 shadow-[0_4px_20px_-4px_rgba(37,99,235,0.12)]",
+    eyebrowBg: "bg-blue-100 text-blue-800 border-blue-200",
+    eyebrowText: "text-blue-700",
+    titleText: "text-zinc-900",
+    bodyText: "text-zinc-600",
+    badgeBg: "bg-blue-600 text-white",
+    badgeText: "text-white",
+    btnBg: "bg-[#e53935]",
+    btnText: "text-white",
+    btnHover: "hover:bg-[#d32f2f]",
+    accentDot: "bg-blue-600",
+  },
+  amber: {
+    cardBg: "bg-gradient-to-b from-orange-50/70 via-white to-white",
+    border: "border-orange-200 shadow-[0_4px_20px_-4px_rgba(249,115,22,0.12)]",
+    eyebrowBg: "bg-orange-100 text-orange-800 border-orange-200",
+    eyebrowText: "text-orange-700",
+    titleText: "text-zinc-900",
+    bodyText: "text-zinc-600",
+    badgeBg: "bg-orange-500 text-white",
+    badgeText: "text-white",
+    btnBg: "bg-[#e53935]",
+    btnText: "text-white",
+    btnHover: "hover:bg-[#d32f2f]",
+    accentDot: "bg-orange-500",
   },
 };
 
@@ -116,7 +139,6 @@ export function CategoryFlashAdCard({ card, category, className }: CategoryFlash
   // Safe URL resolution to avoid any 404
   const ctaHref = React.useMemo(() => {
     const raw = card?.cta_url || category?.feature?.href || `/category/${category.handle}`;
-    // Replace obsolete 404 links
     if (raw.startsWith("/business-solutions/end-to-end-packaging")) {
       return `/category/labels-packaging`;
     }
@@ -129,61 +151,78 @@ export function CategoryFlashAdCard({ card, category, className }: CategoryFlash
   const toneKey: FlashCardTone = card?.tone || (category.feature?.tone as FlashCardTone) || "ink";
   const styles = TONE_STYLES[toneKey] || TONE_STYLES.ink;
 
-  const eyebrow = card?.eyebrow || category.feature?.eyebrow || "FEATURED PROMOTION";
+  const eyebrow = card?.eyebrow || category.feature?.eyebrow || "FEATURED";
   const title = card?.title || category.feature?.title || category.title;
   const body = card?.body || category.feature?.body || category.blurb;
-  const ctaText = card?.cta_text || category.feature?.cta || "Explore Collection";
-  const badgeText = card?.badge_text || card?.discount_tag || null;
+  const ctaText = card?.cta_text || category.feature?.cta || "Explore Now";
+  const badgeText = card?.badge_text || null;
+  const discountTag = card?.discount_tag || null;
 
   return (
     <div
       className={cn(
-        "group relative flex h-full flex-col justify-between overflow-hidden rounded-2xl p-6 transition-all duration-300 hover:shadow-2xl select-none",
-        styles.wrapper,
+        "group relative flex h-full flex-col justify-between overflow-hidden rounded-2xl border p-5 transition-all duration-200 select-none",
+        styles.cardBg,
+        styles.border,
         className
       )}
     >
-      {/* Decorative radial background glow */}
-      <div
-        className={cn(
-          "pointer-events-none absolute -top-12 -right-12 size-40 rounded-full blur-3xl opacity-50 transition-opacity duration-300 group-hover:opacity-80",
-          styles.glow
-        )}
-      />
-
-      {/* Top Header info */}
+      {/* Top Header & Badges */}
       <div className="relative z-10 space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <span className={cn("text-[0.6875rem] font-bold tracking-wider uppercase", styles.eyebrow)}>
-            {eyebrow}
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-1.5">
+          {eyebrow && (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider border",
+                styles.eyebrowBg
+              )}
+            >
+              <span className={cn("size-1.5 rounded-full animate-pulse", styles.accentDot)} />
+              {eyebrow}
+            </span>
+          )}
+
           {badgeText && (
             <span
               className={cn(
-                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-tight",
-                styles.badge
+                "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold shadow-xs",
+                styles.badgeBg
               )}
             >
-              <Sparkles className="size-2.5 shrink-0" />
+              <Sparkles className="size-3" />
               <span>{badgeText}</span>
             </span>
           )}
         </div>
 
+        {/* Title & Description */}
         <div>
-          <h4 className={cn("font-display text-base font-extrabold leading-snug tracking-tight", styles.title)}>
+          <h4
+            className={cn(
+              "font-display text-base font-extrabold leading-snug tracking-tight",
+              styles.titleText
+            )}
+          >
             {title}
           </h4>
           {body && (
-            <p className={cn("mt-2 text-xs leading-relaxed opacity-90 line-clamp-3", styles.body)}>
+            <p className={cn("mt-1.5 text-xs leading-relaxed line-clamp-3", styles.bodyText)}>
               {body}
             </p>
           )}
         </div>
 
-        {/* Optional Showcase Image preview */}
+        {/* Discount Pill if configured */}
+        {discountTag && (
+          <div className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200/80 px-2.5 py-1 text-xs font-bold text-red-600">
+            <Tag className="size-3 shrink-0" />
+            <span>{discountTag}</span>
+          </div>
+        )}
+
+        {/* Product / Banner Image preview (E-commerce Style) */}
         {card?.image_url && (
-          <div className="relative mt-2 h-20 w-full rounded-xl overflow-hidden border border-white/10 bg-black/20">
+          <div className="relative mt-2 h-28 w-full rounded-xl overflow-hidden border border-zinc-200 bg-zinc-50 shadow-xs">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={card.image_url}
@@ -194,22 +233,19 @@ export function CategoryFlashAdCard({ card, category, className }: CategoryFlash
         )}
       </div>
 
-      {/* Bottom CTA Action Button */}
-      <div className="relative z-10 mt-6 pt-2">
+      {/* Bottom CTA Action Button — Bold high-contrast e-commerce button */}
+      <div className="relative z-10 mt-5 pt-1">
         <Link
           href={ctaHref}
           className={cn(
-            "group/btn inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs transition-all active:scale-[0.98]",
-            styles.button
+            "group/btn inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold shadow-sm transition-all active:scale-[0.98]",
+            styles.btnBg,
+            styles.btnText,
+            styles.btnHover
           )}
         >
           <span>{ctaText}</span>
-          <ArrowRight
-            className={cn(
-              "size-3.5 transition-transform duration-200 group-hover/btn:translate-x-1",
-              styles.arrow
-            )}
-          />
+          <ArrowRight className="size-3.5 transition-transform duration-200 group-hover/btn:translate-x-1" />
         </Link>
       </div>
     </div>

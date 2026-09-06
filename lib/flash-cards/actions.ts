@@ -12,7 +12,7 @@ export async function saveCategoryFlashCardAction(
   input: SaveCategoryFlashCardInput
 ): Promise<{ success: boolean; data?: CategoryFlashCard; error?: string }> {
   try {
-    await requireAdminAuth("/admin/categories");
+    await requireAdminAuth("/admin/flash-cards");
     const supabase = await createClient();
 
     if (!input.title || input.title.trim().length === 0) {
@@ -69,7 +69,7 @@ export async function toggleFlashCardStatusAction(
   isActive: boolean
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await requireAdminAuth("/admin/categories");
+    await requireAdminAuth("/admin/flash-cards");
     const supabase = await createClient();
 
     const { error } = await supabase
