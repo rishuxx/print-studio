@@ -4,7 +4,7 @@ import * as React from "react";
 import { DatabaseBusinessSettings } from "@/lib/settings/types";
 import { saveBrandingSettingsAction, uploadBannerImageAction } from "@/lib/hero/actions";
 import { toast } from "sonner";
-import { Palette, Image as ImageIcon, Type, Upload, Check, RefreshCw } from "lucide-react";
+import { Palette, Image as ImageIcon, Type, Upload, Check, RefreshCw, Sparkles, Sliders, Play } from "lucide-react";
 
 interface AdminBrandingManagerProps {
   initialSettings: DatabaseBusinessSettings;
@@ -39,6 +39,27 @@ export function AdminBrandingManager({ initialSettings }: AdminBrandingManagerPr
   );
   const [accentColor, setAccentColor] = React.useState<string>(
     (initialSettings as any).accent_brand_color || "#f97316"
+  );
+
+  // Page Loader Animation Settings
+  const [pageLoaderEnabled, setPageLoaderEnabled] = React.useState<boolean>(
+    initialSettings.page_loader_enabled ?? true
+  );
+  const [pageLoaderLottieUrl, setPageLoaderLottieUrl] = React.useState<string>(
+    initialSettings.page_loader_lottie_url ||
+      "https://lottie.host/d81c2a5a-19a8-4153-8e46-4aee9b50cf2b/U0uqeX0LSG.lottie"
+  );
+  const [pageLoaderSizePx, setPageLoaderSizePx] = React.useState<number>(
+    Number(initialSettings.page_loader_size_px) || 160
+  );
+  const [pageLoaderBgMode, setPageLoaderBgMode] = React.useState<"glass" | "light" | "dark">(
+    initialSettings.page_loader_bg_mode || "glass"
+  );
+  const [pageLoaderMaxDurationMs, setPageLoaderMaxDurationMs] = React.useState<number>(
+    Number(initialSettings.page_loader_max_duration_ms) || 1200
+  );
+  const [pageLoaderScope, setPageLoaderScope] = React.useState<"initial_session" | "all_navigations">(
+    initialSettings.page_loader_scope || "initial_session"
   );
 
   const [isUploadingLogo, setIsUploadingLogo] = React.useState(false);
@@ -177,10 +198,16 @@ export function AdminBrandingManager({ initialSettings }: AdminBrandingManagerPr
         primary_brand_color: primaryColor,
         secondary_brand_color: secondaryColor,
         accent_brand_color: accentColor,
+        page_loader_enabled: pageLoaderEnabled,
+        page_loader_lottie_url: pageLoaderLottieUrl || null,
+        page_loader_size_px: pageLoaderSizePx,
+        page_loader_bg_mode: pageLoaderBgMode,
+        page_loader_max_duration_ms: pageLoaderMaxDurationMs,
+        page_loader_scope: pageLoaderScope,
       });
 
       if (res.success) {
-        toast.success("Branding, logo, and favicon settings saved! Updating storefront...");
+        toast.success("Branding, favicon & animation settings saved! Updating storefront...");
       } else {
         toast.error(res.error || "Failed to save settings.");
       }
@@ -661,6 +688,133 @@ export function AdminBrandingManager({ initialSettings }: AdminBrandingManagerPr
                   <span className="text-[10px] font-mono text-zinc-500">{accentColor}</span>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Page Loader Lottie Animation Controls */}
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-xs space-y-5">
+          <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <Sparkles className="size-4 text-violet-600" />
+                <h2 className="text-sm font-bold text-zinc-900">Page Loader Lottie Animation</h2>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200/60">
+                  Smooth & Relaxed Load
+                </span>
+              </div>
+              <p className="text-xs text-zinc-500">
+                Smooth entrance animation that vanishes immediately when the page finishes loading, keeping the site fast and lightweight.
+              </p>
+            </div>
+
+            {/* Enable/Disable Switch */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold text-zinc-700">
+                {pageLoaderEnabled ? "Enabled" : "Disabled"}
+              </span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={pageLoaderEnabled}
+                  onChange={(e) => setPageLoaderEnabled(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+              </label>
+            </div>
+          </div>
+
+          <div className={`space-y-4 ${!pageLoaderEnabled ? "opacity-40 pointer-events-none" : ""}`}>
+            {/* Lottie URL Input */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-zinc-700 flex items-center gap-1.5">
+                  Lottie Animation URL (.lottie or .json)
+                </label>
+                <span className="text-[10px] text-zinc-400 font-mono">Accepts .lottie & .json</span>
+              </div>
+              <input
+                type="url"
+                value={pageLoaderLottieUrl}
+                onChange={(e) => setPageLoaderLottieUrl(e.target.value)}
+                placeholder="https://lottie.host/..."
+                className="w-full rounded-xl border border-zinc-200 px-3.5 py-2 text-xs font-mono text-zinc-800 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              />
+              <p className="text-[10px] text-zinc-400">
+                Current active: <code className="text-violet-600">https://lottie.host/d81c2a5a-19a8-4153-8e46-4aee9b50cf2b/U0uqeX0LSG.lottie</code>
+              </p>
+            </div>
+
+            {/* Size Slider & Backdrop Mode */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-zinc-700">Animation Size</label>
+                  <span className="text-xs font-mono text-violet-600 font-bold">{pageLoaderSizePx}px</span>
+                </div>
+                <input
+                  type="range"
+                  min={80}
+                  max={320}
+                  step={10}
+                  value={pageLoaderSizePx}
+                  onChange={(e) => setPageLoaderSizePx(Number(e.target.value))}
+                  className="w-full accent-violet-600 cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-zinc-400">
+                  <span>Small (80px)</span>
+                  <span>Standard (160px)</span>
+                  <span>Large (320px)</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-zinc-700 block">Backdrop Mode</label>
+                <select
+                  value={pageLoaderBgMode}
+                  onChange={(e) => setPageLoaderBgMode(e.target.value as any)}
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-800 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                >
+                  <option value="glass">Glassmorphic Blur (Recommended)</option>
+                  <option value="light">Solid Clean White</option>
+                  <option value="dark">Deep Luxury Midnight</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-zinc-700 block">Display Frequency</label>
+                <select
+                  value={pageLoaderScope}
+                  onChange={(e) => setPageLoaderScope(e.target.value as any)}
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-800 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                >
+                  <option value="initial_session">First Site Entry Only (Fast & Relaxed)</option>
+                  <option value="all_navigations">Every Page Navigation</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Max Duration Failsafe */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-zinc-700">
+                  Maximum Duration Failsafe (Safety Timeout)
+                </label>
+                <span className="text-xs font-mono text-zinc-600 font-semibold">{pageLoaderMaxDurationMs}ms</span>
+              </div>
+              <input
+                type="range"
+                min={500}
+                max={3000}
+                step={100}
+                value={pageLoaderMaxDurationMs}
+                onChange={(e) => setPageLoaderMaxDurationMs(Number(e.target.value))}
+                className="w-full accent-zinc-800 cursor-pointer"
+              />
+              <p className="text-[10px] text-zinc-400">
+                Guarantees the animation will automatically vanish after {pageLoaderMaxDurationMs}ms even on slow connections so it never traps the user.
+              </p>
             </div>
           </div>
         </div>

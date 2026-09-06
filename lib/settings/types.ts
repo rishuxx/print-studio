@@ -61,6 +61,14 @@ export interface DatabaseBusinessSettings {
   announcement_message: string | null;
   announcement_link: string | null;
 
+  // Page Loader Animation
+  page_loader_enabled?: boolean;
+  page_loader_lottie_url?: string | null;
+  page_loader_size_px?: number;
+  page_loader_bg_mode?: "glass" | "light" | "dark";
+  page_loader_max_duration_ms?: number;
+  page_loader_scope?: "initial_session" | "all_navigations";
+
   // Invoice
   invoice_prefix: string;
   invoice_footer: string | null;
