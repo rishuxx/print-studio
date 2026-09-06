@@ -60,6 +60,7 @@ export interface DatabaseBusinessSettings {
   announcement_enabled: boolean;
   announcement_message: string | null;
   announcement_link: string | null;
+  mega_menu_flash_ads_json?: Record<string, any> | null;
 
   // Invoice
   invoice_prefix: string;

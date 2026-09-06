@@ -51,6 +51,7 @@ export const DEFAULT_BUSINESS_SETTINGS: DatabaseBusinessSettings = {
   announcement_enabled: true,
   announcement_message: siteConfig.announcements?.[0]?.text || "Fast local printing and express dispatch on select products",
   announcement_link: siteConfig.announcements?.[0]?.href || "/same-day",
+  mega_menu_flash_ads_json: null,
 
   invoice_prefix: "INV",
   invoice_footer: "Computer generated tax invoice. No physical signature required.",

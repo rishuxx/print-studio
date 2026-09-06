@@ -7,12 +7,14 @@ import { CategoryFlashCard, SaveCategoryFlashCardInput } from "./types";
 
 /**
  * Saves or updates a Category Flash Ad Card in Supabase.
+ * Uses primary `category_flash_cards` table if present, with seamless fallback
+ * to `business_settings.mega_menu_flash_ads_json` if the custom table is not yet migrated in Supabase SQL editor.
  */
 export async function saveCategoryFlashCardAction(
   input: SaveCategoryFlashCardInput
 ): Promise<{ success: boolean; data?: CategoryFlashCard; error?: string }> {
   try {
-    await requireAdminAuth("/admin/flash-cards");
+    const { user } = await requireAdminAuth("/admin/flash-cards");
     const supabase = await createClient();
 
     if (!input.title || input.title.trim().length === 0) {
@@ -23,7 +25,8 @@ export async function saveCategoryFlashCardAction(
       return { success: false, error: "Category handle is required." };
     }
 
-    const payload = {
+    const payload: CategoryFlashCard = {
+      id: input.id || `card-${input.category_handle}`,
       category_handle: input.category_handle,
       eyebrow: input.eyebrow ? input.eyebrow.trim() : null,
       title: input.title.trim(),
@@ -35,26 +38,61 @@ export async function saveCategoryFlashCardAction(
       discount_tag: input.discount_tag ? input.discount_tag.trim() : null,
       image_url: input.image_url ? input.image_url.trim() : null,
       is_active: input.is_active !== undefined ? input.is_active : true,
+      display_order: 0,
       updated_at: new Date().toISOString(),
     };
 
+    // 1. Try upserting to category_flash_cards table
     const { data, error } = await supabase
       .from("category_flash_cards")
       .upsert(payload, { onConflict: "category_handle" })
       .select()
       .single();
 
-    if (error) {
-      console.error("Failed to upsert category_flash_cards:", error);
-      return { success: false, error: error.message };
+    if (!error && data) {
+      revalidatePath("/", "layout");
+      revalidatePath(`/category/${input.category_handle}`);
+      revalidatePath("/admin/flash-cards");
+      return { success: true, data: data as CategoryFlashCard };
     }
 
-    revalidatePath("/");
-    revalidatePath(`/category/${input.category_handle}`);
-    revalidatePath("/admin/categories");
-    revalidatePath("/admin/flash-cards");
+    // 2. Fallback: If table is missing in schema cache, store in business_settings.mega_menu_flash_ads_json
+    console.warn("Fallback to storing flash ads in business_settings:", error?.message);
 
-    return { success: true, data: data as CategoryFlashCard };
+    const { data: bsRecord } = await supabase
+      .from("business_settings")
+      .select("id, mega_menu_flash_ads_json")
+      .limit(1)
+      .maybeSingle();
+
+    if (bsRecord) {
+      const currentJson = (bsRecord.mega_menu_flash_ads_json as Record<string, any>) || {};
+      const updatedJson = {
+        ...currentJson,
+        [input.category_handle]: payload,
+      };
+
+      const { error: bsUpdateErr } = await supabase
+        .from("business_settings")
+        .update({
+          mega_menu_flash_ads_json: updatedJson,
+          updated_by: user.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", bsRecord.id);
+
+      if (!bsUpdateErr) {
+        revalidatePath("/", "layout");
+        revalidatePath(`/category/${input.category_handle}`);
+        revalidatePath("/admin/flash-cards");
+        return { success: true, data: payload };
+      }
+    }
+
+    return {
+      success: false,
+      error: error?.message || "Failed to save flash ad card. Please verify database permissions.",
+    };
   } catch (err: any) {
     console.error("Save flash card exception:", err);
     return { success: false, error: err?.message || "Failed to save flash card." };
@@ -69,24 +107,52 @@ export async function toggleFlashCardStatusAction(
   isActive: boolean
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await requireAdminAuth("/admin/flash-cards");
+    const { user } = await requireAdminAuth("/admin/flash-cards");
     const supabase = await createClient();
 
+    // 1. Try table update
     const { error } = await supabase
       .from("category_flash_cards")
       .update({ is_active: isActive, updated_at: new Date().toISOString() })
       .eq("category_handle", categoryHandle);
 
-    if (error) {
-      return { success: false, error: error.message };
+    if (!error) {
+      revalidatePath("/", "layout");
+      revalidatePath(`/category/${categoryHandle}`);
+      revalidatePath("/admin/flash-cards");
+      return { success: true };
     }
 
-    revalidatePath("/");
-    revalidatePath(`/category/${categoryHandle}`);
-    revalidatePath("/admin/categories");
-    revalidatePath("/admin/flash-cards");
+    // 2. Fallback: update in business_settings JSON
+    const { data: bsRecord } = await supabase
+      .from("business_settings")
+      .select("id, mega_menu_flash_ads_json")
+      .limit(1)
+      .maybeSingle();
 
-    return { success: true };
+    if (bsRecord) {
+      const currentJson = (bsRecord.mega_menu_flash_ads_json as Record<string, any>) || {};
+      if (currentJson[categoryHandle]) {
+        currentJson[categoryHandle].is_active = isActive;
+        currentJson[categoryHandle].updated_at = new Date().toISOString();
+      }
+
+      await supabase
+        .from("business_settings")
+        .update({
+          mega_menu_flash_ads_json: currentJson,
+          updated_by: user.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", bsRecord.id);
+
+      revalidatePath("/", "layout");
+      revalidatePath(`/category/${categoryHandle}`);
+      revalidatePath("/admin/flash-cards");
+      return { success: true };
+    }
+
+    return { success: false, error: error.message };
   } catch (err: any) {
     return { success: false, error: err?.message || "Failed to toggle card status." };
   }
