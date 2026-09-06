@@ -7,6 +7,9 @@ export type FlashCardTone =
   | "indigo"
   | "amber";
 
+export type FlashCardBannerStyle = "full_overlay" | "photo_only";
+export type FlashCardCtaStyle = "primary_red" | "dark" | "white" | "outline" | "none";
+
 export interface CategoryFlashCard {
   id: string;
   category_handle: string;
@@ -19,6 +22,9 @@ export interface CategoryFlashCard {
   badge_text: string | null;
   discount_tag: string | null;
   image_url: string | null;
+  banner_style?: FlashCardBannerStyle;
+  cta_style?: FlashCardCtaStyle;
+  show_cta?: boolean;
   is_active: boolean;
   display_order: number;
   created_at?: string;
@@ -37,6 +43,9 @@ export interface SaveCategoryFlashCardInput {
   badge_text?: string | null;
   discount_tag?: string | null;
   image_url?: string | null;
+  banner_style?: FlashCardBannerStyle;
+  cta_style?: FlashCardCtaStyle;
+  show_cta?: boolean;
   is_active?: boolean;
 }
 

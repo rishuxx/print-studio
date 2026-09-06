@@ -141,14 +141,69 @@ export function CategoryFlashAdCard({ card, category, className }: CategoryFlash
   const badgeText = card?.badge_text || null;
   const discountTag = card?.discount_tag || null;
   const hasImage = Boolean(card?.image_url);
+  const bannerStyle: "full_overlay" | "photo_only" = card?.banner_style || "full_overlay";
+  const ctaStyle = card?.cta_style || "primary_red";
+  const showCta = card?.show_cta !== false;
 
-  // When image is uploaded, it takes FULL SIZE of the card like Blinkit / Swiggy banners
+  // Resolve CTA button styling based on selected control
+  const ctaBtnClasses = React.useMemo(() => {
+    switch (ctaStyle) {
+      case "dark":
+        return "bg-zinc-950 text-white hover:bg-zinc-800 shadow-md";
+      case "white":
+        return "bg-white text-zinc-950 hover:bg-zinc-100 shadow-md font-bold";
+      case "outline":
+        return "bg-black/40 backdrop-blur-md text-white border border-white/40 hover:bg-black/60 shadow-sm";
+      case "primary_red":
+      default:
+        return cn(styles.btnBg, styles.btnText, styles.btnHover, "shadow-md");
+    }
+  }, [ctaStyle, styles.btnBg, styles.btnText, styles.btnHover]);
+
+  // When image is uploaded
   if (hasImage && card?.image_url) {
+    // Mode A: ONLY PHOTO BANNER (Pure graphic flyer/banner with optional clickable CTA overlay)
+    if (bannerStyle === "photo_only") {
+      return (
+        <Link
+          href={ctaHref}
+          className={cn(
+            "group relative flex h-full min-h-[320px] w-full flex-col justify-end overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-900 transition-all duration-300 hover:shadow-xl hover:border-red-400 select-none",
+            className
+          )}
+        >
+          {/* Full Card Background Image */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={card.image_url}
+            alt={title || "Promotional Banner"}
+            className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+
+          {/* If CTA is enabled, show an elegant floating bottom CTA pill or button */}
+          {showCta && ctaStyle !== "none" && (
+            <div className="relative z-10 p-3.5 bg-gradient-to-t from-black/85 via-black/30 to-transparent">
+              <span
+                className={cn(
+                  "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all group-hover:brightness-110 active:scale-[0.98]",
+                  ctaBtnClasses
+                )}
+              >
+                <span>{ctaText}</span>
+                <ArrowRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+              </span>
+            </div>
+          )}
+        </Link>
+      );
+    }
+
+    // Mode B: PHOTO BANNER WITH TEXTS & HEADLINE & CTA (Blinkit / Swiggy style card)
     return (
       <Link
         href={ctaHref}
         className={cn(
-          "group relative flex h-full min-h-[300px] w-full flex-col justify-between overflow-hidden rounded-2xl border border-zinc-200 bg-white transition-all duration-300 hover:shadow-md select-none",
+          "group relative flex h-full min-h-[320px] w-full flex-col justify-between overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-900 transition-all duration-300 hover:shadow-xl hover:border-red-400 select-none",
           className
         )}
       >
@@ -160,10 +215,11 @@ export function CategoryFlashAdCard({ card, category, className }: CategoryFlash
           className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
 
-        {/* Subtle bottom gradient to ensure CTA and title readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+        {/* Ambient dual gradients: top for badges, bottom for readable text */}
+        <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
 
-        {/* Top Badges overlay */}
+        {/* Top Badges overlay: Clean text eyebrow + badge */}
         <div className="relative z-10 flex flex-wrap items-center justify-between gap-1.5 p-4">
           {eyebrow && (
             <span className="text-[11px] font-black uppercase tracking-wider text-white drop-shadow-md">
@@ -180,30 +236,37 @@ export function CategoryFlashAdCard({ card, category, className }: CategoryFlash
         </div>
 
         {/* Bottom Content & Button Overlay */}
-        <div className="relative z-10 space-y-2 p-4 pt-0">
+        <div className="relative z-10 space-y-2.5 p-4 pt-0">
           <div>
-            <h4 className="font-display text-base font-extrabold leading-snug tracking-tight text-white drop-shadow-sm">
+            <h4 className="font-display text-base sm:text-lg font-extrabold leading-snug tracking-tight text-white drop-shadow-md">
               {title}
             </h4>
             {body && (
-              <p className="mt-1 text-xs leading-relaxed text-zinc-200 line-clamp-2 drop-shadow-xs">
+              <p className="mt-1 text-xs leading-relaxed text-zinc-200 line-clamp-2 drop-shadow-sm">
                 {body}
               </p>
             )}
+            {discountTag && (
+              <div className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-white/20 backdrop-blur-md px-2 py-0.5 text-[11px] font-bold text-white border border-white/20">
+                <Tag className="size-3 shrink-0" />
+                <span>{discountTag}</span>
+              </div>
+            )}
           </div>
 
-          <div className="pt-1">
-            <span
-              className={cn(
-                "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold shadow-md transition-all group-hover:brightness-105 active:scale-[0.98]",
-                styles.btnBg,
-                styles.btnText
-              )}
-            >
-              <span>{ctaText}</span>
-              <ArrowRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-1" />
-            </span>
-          </div>
+          {showCta && ctaStyle !== "none" && (
+            <div className="pt-1">
+              <span
+                className={cn(
+                  "inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all group-hover:brightness-110 active:scale-[0.98]",
+                  ctaBtnClasses
+                )}
+              >
+                <span>{ctaText}</span>
+                <ArrowRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+              </span>
+            </div>
+          )}
         </div>
       </Link>
     );

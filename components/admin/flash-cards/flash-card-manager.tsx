@@ -4,6 +4,8 @@ import * as React from "react";
 import {
   CategoryFlashCard,
   FlashCardTone,
+  FlashCardBannerStyle,
+  FlashCardCtaStyle,
   SaveCategoryFlashCardInput,
   DEFAULT_FLASH_CARDS,
 } from "@/lib/flash-cards/types";
@@ -33,6 +35,8 @@ import {
   Trash2,
   RefreshCw,
   ExternalLink,
+  LayoutTemplate,
+  MousePointerClick,
 } from "lucide-react";
 
 interface FlashCardManagerProps {
@@ -50,6 +54,14 @@ const TONE_OPTIONS: { id: FlashCardTone; label: string; swatch: string; pillColo
   { id: "violet", label: "Royal Purple Tint", swatch: "bg-purple-600 border-purple-700", pillColor: "bg-purple-50 text-purple-700 border-purple-200" },
   { id: "indigo", label: "Corporate Cobalt Blue", swatch: "bg-blue-600 border-blue-700", pillColor: "bg-blue-50 text-blue-700 border-blue-200" },
   { id: "amber", label: "Vibrant Tangerine", swatch: "bg-orange-500 border-orange-600", pillColor: "bg-orange-50 text-orange-700 border-orange-200" },
+];
+
+const CTA_STYLE_OPTIONS: { id: FlashCardCtaStyle; label: string; preview: string }[] = [
+  { id: "primary_red", label: "Brand Red Button", preview: "bg-[#e53935] text-white" },
+  { id: "dark", label: "Midnight Dark", preview: "bg-zinc-900 text-white" },
+  { id: "white", label: "Crisp White High-Contrast", preview: "bg-white text-zinc-900 border border-zinc-200" },
+  { id: "outline", label: "Glassmorphic Border", preview: "bg-black/30 border border-white/40 text-white" },
+  { id: "none", label: "No Button (Banner Only)", preview: "bg-zinc-100 text-zinc-400" },
 ];
 
 const SUGGESTED_TARGETS = [
@@ -85,6 +97,9 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
   const [formBadgeText, setFormBadgeText] = React.useState("");
   const [formDiscountTag, setFormDiscountTag] = React.useState("");
   const [formImageUrl, setFormImageUrl] = React.useState("");
+  const [formBannerStyle, setFormBannerStyle] = React.useState<FlashCardBannerStyle>("full_overlay");
+  const [formCtaStyle, setFormCtaStyle] = React.useState<FlashCardCtaStyle>("primary_red");
+  const [formShowCta, setFormShowCta] = React.useState(true);
   const [formIsActive, setFormIsActive] = React.useState(true);
 
   // Active card selected in view
@@ -104,6 +119,9 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
         badge_text: null,
         discount_tag: null,
         image_url: null,
+        banner_style: "full_overlay",
+        cta_style: "primary_red",
+        show_cta: true,
         is_active: true,
         display_order: 1,
       }
@@ -126,6 +144,9 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
     setFormBadgeText(cardToEdit.badge_text || "");
     setFormDiscountTag(cardToEdit.discount_tag || "");
     setFormImageUrl(cardToEdit.image_url || "");
+    setFormBannerStyle(cardToEdit.banner_style || "full_overlay");
+    setFormCtaStyle(cardToEdit.cta_style || "primary_red");
+    setFormShowCta(cardToEdit.show_cta !== false);
     setFormIsActive(cardToEdit.is_active !== undefined ? cardToEdit.is_active : true);
     setIsEditing(true);
   };
@@ -143,6 +164,9 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
       setFormBadgeText(def.badge_text || "");
       setFormDiscountTag(def.discount_tag || "");
       setFormImageUrl(def.image_url || "");
+      setFormBannerStyle(def.banner_style || "full_overlay");
+      setFormCtaStyle(def.cta_style || "primary_red");
+      setFormShowCta(true);
       setFormIsActive(true);
       toast.info(`Loaded standard e-commerce template for ${formCategoryHandle}`);
     }
@@ -212,7 +236,8 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
   // Save changes
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formTitle.trim()) {
+    const effectiveTitle = formTitle.trim() || (formBannerStyle === "photo_only" ? `Promotional Banner - ${formCategoryHandle}` : "");
+    if (!effectiveTitle) {
       toast.error("Title is required for the flash ad card");
       return;
     }
@@ -225,7 +250,7 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
     setIsSaving(true);
     const input: SaveCategoryFlashCardInput = {
       category_handle: formCategoryHandle,
-      title: formTitle.trim(),
+      title: effectiveTitle,
       eyebrow: formEyebrow.trim() || null,
       body: formBody.trim() || null,
       cta_text: formCtaText.trim() || "Explore Now",
@@ -234,6 +259,9 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
       badge_text: formBadgeText.trim() || null,
       discount_tag: formDiscountTag.trim() || null,
       image_url: formImageUrl.trim() || null,
+      banner_style: formBannerStyle,
+      cta_style: formCtaStyle,
+      show_cta: formShowCta,
       is_active: formIsActive,
     };
 
@@ -295,6 +323,9 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
       badge_text: formBadgeText || null,
       discount_tag: formDiscountTag || null,
       image_url: formImageUrl || null,
+      banner_style: formBannerStyle,
+      cta_style: formCtaStyle,
+      show_cta: formShowCta,
       is_active: formIsActive,
       display_order: 1,
     };
@@ -311,6 +342,9 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
     formBadgeText,
     formDiscountTag,
     formImageUrl,
+    formBannerStyle,
+    formCtaStyle,
+    formShowCta,
     formIsActive,
   ]);
 
@@ -536,6 +570,59 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
               </div>
 
               <form onSubmit={handleSave} className="space-y-5">
+                {/* 1. AD LAYOUT MODE: ONLY PHOTO BANNER vs PHOTO BANNER WITH TEXTS */}
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 space-y-3">
+                  <label className="text-xs font-bold text-zinc-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <LayoutTemplate className="size-4 text-[#e53935]" />
+                    Ad Layout Format
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setFormBannerStyle("photo_only")}
+                      className={`flex flex-col text-left p-3.5 rounded-xl border transition-all ${
+                        formBannerStyle === "photo_only"
+                          ? "border-red-500 bg-red-50/70 ring-2 ring-red-500/20 shadow-xs"
+                          : "border-zinc-200 bg-white hover:border-zinc-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-zinc-900">
+                          1. Only Photo Banner
+                        </span>
+                        {formBannerStyle === "photo_only" && (
+                          <span className="size-2 rounded-full bg-red-600" />
+                        )}
+                      </div>
+                      <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
+                        Uploaded image takes 100% of card with NO text overlays. Best for pre-designed marketing banners and posters.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setFormBannerStyle("full_overlay")}
+                      className={`flex flex-col text-left p-3.5 rounded-xl border transition-all ${
+                        formBannerStyle === "full_overlay"
+                          ? "border-red-500 bg-red-50/70 ring-2 ring-red-500/20 shadow-xs"
+                          : "border-zinc-200 bg-white hover:border-zinc-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-zinc-900">
+                          2. Photo Banner + Text & Badges
+                        </span>
+                        {formBannerStyle === "full_overlay" && (
+                          <span className="size-2 rounded-full bg-red-600" />
+                        )}
+                      </div>
+                      <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
+                        Image background with high-contrast headline, body copy, eyebrow, and discount pill.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Visual Color Theme */}
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-zinc-800 uppercase tracking-wider flex items-center gap-1.5">
@@ -564,74 +651,93 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
                   </div>
                 </div>
 
-                {/* Eyebrow & Badges Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-xs font-bold text-zinc-800">
-                      Eyebrow Header
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. FLASH DEAL or NO MINIMUM"
-                      value={formEyebrow}
-                      onChange={(e) => setFormEyebrow(e.target.value)}
-                      className="mt-1 w-full text-xs px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-zinc-900"
-                    />
+                {/* Eyebrow & Badges Row (Only needed for Full Overlay mode or fallback) */}
+                {formBannerStyle === "full_overlay" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-zinc-800">
+                        Eyebrow Header
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. FLASH DEAL or NO MINIMUM"
+                        value={formEyebrow}
+                        onChange={(e) => setFormEyebrow(e.target.value)}
+                        className="mt-1 w-full text-xs px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-zinc-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-zinc-800">
+                        Top Badge Pill (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. ⚡ 4-Hour Turnaround"
+                        value={formBadgeText}
+                        onChange={(e) => setFormBadgeText(e.target.value)}
+                        className="mt-1 w-full text-xs px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-zinc-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-zinc-800">
+                        Discount Pill (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Save 20% on Bulk"
+                        value={formDiscountTag}
+                        onChange={(e) => setFormDiscountTag(e.target.value)}
+                        className="mt-1 w-full text-xs px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-zinc-900"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs font-bold text-zinc-800">
-                      Top Badge Pill (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. ⚡ 4-Hour Turnaround"
-                      value={formBadgeText}
-                      onChange={(e) => setFormBadgeText(e.target.value)}
-                      className="mt-1 w-full text-xs px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-zinc-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-zinc-800">
-                      Discount Pill (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Save 20% on Bulk"
-                      value={formDiscountTag}
-                      onChange={(e) => setFormDiscountTag(e.target.value)}
-                      className="mt-1 w-full text-xs px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-zinc-900"
-                    />
-                  </div>
-                </div>
+                )}
 
-                {/* Title */}
-                <div>
-                  <label className="text-xs font-bold text-zinc-800">
-                    Card Title / Headline <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Custom Mailer Boxes & Branded Packaging"
-                    value={formTitle}
-                    onChange={(e) => setFormTitle(e.target.value)}
-                    className="mt-1 w-full text-sm font-bold px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-zinc-900"
-                  />
-                </div>
+                {/* Title & Description (Shown for Full Overlay, or as internal admin reference for Photo Only) */}
+                {formBannerStyle === "full_overlay" ? (
+                  <>
+                    <div>
+                      <label className="text-xs font-bold text-zinc-800">
+                        Card Title / Headline <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Custom Mailer Boxes & Branded Packaging"
+                        value={formTitle}
+                        onChange={(e) => setFormTitle(e.target.value)}
+                        className="mt-1 w-full text-sm font-bold px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-zinc-900"
+                      />
+                    </div>
 
-                {/* Description */}
-                <div>
-                  <label className="text-xs font-bold text-zinc-800">
-                    Description Copy
-                  </label>
-                  <textarea
-                    rows={2}
-                    placeholder="Brief compelling benefit copy for customers browsing the menu."
-                    value={formBody}
-                    onChange={(e) => setFormBody(e.target.value)}
-                    className="mt-1 w-full text-xs px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-zinc-900"
-                  />
-                </div>
+                    <div>
+                      <label className="text-xs font-bold text-zinc-800">
+                        Description Copy
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="Brief compelling benefit copy for customers browsing the menu."
+                        value={formBody}
+                        onChange={(e) => setFormBody(e.target.value)}
+                        className="mt-1 w-full text-xs px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-zinc-900"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div>
+                    <label className="text-xs font-bold text-zinc-800 flex items-center justify-between">
+                      <span>Ad Campaign Title (Admin Reference / Alt Text)</span>
+                      <span className="text-[10px] text-zinc-400 font-normal">Hidden on photo-only banner</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Summer Packaging Flyer Banner"
+                      value={formTitle}
+                      onChange={(e) => setFormTitle(e.target.value)}
+                      className="mt-1 w-full text-xs font-semibold px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-zinc-900"
+                    />
+                  </div>
+                )}
 
                 {/* IMAGE UPLOAD & URL SECTION (Requested by user) */}
                 <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 space-y-3">
@@ -702,38 +808,86 @@ export function FlashCardManager({ initialCards }: FlashCardManagerProps) {
                   </div>
                 </div>
 
-                {/* CTA Button Text & Destination URL */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-bold text-zinc-800">
-                      Button Text
+                {/* CTA Button Controls & Styling */}
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-zinc-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <MousePointerClick className="size-4 text-[#e53935]" />
+                      CTA Button Controls
                     </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Shop Now or View Offer"
-                      value={formCtaText}
-                      onChange={(e) => setFormCtaText(e.target.value)}
-                      className="mt-1 w-full text-xs px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-zinc-900"
-                    />
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formShowCta}
+                        onChange={(e) => setFormShowCta(e.target.checked)}
+                        className="rounded border-zinc-300 text-red-600 focus:ring-red-500"
+                      />
+                      <span className="text-xs font-bold text-zinc-700">Display CTA Button</span>
+                    </label>
                   </div>
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-zinc-800 flex items-center gap-1">
-                        Destination URL <span className="text-red-500">*</span>
-                      </label>
-                      <span className="text-[10px] text-emerald-600 font-bold">
-                        ✓ Prevents 404
-                      </span>
+
+                  {formShowCta && (
+                    <div className="space-y-3 pt-1">
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                        {CTA_STYLE_OPTIONS.map((style) => (
+                          <button
+                            key={style.id}
+                            type="button"
+                            onClick={() => setFormCtaStyle(style.id)}
+                            className={`p-2 rounded-xl border text-left text-xs transition-all flex flex-col gap-1.5 ${
+                              formCtaStyle === style.id
+                                ? "border-red-500 bg-red-50/70 ring-2 ring-red-500/20 font-bold"
+                                : "border-zinc-200 bg-white hover:border-zinc-300"
+                            }`}
+                          >
+                            <span className={`w-full py-1 text-center rounded text-[10px] font-bold ${style.preview}`}>
+                              Button
+                            </span>
+                            <span className="text-[11px] text-zinc-700 truncate">{style.label}</span>
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                        <div>
+                          <label className="text-xs font-bold text-zinc-800">
+                            Button Text
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Shop Now or View Offer"
+                            value={formCtaText}
+                            onChange={(e) => setFormCtaText(e.target.value)}
+                            className="mt-1 w-full text-xs px-3 py-2 rounded-xl bg-white border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-zinc-900"
+                          />
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold text-zinc-800 flex items-center gap-1">
+                              Destination URL <span className="text-red-500">*</span>
+                            </label>
+                            <span className="text-[10px] text-emerald-600 font-bold">
+                              ✓ Prevents 404
+                            </span>
+                          </div>
+                          <input
+                            type="text"
+                            required
+                            placeholder="/category/labels-packaging"
+                            value={formCtaUrl}
+                            onChange={(e) => setFormCtaUrl(e.target.value)}
+                            className="mt-1 w-full text-xs font-mono px-3 py-2 rounded-xl bg-white border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-red-600 font-bold"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <input
-                      type="text"
-                      required
-                      placeholder="/category/labels-packaging"
-                      value={formCtaUrl}
-                      onChange={(e) => setFormCtaUrl(e.target.value)}
-                      className="mt-1 w-full text-xs font-mono px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200 focus:outline-none focus:ring-2 focus:ring-red-500 text-red-600 font-bold"
-                    />
-                  </div>
+                  )}
+
+                  {!formShowCta && (
+                    <p className="text-[11px] text-zinc-500 italic">
+                      CTA button is hidden. The entire card image/banner remains clickable to destination URL.
+                    </p>
+                  )}
                 </div>
 
                 {/* Quick-Pick Safe Destination URLs */}

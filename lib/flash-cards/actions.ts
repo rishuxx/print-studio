@@ -44,6 +44,10 @@ export async function saveCategoryFlashCardAction(
       updated_at: new Date().toISOString(),
     };
 
+    if (input.banner_style) dbPayload.banner_style = input.banner_style;
+    if (input.cta_style) dbPayload.cta_style = input.cta_style;
+    if (input.show_cta !== undefined) dbPayload.show_cta = input.show_cta;
+
     if (isUuid) {
       dbPayload.id = input.id;
     }
@@ -51,14 +55,52 @@ export async function saveCategoryFlashCardAction(
     const payload: CategoryFlashCard = {
       ...dbPayload,
       id: dbPayload.id || `card-${input.category_handle}`,
+      banner_style: input.banner_style || "full_overlay",
+      cta_style: input.cta_style || "primary_red",
+      show_cta: input.show_cta !== undefined ? input.show_cta : true,
     };
 
     // 1. Try upserting to category_flash_cards table
-    const { data, error } = await supabase
+    // If the database table does not have banner_style / cta_style columns yet, catch and retry without them
+    let data: any = null;
+    let error: any = null;
+
+    const upsertRes = await supabase
       .from("category_flash_cards")
       .upsert(dbPayload, { onConflict: "category_handle" })
       .select()
       .single();
+
+    if (upsertRes.error && (upsertRes.error.message?.includes("column") || upsertRes.error.code === "42703")) {
+      // Retry without the new optional columns if user's Postgres table hasn't migrated them yet
+      const basePayload = {
+        category_handle: dbPayload.category_handle,
+        eyebrow: dbPayload.eyebrow,
+        title: dbPayload.title,
+        body: dbPayload.body,
+        cta_text: dbPayload.cta_text,
+        cta_url: dbPayload.cta_url,
+        tone: dbPayload.tone,
+        badge_text: dbPayload.badge_text,
+        discount_tag: dbPayload.discount_tag,
+        image_url: dbPayload.image_url,
+        is_active: dbPayload.is_active,
+        display_order: dbPayload.display_order,
+        updated_at: dbPayload.updated_at,
+      };
+      if (isUuid) (basePayload as any).id = dbPayload.id;
+
+      const retryRes = await supabase
+        .from("category_flash_cards")
+        .upsert(basePayload, { onConflict: "category_handle" })
+        .select()
+        .single();
+      data = retryRes.data;
+      error = retryRes.error;
+    } else {
+      data = upsertRes.data;
+      error = upsertRes.error;
+    }
 
     if (!error && data) {
       revalidatePath("/", "layout");
