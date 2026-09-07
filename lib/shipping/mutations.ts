@@ -241,7 +241,13 @@ export async function createOrderShipmentAction(
     // 9. Revalidate routes
     revalidatePath("/admin/shipping");
     revalidatePath(`/admin/orders/${order.id}`);
+    if (order.order_number) {
+      revalidatePath(`/admin/orders/${order.order_number}`);
+    }
     revalidatePath(`/orders/${order.id}`);
+    if (order.order_number) {
+      revalidatePath(`/orders/${order.order_number}`);
+    }
     revalidatePath("/orders");
 
     return {
@@ -324,19 +330,74 @@ export async function refreshShipmentTrackingAction(
         .from("orders")
         .update({ status: trackingRes.canonicalStatus, updated_at: new Date().toISOString() })
         .eq("id", shipment.order_id);
+    }
 
-      const { NotificationService } = await import("@/lib/notifications/notification-service");
-      await NotificationService.dispatchEvent({
-        eventType: trackingRes.canonicalStatus === "delivered" ? "SHIPMENT_DELIVERED" : "SHIPMENT_OUT_FOR_DELIVERY",
-        orderId: shipment.order_id,
-        trackingNumber: shipment.awb_number,
-        idempotencyKey: `poll_${trackingRes.canonicalStatus}_${shipment.id}`,
+    // Insert order_events timeline entry if status advanced or new scan arrived
+    if (trackingRes.canonicalStatus !== shipment.shipment_status) {
+      const statusTitleMap: Record<string, string> = {
+        picked_up: "Package Picked Up by Courier",
+        in_transit: "Consignment In Transit",
+        arrived_at_hub: "Arrived at Logistics Hub",
+        out_for_delivery: "Out for Doorstep Delivery",
+        delivered: "Consignment Successfully Delivered",
+        ndr: "Delivery Attempt Exception (NDR)",
+        rto_initiated: "Return to Origin Initiated",
+        rto_in_transit: "Return In Transit",
+        rto_delivered: "Return Delivered to Studio",
+      };
+
+      const title = statusTitleMap[trackingRes.canonicalStatus] || `Logistics Milestone: ${trackingRes.canonicalStatus.toUpperCase().replace(/_/g, " ")}`;
+      const latestScan = trackingRes.scans[trackingRes.scans.length - 1] || trackingRes.scans[0];
+      const desc = latestScan?.description || `Courier scan update: ${trackingRes.canonicalStatus}`;
+
+      await supabase.from("order_events").insert({
+        order_id: shipment.order_id,
+        status: trackingRes.canonicalStatus === "delivered" || trackingRes.canonicalStatus === "out_for_delivery" ? trackingRes.canonicalStatus : "shipped",
+        title,
+        description: desc + (latestScan?.locationCity ? ` (${latestScan.locationCity})` : ""),
       });
     }
 
+    // Authoritative Customer Notification Dispatch on tracking status refresh
+    const { NotificationService } = await import("@/lib/notifications/notification-service");
+    const statusToEventMap: Record<string, "SHIPMENT_DELIVERED" | "SHIPMENT_OUT_FOR_DELIVERY" | "SHIPMENT_IN_TRANSIT" | "SHIPMENT_PICKED_UP"> = {
+      delivered: "SHIPMENT_DELIVERED",
+      out_for_delivery: "SHIPMENT_OUT_FOR_DELIVERY",
+      in_transit: "SHIPMENT_IN_TRANSIT",
+      picked_up: "SHIPMENT_PICKED_UP",
+    };
+
+    const targetEvent = statusToEventMap[trackingRes.canonicalStatus];
+    if (targetEvent) {
+      await NotificationService.dispatchEvent({
+        eventType: targetEvent,
+        orderId: shipment.order_id,
+        trackingNumber: shipment.awb_number,
+        trackingUrl: shipment.tracking_url || `/track/${shipment.tracking_token}`,
+        carrierName: shipment.carrier?.code?.toUpperCase() || "Courier",
+        idempotencyKey: `poll_${trackingRes.canonicalStatus}_${shipment.id}_${trackingRes.scans.length}`,
+      });
+    }
+
+    // Fetch order number for complete cache invalidation
+    const { data: parentOrder } = await supabase
+      .from("orders")
+      .select("order_number")
+      .eq("id", shipment.order_id)
+      .maybeSingle();
+
     revalidatePath("/admin/shipping");
     revalidatePath(`/admin/shipping/${shipmentId}`);
+    revalidatePath(`/admin/orders/${shipment.order_id}`);
+    if (parentOrder?.order_number) {
+      revalidatePath(`/admin/orders/${parentOrder.order_number}`);
+    }
     revalidatePath(`/orders/${shipment.order_id}`);
+    if (parentOrder?.order_number) {
+      revalidatePath(`/orders/${parentOrder.order_number}`);
+    }
+    revalidatePath(`/track/${shipment.tracking_token}`);
+    revalidatePath("/orders");
 
     return { success: true };
   } catch (err: unknown) {
@@ -399,9 +460,44 @@ export async function requestShipmentPickupAction(
       is_customer_visible: true,
     });
 
+    // Append authoritative order_events row for lifecycle audit & timeline
+    await supabase.from("order_events").insert({
+       order_id: shipment.order_id,
+       status: "shipped",
+       title: "Package Picked Up by Courier",
+       description: `Consignment handed over to ${shipment.carrier?.name || "courier partner"}. Pickup Ref: ${pickupRef}.`,
+     });
+
+    // Notify customer immediately that courier pickup is active
+    const { NotificationService } = await import("@/lib/notifications/notification-service");
+    await NotificationService.dispatchEvent({
+      eventType: "SHIPMENT_PICKED_UP",
+      orderId: shipment.order_id,
+      trackingNumber: shipment.awb_number,
+      carrierName: shipment.carrier?.name || "Courier Partner",
+      trackingUrl: shipment.tracking_url || `/track/${shipment.tracking_token}`,
+      idempotencyKey: `pkp_req_${shipment.id}`,
+    });
+
+    // Fetch order number for complete cache invalidation
+    const { data: parentOrder } = await supabase
+      .from("orders")
+      .select("order_number")
+      .eq("id", shipment.order_id)
+      .maybeSingle();
+
     revalidatePath("/admin/shipping");
     revalidatePath(`/admin/shipping/${shipmentId}`);
+    revalidatePath(`/admin/orders/${shipment.order_id}`);
+    if (parentOrder?.order_number) {
+      revalidatePath(`/admin/orders/${parentOrder.order_number}`);
+    }
     revalidatePath(`/orders/${shipment.order_id}`);
+    if (parentOrder?.order_number) {
+      revalidatePath(`/orders/${parentOrder.order_number}`);
+    }
+    revalidatePath(`/track/${shipment.tracking_token}`);
+    revalidatePath("/orders");
 
     return { success: true, pickupReference: pickupRef };
   } catch (err: unknown) {
@@ -411,4 +507,126 @@ export async function requestShipmentPickupAction(
     };
   }
 }
+
+/**
+ * Privileged Admin Action: Adds a manual tracking checkpoint to a shipment
+ * and instantly dispatches a notification to the customer.
+ */
+export async function addManualTrackingEventAction(input: {
+  shipmentId: string;
+  canonicalStatus: CanonicalShipmentStatus;
+  description: string;
+  locationCity?: string;
+  locationState?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requirePermission("settings.view", "/admin/shipping");
+    const supabase = await createClient();
+
+    const { data: shipment, error } = await supabase
+      .from("shipping_shipments")
+      .select("*, carrier:shipping_carriers(name)")
+      .eq("id", input.shipmentId)
+      .single();
+
+    if (error || !shipment) {
+      return { success: false, error: "Shipment record not found." };
+    }
+
+    const timestamp = new Date().toISOString();
+    const hash = crypto
+      .createHash("sha256")
+      .update(`${shipment.id}:${input.canonicalStatus}:${timestamp}:${input.description}`)
+      .digest("hex");
+
+    // 1. Insert tracking event
+    await supabase.from("shipping_tracking_events").insert({
+      shipment_id: shipment.id,
+      carrier_id: shipment.carrier_id,
+      provider_status: input.canonicalStatus.toUpperCase(),
+      canonical_status: input.canonicalStatus,
+      event_description: input.description,
+      event_timestamp: timestamp,
+      location_city: input.locationCity || "Hub Facility",
+      location_state: input.locationState || null,
+      source: "manual",
+      raw_payload_hash: hash,
+      is_customer_visible: true,
+    });
+
+    // 2. Update shipment canonical status
+    await supabase
+      .from("shipping_shipments")
+      .update({
+        shipment_status: input.canonicalStatus,
+        updated_at: timestamp,
+        ...(input.canonicalStatus === "delivered" ? { delivered_at: timestamp } : {}),
+      })
+      .eq("id", shipment.id);
+
+    // 3. Update order status if terminal/delivery milestones
+    if (input.canonicalStatus === "delivered" || input.canonicalStatus === "out_for_delivery") {
+      await supabase
+        .from("orders")
+        .update({ status: input.canonicalStatus, updated_at: timestamp })
+        .eq("id", shipment.order_id);
+    }
+
+    // 3.5 Also append an authoritative order_events row so the customer/admin timeline updates
+    await supabase.from("order_events").insert({
+      order_id: shipment.order_id,
+      status: input.canonicalStatus,
+      title: `Logistics Update: ${input.canonicalStatus.toUpperCase().replace(/_/g, " ")}`,
+      description: input.description + (input.locationCity ? ` (${input.locationCity}${input.locationState ? `, ${input.locationState}` : ""})` : ""),
+      created_at: timestamp,
+    });
+
+    // 4. Instantly notify customer of their shipment/order tracking update
+    const { NotificationService } = await import("@/lib/notifications/notification-service");
+    const eventMap: Record<string, "SHIPMENT_DELIVERED" | "SHIPMENT_OUT_FOR_DELIVERY" | "SHIPMENT_IN_TRANSIT" | "SHIPMENT_PICKED_UP" | "SHIPMENT_RTO"> = {
+      delivered: "SHIPMENT_DELIVERED",
+      out_for_delivery: "SHIPMENT_OUT_FOR_DELIVERY",
+      in_transit: "SHIPMENT_IN_TRANSIT",
+      picked_up: "SHIPMENT_PICKED_UP",
+      rto_in_transit: "SHIPMENT_RTO",
+    };
+
+    const notifEvent = eventMap[input.canonicalStatus] || "SHIPMENT_IN_TRANSIT";
+    await NotificationService.dispatchEvent({
+      eventType: notifEvent,
+      orderId: shipment.order_id,
+      trackingNumber: shipment.awb_number,
+      trackingUrl: shipment.tracking_url || `/track/${shipment.tracking_token}`,
+      carrierName: shipment.carrier?.name || "Logistics Partner",
+      idempotencyKey: `man_trk_${shipment.id}_${Date.now()}`,
+    });
+
+    // Fetch order number for complete cache invalidation
+    const { data: parentOrder } = await supabase
+      .from("orders")
+      .select("order_number")
+      .eq("id", shipment.order_id)
+      .maybeSingle();
+
+    revalidatePath("/admin/shipping");
+    revalidatePath(`/admin/orders/${shipment.order_id}`);
+    if (parentOrder?.order_number) {
+      revalidatePath(`/admin/orders/${parentOrder.order_number}`);
+    }
+    revalidatePath(`/orders/${shipment.order_id}`);
+    if (parentOrder?.order_number) {
+      revalidatePath(`/orders/${parentOrder.order_number}`);
+    }
+    revalidatePath(`/track/${shipment.tracking_token}`);
+    revalidatePath("/orders");
+
+    return { success: true };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to add tracking event",
+    };
+  }
+}
+
 

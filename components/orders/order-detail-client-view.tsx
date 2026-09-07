@@ -60,6 +60,14 @@ export function OrderDetailClientView({
   const [activeTab, setActiveTab] = React.useState<"tracking" | "invoice">(initialTab);
   const [isCancelling, setIsCancelling] = React.useState(false);
 
+  // Hook must always execute unconditionally in the same order
+  const events = React.useMemo(() => {
+    if (!dbOrder?.order_events) return [];
+    return [...dbOrder.order_events].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+  }, [dbOrder?.order_events]);
+
   if (!isHydrated) {
     return <div className="shell py-12 text-center text-xs text-muted-foreground">Loading order details...</div>;
   }
@@ -101,11 +109,6 @@ export function OrderDetailClientView({
   }) || {};
 
   const items = dbOrder.order_items || [];
-  const events = React.useMemo(() => {
-    return [...(dbOrder.order_events || [])].sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
-  }, [dbOrder.order_events]);
   const isCancelled = dbOrder.status === "cancelled";
 
   const hasRefund =
@@ -114,6 +117,7 @@ export function OrderDetailClientView({
     dbOrder.payment_status === "partially_refunded" ||
     cancellation?.refund_eligibility === "FULL_REFUND" ||
     cancellation?.refund_eligibility === "PARTIAL_REFUND";
+
 
   const primaryRefund = (refunds && refunds.length > 0 ? refunds[0] : null) || (
     hasRefund

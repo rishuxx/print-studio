@@ -2,41 +2,50 @@
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { Bell, CheckCheck, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fetchUnreadCountAction, fetchNotificationsAction } from "@/lib/notifications/actions";
+import { fetchNotificationsAction } from "@/lib/notifications/actions";
 import { markAllNotificationsAsReadAction } from "@/lib/notifications/mutations";
 import { NotificationRecord } from "@/lib/notifications/types";
 import { NotificationItem } from "./notification-item";
+import { useRealtimeNotifications } from "@/lib/notifications/use-realtime-notifications";
 
 export function NotificationBell() {
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { unreadCount, setUnreadCount, lastNotificationAt } = useRealtimeNotifications();
   const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"all" | "unread" | "order" | "marketing">("all");
   const popoverRef = useRef<HTMLDivElement>(null);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [countRes, listRes] = await Promise.all([
-        fetchUnreadCountAction(),
-        fetchNotificationsAction({ limit: 5 }),
-      ]);
-      setUnreadCount(countRes);
+      const listRes = await fetchNotificationsAction({
+        limit: 8,
+        unreadOnly: activeTab === "unread",
+        category: activeTab === "order" || activeTab === "marketing" ? activeTab : undefined,
+      });
       setNotifications(listRes.notifications);
     } catch (err) {
       console.error("Failed to load notifications", err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [activeTab]);
 
   useEffect(() => {
-    loadData();
-    // In a real production app with Realtime enabled, you would subscribe to Supabase Realtime here
-    // to increment the unread count and prepend to the list when a new notification arrives.
-  }, [loadData]);
+    if (isOpen) {
+      loadData();
+    }
+  }, [isOpen, loadData]);
+
+  // When a realtime notification arrives while open, reload
+  useEffect(() => {
+    if (lastNotificationAt && isOpen) {
+      loadData();
+    }
+  }, [lastNotificationAt, isOpen, loadData]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -50,7 +59,9 @@ export function NotificationBell() {
 
   const handleMarkAllAsRead = async () => {
     setUnreadCount(0);
-    setNotifications((prev) => prev.map((n) => ({ ...n, read_at: n.read_at || new Date().toISOString() })));
+    setNotifications((prev) =>
+      prev.map((n) => ({ ...n, read_at: n.read_at || new Date().toISOString() }))
+    );
     await markAllNotificationsAsReadAction();
   };
 
@@ -63,42 +74,84 @@ export function NotificationBell() {
 
   const toggleOpen = () => {
     setIsOpen(!isOpen);
-    if (!isOpen) loadData(); // refresh when opening
   };
 
   return (
     <div className="relative" ref={popoverRef}>
       <button
         onClick={toggleOpen}
-        className="relative flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 text-zinc-500 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors shadow-2xs"
+        type="button"
+        className="relative flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 text-zinc-600 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors shadow-2xs focus:outline-none focus:ring-2 focus:ring-primary/20"
         aria-label={`Notifications, ${unreadCount} unread`}
+        aria-expanded={isOpen}
       >
         <Bell className="size-4 stroke-[1.75]" />
         {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[0.625rem] font-bold text-white shadow-sm ring-2 ring-white">
-            {unreadCount > 99 ? "99+" : unreadCount}
+          <span className="absolute -right-1 -top-1 flex min-w-4.5 h-4.5 px-1 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white shadow-xs ring-2 ring-white animate-in zoom-in-50 duration-200">
+            {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl border border-border bg-white shadow-pop z-50 animate-slide-down origin-top-right overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between border-b border-border p-4 bg-paper/50">
-            <h3 className="font-bold text-ink">Notifications</h3>
+        <div
+          role="dialog"
+          aria-label="Notification Center"
+          className="absolute right-0 top-full mt-2 w-84 sm:w-96 max-w-[calc(100vw-2rem)] rounded-2xl border border-zinc-200 bg-white shadow-xl z-50 animate-in fade-in-95 zoom-in-95 origin-top-right overflow-hidden flex flex-col"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3.5 bg-zinc-50/70">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-zinc-900">Notifications</h3>
+              {unreadCount > 0 && (
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
+                  {unreadCount} new
+                </span>
+              )}
+            </div>
+
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllAsRead}
-                className="text-xs font-semibold text-violet hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
               >
-                Mark all as read
+                <CheckCheck className="size-3.5" />
+                <span>Mark all as read</span>
               </button>
             )}
           </div>
 
-          <div className="max-h-[60vh] overflow-y-auto p-2 flex flex-col gap-1 custom-scrollbar">
+          {/* Filter Tabs */}
+          <div className="flex items-center gap-1 border-b border-zinc-100 px-3 py-2 bg-white text-xs">
+            {(
+              [
+                { id: "all", label: "All" },
+                { id: "unread", label: "Unread" },
+                { id: "order", label: "Orders" },
+                { id: "marketing", label: "Offers" },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "rounded-full px-3 py-1 font-medium transition-colors text-[11px]",
+                  activeTab === tab.id
+                    ? "bg-zinc-900 text-white font-semibold"
+                    : "text-zinc-600 hover:bg-zinc-100"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* List Feed */}
+          <div className="max-h-[65vh] overflow-y-auto p-2.5 flex flex-col gap-1.5 custom-scrollbar divide-y divide-zinc-50">
             {isLoading && notifications.length === 0 ? (
-              <div className="py-8 text-center text-sm text-muted-foreground animate-pulse">
-                Loading notifications...
+              <div className="py-12 text-center flex flex-col items-center justify-center gap-2 text-zinc-400">
+                <RefreshCw className="size-5 animate-spin text-primary" />
+                <span className="text-xs">Updating notifications...</span>
               </div>
             ) : notifications.length > 0 ? (
               notifications.map((notif) => (
@@ -110,21 +163,28 @@ export function NotificationBell() {
                 />
               ))
             ) : (
-              <div className="py-12 text-center flex flex-col items-center justify-center text-muted-foreground">
-                <Bell className="size-8 text-muted-foreground/30 mb-3" />
-                <p className="text-sm font-medium text-ink">You're all caught up</p>
-                <p className="text-xs mt-1">No notifications yet.</p>
+              <div className="py-12 text-center flex flex-col items-center justify-center text-zinc-400">
+                <div className="flex size-12 items-center justify-center rounded-full bg-zinc-100 mb-2.5">
+                  <Bell className="size-6 text-zinc-400/80 stroke-[1.5]" />
+                </div>
+                <p className="text-xs font-bold text-zinc-700">All caught up</p>
+                <p className="text-[11px] text-zinc-400 mt-0.5">
+                  {activeTab === "unread"
+                    ? "No unread updates right now."
+                    : "No notifications to display."}
+                </p>
               </div>
             )}
           </div>
 
-          <div className="border-t border-border p-2 bg-paper/50">
+          {/* Footer View All Link */}
+          <div className="border-t border-zinc-100 p-2 bg-zinc-50/50">
             <Link
               href="/account/notifications"
               onClick={() => setIsOpen(false)}
-              className="block w-full rounded-lg py-2 text-center text-xs font-bold text-ink hover:bg-white hover:text-violet transition-colors"
+              className="block w-full rounded-xl py-2 text-center text-xs font-bold text-zinc-800 hover:bg-white hover:text-primary transition-all shadow-2xs border border-transparent hover:border-zinc-200"
             >
-              View all notifications
+              View All Notifications & Preferences &rarr;
             </Link>
           </div>
         </div>

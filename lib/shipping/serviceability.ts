@@ -25,6 +25,7 @@ export interface ServiceabilityCheckResult {
   state: string;
   originHub: string;
   hasAnyServiceableCarrier: boolean;
+  calculatedByDelhiveryApi?: boolean;
   options: CarrierServiceabilityOption[];
 }
 

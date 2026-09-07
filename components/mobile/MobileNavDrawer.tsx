@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { X, ArrowRight, Phone, User, Package, MapPin, ChevronRight, LogOut, Info, UserCheck, ShieldCheck, LogIn } from "lucide-react";
+import { X, ArrowRight, Phone, User, Package, MapPin, ChevronRight, LogOut, Info, UserCheck, ShieldCheck, LogIn, Bell } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { categories } from "@/lib/data/categories";
 import { siteConfig } from "@/lib/site-config";
@@ -144,23 +144,31 @@ export function MobileNavDrawer({ open, onOpenChange }: MobileNavDrawerProps) {
                     </div>
                   </div>
 
-                  {/* Account / Orders quick grid */}
-                  <div className="grid grid-cols-2 gap-2">
+                  {/* Account / Orders / Notifications quick grid */}
+                  <div className="grid grid-cols-3 gap-2">
                     <Link
                       href="/account"
                       onClick={() => onOpenChange(false)}
-                      className="flex items-center gap-2 rounded-xl border border-zinc-200/80 bg-white p-2.5 text-xs font-semibold text-zinc-800 hover:border-primary hover:text-primary transition-colors shadow-2xs"
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-zinc-200/80 bg-white p-2 text-[11px] font-semibold text-zinc-800 hover:border-primary hover:text-primary transition-colors shadow-2xs text-center"
                     >
                       <User className="size-4 text-primary" />
-                      <span>My Profile</span>
+                      <span>Profile</span>
                     </Link>
                     <Link
                       href="/orders"
                       onClick={() => onOpenChange(false)}
-                      className="flex items-center gap-2 rounded-xl border border-zinc-200/80 bg-white p-2.5 text-xs font-semibold text-zinc-800 hover:border-primary hover:text-primary transition-colors shadow-2xs"
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-zinc-200/80 bg-white p-2 text-[11px] font-semibold text-zinc-800 hover:border-primary hover:text-primary transition-colors shadow-2xs text-center"
                     >
                       <Package className="size-4 text-primary" />
-                      <span>My Orders</span>
+                      <span>Orders</span>
+                    </Link>
+                    <Link
+                      href="/account/notifications"
+                      onClick={() => onOpenChange(false)}
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-zinc-200/80 bg-white p-2 text-[11px] font-semibold text-zinc-800 hover:border-primary hover:text-primary transition-colors shadow-2xs text-center"
+                    >
+                      <Bell className="size-4 text-primary" />
+                      <span>Notices</span>
                     </Link>
                   </div>
 

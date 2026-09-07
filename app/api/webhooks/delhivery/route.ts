@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     // 3. Find matching shipment record in database
     const { data: targetShipment } = await supabase
       .from("shipping_shipments")
-      .select("id, order_id, carrier_id, shipment_status")
+      .select("id, order_id, carrier_id, shipment_status, tracking_token, tracking_url")
       .eq("awb_number", awb)
       .maybeSingle();
 
@@ -122,19 +122,20 @@ export async function POST(request: NextRequest) {
       });
 
       // 6. If delivered, synchronize parent order status
-      if (canonicalStatus === "delivered") {
+      if (canonicalStatus === "delivered" || canonicalStatus === "out_for_delivery") {
         await supabase
           .from("orders")
-          .update({ status: "delivered", updated_at: new Date().toISOString() })
+          .update({ status: canonicalStatus, updated_at: new Date().toISOString() })
           .eq("id", targetShipment.order_id);
       }
 
       // 7. Authoritative Notification Dispatch
       const { NotificationService } = await import("@/lib/notifications/notification-service");
-      const notificationEventMap: Record<string, "SHIPMENT_OUT_FOR_DELIVERY" | "SHIPMENT_DELIVERED" | "SHIPMENT_IN_TRANSIT" | "SHIPMENT_RTO"> = {
+      const notificationEventMap: Record<string, "SHIPMENT_OUT_FOR_DELIVERY" | "SHIPMENT_DELIVERED" | "SHIPMENT_IN_TRANSIT" | "SHIPMENT_PICKED_UP" | "SHIPMENT_RTO"> = {
         out_for_delivery: "SHIPMENT_OUT_FOR_DELIVERY",
         delivered: "SHIPMENT_DELIVERED",
         in_transit: "SHIPMENT_IN_TRANSIT",
+        picked_up: "SHIPMENT_PICKED_UP",
         rto_in_transit: "SHIPMENT_RTO",
       };
 
@@ -144,6 +145,7 @@ export async function POST(request: NextRequest) {
           eventType,
           orderId: targetShipment.order_id,
           trackingNumber: awb,
+          trackingUrl: targetShipment.tracking_url || `/track/${targetShipment.tracking_token}`,
           carrierName: "Delhivery Express",
           idempotencyKey: `delhivery_${targetShipment.id}_${canonicalStatus}`,
         });

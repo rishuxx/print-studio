@@ -126,7 +126,7 @@ export const ALLOWED_STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   in_production: ALL_OPERATIONAL_TARGETS.filter((s) => s !== "pending" && s !== "in_production"),
   quality_check: ALL_OPERATIONAL_TARGETS.filter((s) => s !== "pending" && s !== "quality_check"),
   ready: ALL_OPERATIONAL_TARGETS.filter((s) => s !== "pending" && s !== "ready"),
-  shipped: ["out_for_delivery", "delivered", "ready"],
+  shipped: ["out_for_delivery", "delivered", "ready", "in_production", "quality_check"],
   out_for_delivery: ["delivered", "shipped"],
   delivered: [],
   cancelled: [],

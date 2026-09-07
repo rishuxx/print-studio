@@ -340,6 +340,7 @@ export function AdminOrderDetailClientView({
             state={delivery.state || "Uttarakhand"}
             existingAwb={existingShipments[0]?.awb_number}
             carrierName={existingShipments[0]?.carrier?.name}
+            shipment={existingShipments[0]}
           />
 
           {/* Database Timeline History */}

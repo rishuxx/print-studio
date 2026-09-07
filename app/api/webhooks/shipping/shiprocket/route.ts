@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     if (awb) {
       const { data: shipment } = await supabase
         .from("shipping_shipments")
-        .select("id, shipment_status")
+        .select("id, order_id, carrier_id, shipment_status, tracking_token, tracking_url")
         .eq("awb_number", awb)
         .single();
 
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
           canonical_status: canonical,
           event_description: payload.activity || `Status update: ${rawStatus}`,
           event_timestamp: payload.date ? new Date(payload.date).toISOString() : new Date().toISOString(),
-          locationCity: payload.location || null,
+          location_city: payload.location || null,
           source: "webhook",
           raw_payload_hash: payloadHash,
           is_customer_visible: true,
@@ -82,8 +82,38 @@ export async function POST(request: NextRequest) {
             .update({
               shipment_status: canonical,
               updated_at: new Date().toISOString(),
+              ...(canonical === "delivered" ? { delivered_at: new Date().toISOString() } : {}),
             })
             .eq("id", shipment.id);
+        }
+
+        // Synchronize parent order status if delivered or out_for_delivery
+        if (canonical === "delivered" || canonical === "out_for_delivery") {
+          await supabase
+            .from("orders")
+            .update({ status: canonical, updated_at: new Date().toISOString() })
+            .eq("id", shipment.order_id);
+        }
+
+        // Authoritative Customer Notification Dispatch
+        const { NotificationService } = await import("@/lib/notifications/notification-service");
+        const statusMap: Record<string, "SHIPMENT_DELIVERED" | "SHIPMENT_OUT_FOR_DELIVERY" | "SHIPMENT_IN_TRANSIT" | "SHIPMENT_PICKED_UP"> = {
+          delivered: "SHIPMENT_DELIVERED",
+          out_for_delivery: "SHIPMENT_OUT_FOR_DELIVERY",
+          in_transit: "SHIPMENT_IN_TRANSIT",
+          picked_up: "SHIPMENT_PICKED_UP",
+        };
+
+        const eventType = statusMap[canonical];
+        if (eventType) {
+          await NotificationService.dispatchEvent({
+            eventType,
+            orderId: shipment.order_id,
+            trackingNumber: awb,
+            trackingUrl: shipment.tracking_url || `/track/${shipment.tracking_token}`,
+            carrierName: "Shiprocket Fulfillment",
+            idempotencyKey: `sr_wh_${shipment.id}_${canonical}`,
+          });
         }
       }
     }

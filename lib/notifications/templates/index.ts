@@ -11,6 +11,12 @@ export interface TemplateContext {
   carrierName?: string;
   artworkRejectionReason?: string;
   cancellationReason?: string;
+  productTitle?: string;
+  productUrl?: string;
+  offerTitle?: string;
+  discountPercent?: number;
+  couponCode?: string;
+  announcementTitle?: string;
   businessName?: string;
   supportEmail?: string;
   supportPhone?: string;
@@ -29,10 +35,44 @@ export function renderNotificationTemplate(
     ? `₹${(context.amountMinor / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
     : "";
   const siteUrl = context.siteUrl || "https://preetyprints.com";
-  const orderUrl = `${siteUrl}/orders/${context.orderId || ""}`;
+  const orderUrl = context.orderId ? `${siteUrl}/orders/${context.orderId}` : `${siteUrl}/orders`;
 
   switch (eventType) {
+    // ─── USER LIFECYCLE ──────────────────────────────────────────────────────────
+    case "USER_WELCOME":
+    case "ACCOUNT_CREATED":
+      return {
+        subject: `Welcome to ${brand}! Your printing partner`,
+        bodyText: `Hello ${name},\n\nWelcome to ${brand}! Your account is active. Explore our verified visiting cards, customized business stationery, brochures, and commercial packaging.\n\nStart creating: ${siteUrl}`,
+        bodyHtml: `<div style="font-family: sans-serif; color: #1b0b2e;">
+          <h2>Welcome to ${brand}!</h2>
+          <p>Hello <strong>${name}</strong>,</p>
+          <p>Your commercial printing account is ready. Explore offset and digital print lines with color-calibrated proofs.</p>
+          <p><a href="${siteUrl}" style="background: #4a1e9e; color: #fff; padding: 8px 16px; border-radius: 6px; text-decoration: none;">Explore Catalog</a></p>
+        </div>`,
+        ctaUrl: siteUrl,
+        ctaLabel: "Start Printing",
+      };
+
+    case "FIRST_ORDER_OFFER":
+      return {
+        subject: `Special Welcome Offer: Flat 10% Off Your First Print Order — ${brand}`,
+        bodyText: `Hello ${name},\n\nEnjoy 10% off your first business stationery or packaging order with code PREETYFIRST.\n\nBrowse catalog: ${siteUrl}/products`,
+        ctaUrl: `${siteUrl}/products`,
+        ctaLabel: "Claim Offer",
+      };
+
+    case "SECURITY_ALERT":
+      return {
+        subject: `Security Notice: Account Login from New Device — ${brand}`,
+        bodyText: `Hello ${name},\n\nA login to your ${brand} account was detected. If this was not you, please secure your account immediately at ${siteUrl}/account.`,
+        ctaUrl: `${siteUrl}/account`,
+        ctaLabel: "Review Security",
+      };
+
+    // ─── ORDER LIFECYCLE ──────────────────────────────────────────────────────────
     case "ORDER_CONFIRMED":
+    case "ORDER_PLACED":
       if (channel === "EMAIL") {
         return {
           subject: `Order Confirmed: #${orderRef} — ${brand}`,
@@ -100,6 +140,7 @@ export function renderNotificationTemplate(
       };
 
     case "ARTWORK_REJECTED":
+    case "ARTWORK_REVISION_REQUIRED":
       const reason = context.artworkRejectionReason || "Low resolution or bleed margin adjustment required.";
       return {
         subject: `Artwork Attention Required: #${orderRef} — ${brand}`,
@@ -109,6 +150,7 @@ export function renderNotificationTemplate(
       };
 
     case "ORDER_IN_PRODUCTION":
+    case "PRODUCTION_STARTED":
       return {
         subject: `Printing In Progress: #${orderRef} — ${brand}`,
         bodyText: `Hello ${name},\n\nYour job #${orderRef} is currently on press in our production facility. Finishing, laminating, and trim inspection will follow shortly.`,
@@ -116,7 +158,18 @@ export function renderNotificationTemplate(
         ctaLabel: "Track Order",
       };
 
+    case "AWB_ASSIGNED":
+      const allocCourier = context.carrierName || "logistics partner";
+      const allocatedAwb = context.trackingNumber ? ` (AWB #${context.trackingNumber})` : "";
+      return {
+        subject: `Waybill Generated: #${orderRef} ${allocatedAwb} — ${brand}`,
+        bodyText: `Hello ${name},\n\nYour print order #${orderRef} has been assigned waybill ${allocatedAwb} with ${allocCourier}. Handover and consignment dispatch are scheduled.`,
+        ctaUrl: context.trackingUrl || orderUrl,
+        ctaLabel: "Track Waybill",
+      };
+
     case "ORDER_DISPATCHED":
+    case "ORDER_SHIPPED":
       const courier = context.carrierName || "our courier partner";
       const awb = context.trackingNumber ? ` (AWB #${context.trackingNumber})` : "";
       return {
@@ -126,7 +179,25 @@ export function renderNotificationTemplate(
         ctaLabel: "Track Consignment",
       };
 
+    case "SHIPMENT_PICKED_UP":
+      const pickupCourier = context.carrierName || "courier partner";
+      return {
+        subject: `Package Picked Up: #${orderRef} — ${brand}`,
+        bodyText: `Hello ${name},\n\nYour print package for order #${orderRef} has been picked up by ${pickupCourier} from our Dehradun facility and is on its way to the transit hub.`,
+        ctaUrl: context.trackingUrl || orderUrl,
+        ctaLabel: "Track Package",
+      };
+
+    case "SHIPMENT_IN_TRANSIT":
+      return {
+        subject: `Shipment In Transit: #${orderRef} — ${brand}`,
+        bodyText: `Hello ${name},\n\nYour shipment for order #${orderRef} has reached an en-route transit hub and is moving towards your destination city.`,
+        ctaUrl: context.trackingUrl || orderUrl,
+        ctaLabel: "Live Tracking",
+      };
+
     case "SHIPMENT_OUT_FOR_DELIVERY":
+    case "OUT_FOR_DELIVERY":
       return {
         subject: `Out for Delivery: #${orderRef} — ${brand}`,
         bodyText: `Hello ${name},\n\nYour package for order #${orderRef} is out for doorstep delivery today with the courier executive.`,
@@ -135,11 +206,29 @@ export function renderNotificationTemplate(
       };
 
     case "SHIPMENT_DELIVERED":
+    case "ORDER_DELIVERED":
       return {
         subject: `Delivered: #${orderRef} — Thank You for Choosing ${brand}!`,
         bodyText: `Hello ${name},\n\nYour consignment for order #${orderRef} has been successfully delivered. We hope you love the print quality! For any assistance, reach out to ${context.supportEmail || "our support desk"}.`,
         ctaUrl: orderUrl,
         ctaLabel: "View Invoices",
+      };
+
+    case "SHIPMENT_RTO":
+      return {
+        subject: `Delivery Return Notice: #${orderRef} — ${brand}`,
+        bodyText: `Hello ${name},\n\nYour package for order #${orderRef} is returning to origin after delivery attempts. Our support team will assist you with re-dispatch or address correction.`,
+        ctaUrl: orderUrl,
+        ctaLabel: "Order Status",
+      };
+
+    case "DELIVERY_ATTEMPT_FAILED":
+    case "SHIPMENT_FAILED":
+      return {
+        subject: `Delivery Attempt Delayed: #${orderRef} — ${brand}`,
+        bodyText: `Hello ${name},\n\nOur courier partner attempted to deliver order #${orderRef} but was unable to complete delivery. Another attempt will be made on the next working day.`,
+        ctaUrl: context.trackingUrl || orderUrl,
+        ctaLabel: "Check Delivery Status",
       };
 
     case "ORDER_CANCELLED":
@@ -151,11 +240,34 @@ export function renderNotificationTemplate(
       };
 
     case "REFUND_COMPLETED":
+    case "REFUND_PROCESSED":
       return {
         subject: `Refund Processed: #${orderRef} — ${brand}`,
         bodyText: `Hello ${name},\n\nYour refund${formattedAmount ? ` of ${formattedAmount}` : ""} for order #${orderRef} has been processed via Razorpay. It should reflect in your source account in 3-5 business days.`,
         ctaUrl: orderUrl,
         ctaLabel: "View Refund Status",
+      };
+
+    // ─── MARKETING & PROMOTIONAL ────────────────────────────────────────────────
+    case "SALE_ANNOUNCEMENT":
+    case "FESTIVAL_CAMPAIGN":
+    case "LIMITED_TIME_OFFER":
+      return {
+        subject: context.offerTitle || `Special Promotion at ${brand}`,
+        bodyText: `Great news! Enjoy exclusive discounts on bulk prints, visiting cards, and promotional merchandise today.`,
+        ctaUrl: `${siteUrl}/products`,
+        ctaLabel: "Shop Deals",
+      };
+
+    // ─── SYSTEM ANNOUNCEMENTS ───────────────────────────────────────────────────
+    case "SYSTEM_ANNOUNCEMENT":
+    case "MAINTENANCE_NOTICE":
+    case "POLICY_UPDATE":
+      return {
+        subject: context.announcementTitle || `Important Announcement from ${brand}`,
+        bodyText: `Please review our latest system update and schedule announcements at ${siteUrl}.`,
+        ctaUrl: siteUrl,
+        ctaLabel: "Read More",
       };
 
     default:

@@ -1,6 +1,6 @@
 /**
  * Notification Types & Provider Abstraction Models
- * Project: PreetyPrints (Phase 11F)
+ * Project: PreetyPrints (Phase 14 Production Upgrade)
  */
 
 export type NotificationChannel = "EMAIL" | "WHATSAPP" | "PUSH" | "IN_APP";
@@ -12,9 +12,26 @@ export type NotificationStatus =
   | "NOT_CONFIGURED"
   | "FAILED_PERMANENT"
   | "DELIVERED"
-  | "READ";
+  | "READ"
+  | "DRAFT"
+  | "SCHEDULED"
+  | "PUBLISHED"
+  | "CANCELLED"
+  | "EXPIRED";
+
+export type NotificationPriority = "low" | "normal" | "high" | "critical";
+export type NotificationSeverity = "info" | "success" | "warning" | "error";
+export type NotificationTargetType = "INDIVIDUAL" | "MULTIPLE" | "ALL" | "SEGMENT";
+export type NotificationCategory = "order" | "shipping" | "payment" | "product" | "marketing" | "system" | "account" | "admin";
 
 export type NotificationEventType =
+  // User Lifecycle
+  | "USER_WELCOME"
+  | "ACCOUNT_CREATED"
+  | "PROFILE_COMPLETED"
+  | "FIRST_ORDER_OFFER"
+  | "SECURITY_ALERT"
+  // Order Lifecycle
   | "ORDER_PLACED"
   | "ORDER_CONFIRMED"
   | "PAYMENT_SUCCESS"
@@ -46,7 +63,28 @@ export type NotificationEventType =
   | "REFUND_INITIATED"
   | "REFUND_PROCESSED"
   | "REFUND_COMPLETED"
-  | "REFUND_FAILED";
+  | "REFUND_FAILED"
+  // Product Updates
+  | "NEW_PRODUCT_LAUNCH"
+  | "PRODUCT_BACK_IN_STOCK"
+  | "PRODUCT_PRICE_DROP"
+  | "PRODUCT_UPDATE"
+  // Marketing & Campaigns
+  | "SALE_ANNOUNCEMENT"
+  | "FESTIVAL_CAMPAIGN"
+  | "LIMITED_TIME_OFFER"
+  | "PROMOTIONAL_COUPON"
+  | "BULK_ORDER_PROMOTION"
+  // System Updates
+  | "SYSTEM_ANNOUNCEMENT"
+  | "MAINTENANCE_NOTICE"
+  | "POLICY_UPDATE"
+  // Admin Operations
+  | "ADMIN_NEW_ORDER"
+  | "ADMIN_PAYMENT_ALERT"
+  | "ADMIN_LOW_INVENTORY"
+  | "ADMIN_QUOTE_REQUEST"
+  | "ADMIN_SYSTEM_WARNING";
 
 export interface NotificationRecord {
   id: string;
@@ -72,11 +110,34 @@ export interface NotificationRecord {
   read_at?: string | null;
   title?: string | null;
   body?: string | null;
-  category?: string | null;
-  priority?: "low" | "normal" | "high" | "urgent" | null;
+  category?: NotificationCategory | string | null;
+  priority?: NotificationPriority | null;
+  severity?: NotificationSeverity | null;
   resource_type?: string | null;
   resource_id?: string | null;
+  action_url?: string | null;
+  action_label?: string | null;
+  image_url?: string | null;
+  icon?: string | null;
+  target_type?: NotificationTargetType | null;
+  target_segment?: string | null;
+  scheduled_at?: string | null;
+  published_at?: string | null;
+  expires_at?: string | null;
+  created_by?: string | null;
+  is_dismissible?: boolean;
   is_archived?: boolean;
+}
+
+export interface UserNotificationRecord {
+  id: string;
+  notification_id: string;
+  user_id: string;
+  read_at: string | null;
+  delivered_at: string | null;
+  dismissed_at: string | null;
+  created_at: string;
+  notification?: NotificationRecord;
 }
 
 export interface CustomerNotificationPreferences {
@@ -84,6 +145,11 @@ export interface CustomerNotificationPreferences {
   email_order_updates: boolean;
   whatsapp_order_updates: boolean;
   push_order_updates: boolean;
+  in_app_order_updates: boolean;
+  in_app_promotional_updates: boolean;
+  in_app_product_updates: boolean;
+  in_app_system_updates: boolean;
+  in_app_account_updates: boolean;
   updated_at: string;
 }
 
@@ -136,4 +202,29 @@ export interface DispatchEventParams {
   cancellationReason?: string | null;
   metadata?: Record<string, unknown>;
   idempotencyKey?: string;
+  actionUrl?: string | null;
+  actionLabel?: string | null;
+  imageUrl?: string | null;
+  icon?: string | null;
+  priority?: NotificationPriority;
+  severity?: NotificationSeverity;
+  category?: NotificationCategory;
+}
+
+export interface CreateAdminNotificationParams {
+  title: string;
+  body: string;
+  eventType?: NotificationEventType;
+  category: NotificationCategory;
+  priority: NotificationPriority;
+  severity?: NotificationSeverity;
+  icon?: string;
+  actionUrl?: string;
+  actionLabel?: string;
+  imageUrl?: string;
+  targetType: NotificationTargetType;
+  targetUserIds?: string[];
+  targetSegment?: string;
+  scheduledAt?: string | null;
+  expiresAt?: string | null;
 }

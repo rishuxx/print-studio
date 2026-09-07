@@ -6,10 +6,18 @@ import {
   RefreshCw,
   ExternalLink,
   Plus,
+  Truck,
+  MapPin,
+  Send,
+  X,
 } from "lucide-react";
-import type { ShippingShipment, ShippingCarrier } from "@/lib/shipping/types";
+import type { ShippingShipment, ShippingCarrier, CanonicalShipmentStatus } from "@/lib/shipping/types";
 import { getCustomerStatusCopy } from "@/lib/shipping/status-copy";
-import { createOrderShipmentAction, refreshShipmentTrackingAction } from "@/lib/shipping/mutations";
+import {
+  createOrderShipmentAction,
+  refreshShipmentTrackingAction,
+  addManualTrackingEventAction,
+} from "@/lib/shipping/mutations";
 import { toast } from "sonner";
 import Link from "next/link";
 import { AdminPageHelpButton } from "@/components/admin/admin-page-help-button";
@@ -38,6 +46,15 @@ export function AdminShippingClientView({
   const [statusFilter, setStatusFilter] = React.useState("all");
   const [carrierFilter, setCarrierFilter] = React.useState("all");
   const [refreshingId, setRefreshingId] = React.useState<string | null>(null);
+
+  // Manual Tracking Checkpoint State
+  const [manualModalShipment, setManualModalShipment] = React.useState<ShippingShipment | null>(null);
+  const [manualStatus, setManualStatus] = React.useState<CanonicalShipmentStatus>("in_transit");
+  const [manualDescription, setManualDescription] = React.useState("");
+  const [manualCity, setManualCity] = React.useState("");
+  const [manualState, setManualState] = React.useState("");
+  const [isSubmittingTracking, setIsSubmittingTracking] = React.useState(false);
+
 
   // Dynamic merged orders from server + client orderStore
   const isHydrated = React.useSyncExternalStore(
@@ -157,6 +174,52 @@ export function AdminShippingClientView({
       setIsCreating(false);
     }
   };
+
+  const handleOpenManualCheckpoint = (s: ShippingShipment) => {
+    setManualModalShipment(s);
+    setManualStatus(s.shipment_status);
+    setManualDescription(
+      s.shipment_status === "out_for_delivery"
+        ? "Consignment out for delivery with executive."
+        : s.shipment_status === "delivered"
+        ? "Package handed over to recipient."
+        : `Package processed at transit facility.`
+    );
+    setManualCity(s.destination_snapshot?.city || "Dehradun Hub");
+    setManualState(s.destination_snapshot?.state || "Uttarakhand");
+  };
+
+  const handleManualTrackingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualModalShipment) return;
+    if (!manualDescription.trim()) {
+      toast.error("Event description is required.");
+      return;
+    }
+
+    setIsSubmittingTracking(true);
+    try {
+      const res = await addManualTrackingEventAction({
+        shipmentId: manualModalShipment.id,
+        canonicalStatus: manualStatus,
+        description: manualDescription.trim(),
+        locationCity: manualCity.trim() || undefined,
+        locationState: manualState.trim() || undefined,
+      });
+
+      if (res.success) {
+        toast.success("Tracking checkpoint appended and customer notified instantly!");
+        setManualModalShipment(null);
+      } else {
+        toast.error(res.error || "Failed to add tracking event");
+      }
+    } catch {
+      toast.error("Network communication error");
+    } finally {
+      setIsSubmittingTracking(false);
+    }
+  };
+
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -324,6 +387,17 @@ export function AdminShippingClientView({
 
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Manual Tracking Checkpoint Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenManualCheckpoint(s)}
+                            title="Update Tracking & Notify Customer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-violet/30 bg-violet/5 hover:bg-violet/10 text-violet text-xs font-bold transition-colors"
+                          >
+                            <Truck className="size-3" />
+                            <span>Checkpoint</span>
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => handleRefreshTracking(s.id)}
@@ -451,6 +525,129 @@ export function AdminShippingClientView({
                   className="px-4 py-2 rounded-xl bg-violet text-white font-bold hover:bg-violet-lift disabled:opacity-50"
                 >
                   {isCreating ? "Manifesting..." : "Assign Waybill"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Tracking Checkpoint & Realtime Notification Modal */}
+      {manualModalShipment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg bg-white rounded-3xl p-6 border border-border shadow-lift space-y-4 text-xs">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h3 className="font-display text-base font-bold text-ink flex items-center gap-2">
+                  <Truck className="size-4 text-violet" />
+                  <span>Update Tracking & Notify Customer</span>
+                </h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Consignment AWB #{manualModalShipment.awb_number} ({manualModalShipment.carrier?.name || "Carrier"})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setManualModalShipment(null)}
+                className="p-1 rounded-lg hover:bg-paper text-muted-foreground hover:text-ink"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleManualTrackingSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="font-bold text-ink uppercase font-mono text-[10px]">
+                  New Milestone Status
+                </label>
+                <select
+                  value={manualStatus}
+                  onChange={(e) => {
+                    const st = e.target.value as CanonicalShipmentStatus;
+                    setManualStatus(st);
+                    if (st === "picked_up") setManualDescription("Consignment picked up from facility and handed over to courier.");
+                    else if (st === "in_transit") setManualDescription("Shipment in transit — processed at hub facility.");
+                    else if (st === "out_for_delivery") setManualDescription("Package is out for doorstep delivery with your delivery executive.");
+                    else if (st === "delivered") setManualDescription("Package safely delivered to recipient at doorstep.");
+                    else if (st === "ndr") setManualDescription("Delivery attempt delayed / recipient unavailable. Pending re-attempt.");
+                    else if (st === "rto_in_transit") setManualDescription("Return to origin initiated by courier logistics.");
+                  }}
+                  className="w-full p-2.5 rounded-xl border border-border font-bold text-xs bg-white focus:border-violet focus:outline-none"
+                >
+                  <option value="picked_up">Picked Up by Logistics</option>
+                  <option value="in_transit">In Transit (Hub Movement)</option>
+                  <option value="out_for_delivery">Out for Delivery (Doorstep)</option>
+                  <option value="delivered">Delivered (Completed)</option>
+                  <option value="ndr">NDR Exception (Attempt Delayed)</option>
+                  <option value="rto_in_transit">RTO In Transit (Return)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-bold text-ink uppercase font-mono text-[10px]">
+                  Tracking Message / Event Description
+                </label>
+                <textarea
+                  rows={3}
+                  value={manualDescription}
+                  onChange={(e) => setManualDescription(e.target.value)}
+                  placeholder="e.g. Package arrived at local sorting hub..."
+                  className="w-full p-2.5 rounded-xl border border-border text-xs text-ink focus:border-violet focus:outline-none"
+                  required
+                />
+                <span className="text-[10px] text-muted-foreground block">
+                  This message is immediately published to the customer notification center and live tracking timeline.
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-bold text-ink uppercase font-mono text-[10px]">Location City</label>
+                  <input
+                    type="text"
+                    value={manualCity}
+                    onChange={(e) => setManualCity(e.target.value)}
+                    placeholder="e.g. Dehradun Hub"
+                    className="w-full p-2 rounded-xl border border-border text-xs text-ink"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-ink uppercase font-mono text-[10px]">State</label>
+                  <input
+                    type="text"
+                    value={manualState}
+                    onChange={(e) => setManualState(e.target.value)}
+                    placeholder="e.g. Uttarakhand"
+                    className="w-full p-2 rounded-xl border border-border text-xs text-ink"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-violet/5 border border-violet/20 p-3 text-[11px] text-violet space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <Send className="size-3" />
+                  <span>Instant Multi-Channel Dispatch Trigger</span>
+                </div>
+                <p className="text-[10px] text-ink/80 leading-relaxed">
+                  Submitting this checkpoint will immediately update the shipment timeline, sync order status, and trigger real-time In-App, Email &amp; WhatsApp alerts to the customer.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setManualModalShipment(null)}
+                  className="px-4 py-2 rounded-xl border border-border bg-white text-ink font-bold hover:bg-paper"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingTracking}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-violet text-white font-bold hover:bg-violet-lift disabled:opacity-50 shadow-xs"
+                >
+                  <Send className="size-3.5" />
+                  <span>{isSubmittingTracking ? "Notifying..." : "Append & Notify Customer"}</span>
                 </button>
               </div>
             </form>
