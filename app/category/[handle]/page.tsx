@@ -2,7 +2,7 @@ import * as React from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { categories, getCategory } from "@/lib/data/categories";
-import { getStorefrontCategory, getStorefrontAllProducts } from "@/lib/catalogue/storefront-queries";
+import { getStorefrontCategory, getStorefrontCategories, getStorefrontAllProducts } from "@/lib/catalogue/storefront-queries";
 import { getCategoryHeroBanners } from "@/lib/hero/queries";
 import { Breadcrumbs } from "@/components/shared/breadcrumbs";
 import { CategoryListingClient } from "@/components/category/category-listing-client";
@@ -12,8 +12,12 @@ interface PageProps {
   params: Promise<{ handle: string }>;
 }
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function generateStaticParams() {
-  return categories.map((c) => ({
+  const allCats = await getStorefrontCategories();
+  return allCats.map((c) => ({
     handle: c.handle,
   }));
 }

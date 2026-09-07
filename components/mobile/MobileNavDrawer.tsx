@@ -24,6 +24,23 @@ export function MobileNavDrawer({ open, onOpenChange }: MobileNavDrawerProps) {
   const [user, setUser] = React.useState<SupabaseUser | null>(null);
   const [role, setRole] = React.useState<string | null>(null);
   const [isLoadingAuth, setIsLoadingAuth] = React.useState(true);
+  const [drawerCategories, setDrawerCategories] = React.useState(categories);
+
+  React.useEffect(() => {
+    fetch("/api/categories")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.categories) && data.categories.length > 0) {
+          const visible = data.categories.filter((c: any) => c.inNav !== false);
+          if (visible.length > 0) {
+            setDrawerCategories(visible);
+          }
+        }
+      })
+      .catch(() => {
+        // Fallback to static verified categories
+      });
+  }, []);
 
   React.useEffect(() => {
     try {
@@ -214,7 +231,7 @@ export function MobileNavDrawer({ open, onOpenChange }: MobileNavDrawerProps) {
                 </span>
               </div>
               <ul className="flex flex-col">
-                {categories.map((cat) => {
+                {drawerCategories.map((cat) => {
                   return (
                     <li key={cat.handle}>
                       <Link

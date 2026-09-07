@@ -14,7 +14,7 @@ function getPublicClient() {
 }
 import { getProduct as getStaticProduct, getAllProducts as getStaticAllProducts } from "@/lib/data/products";
 import { getCategory as getStaticCategory, categories as staticCategories } from "@/lib/data/categories";
-import type { Product, ProductImage, ProductOption, ProductVariant, QuantityTier, BadgeKind } from "@/lib/commerce/types";
+import type { Product, Category, ProductImage, ProductOption, ProductVariant, QuantityTier, BadgeKind } from "@/lib/commerce/types";
 import { money } from "@/lib/commerce/types";
 import { ProductService } from "./product-service";
 import { PricingService } from "@/lib/pricing/pricing-service";
@@ -305,7 +305,7 @@ export async function getStorefrontProduct(handle: string): Promise<Product | un
 /**
  * Fetch category by handle for Storefront
  */
-export async function getStorefrontCategory(handle: string) {
+export async function getStorefrontCategory(handle: string): Promise<Category | undefined> {
   try {
     const supabase = getPublicClient();
     if (!supabase) return getStaticCategory(handle);
@@ -315,17 +315,37 @@ export async function getStorefrontCategory(handle: string) {
       .eq("handle", handle)
       .maybeSingle();
 
-    if (cat && cat.status === "active") return cat;
+    if (cat && cat.status === "active") {
+      const staticCat = getStaticCategory(handle);
+      return {
+        handle: cat.handle,
+        title: cat.title,
+        blurb: cat.blurb || staticCat?.blurb || "",
+        icon: cat.icon || staticCat?.icon || "Folder",
+        groups: staticCat?.groups || [],
+        badges: staticCat?.badges || [],
+        feature: staticCat?.feature,
+        inNav: cat.is_nav ?? staticCat?.inNav ?? true,
+        inQuickStrip: cat.is_featured ?? staticCat?.inQuickStrip ?? true,
+        mockup: staticCat?.mockup || "card-stack",
+        image_url: cat.image_url || staticCat?.image_url || null,
+        banner_url: cat.banner_url || staticCat?.banner_url || null,
+      };
+    }
     if (cat && cat.status !== "active") return undefined;
-  } catch {}
+  } catch (err) {
+    console.error("Failed to query DB category:", err);
+  }
 
   return getStaticCategory(handle);
 }
 
 /**
- * Fetch all categories for Storefront (merging DB categories with static defaults to preserve images, ordering, and structure)
+ * Fetch all categories for Storefront.
+ * Authoritative on DB active categories (including custom categories added in Admin),
+ * while preserving mega-menu groups, mockups, and features from static templates when matching handles exist.
  */
-export async function getStorefrontCategories() {
+export async function getStorefrontCategories(): Promise<Category[]> {
   try {
     const supabase = getPublicClient();
     if (!supabase) return staticCategories;
@@ -334,26 +354,46 @@ export async function getStorefrontCategories() {
       .from("categories")
       .select("*")
       .eq("status", "active")
-      .order("sort_order", { ascending: true });
+      .order("sort_order", { ascending: true })
+      .order("title", { ascending: true });
 
     if (dbCats && dbCats.length > 0) {
-      const dbMap = new Map(dbCats.map((c) => [c.handle, c]));
-      return staticCategories.map((sc) => {
-        const dbCat = dbMap.get(sc.handle);
-        if (dbCat) {
-          return {
-            ...sc,
-            title: dbCat.title || sc.title,
-            blurb: dbCat.blurb !== null && dbCat.blurb !== undefined ? dbCat.blurb : sc.blurb,
-            image_url: dbCat.image_url || null,
-            banner_url: dbCat.banner_url || null,
-            inQuickStrip: dbCat.is_featured !== undefined ? dbCat.is_featured : sc.inQuickStrip,
-          };
-        }
-        return sc;
+      const staticMap = new Map(staticCategories.map((c) => [c.handle, c]));
+      const processedHandles = new Set<string>();
+
+      // 1. Process all database categories (includes user's custom categories and edited categories)
+      const mergedList: Category[] = dbCats.map((dbCat) => {
+        processedHandles.add(dbCat.handle);
+        const staticCat = staticMap.get(dbCat.handle);
+
+        return {
+          handle: dbCat.handle,
+          title: dbCat.title,
+          blurb: dbCat.blurb !== null && dbCat.blurb !== undefined ? dbCat.blurb : (staticCat?.blurb || ""),
+          icon: dbCat.icon || staticCat?.icon || "Folder",
+          groups: staticCat?.groups || [],
+          badges: staticCat?.badges || [],
+          feature: staticCat?.feature,
+          inNav: dbCat.is_nav ?? staticCat?.inNav ?? true,
+          inQuickStrip: true, // Allow all active categories to be browsable in category strips
+          mockup: staticCat?.mockup || "card-stack",
+          image_url: dbCat.image_url || staticCat?.image_url || null,
+          banner_url: dbCat.banner_url || staticCat?.banner_url || null,
+        };
       });
+
+      // 2. Append any static categories not present in DB to guarantee backwards compatibility
+      for (const sc of staticCategories) {
+        if (!processedHandles.has(sc.handle)) {
+          mergedList.push(sc);
+        }
+      }
+
+      return mergedList;
     }
-  } catch {}
+  } catch (err) {
+    console.error("Failed to fetch storefront categories:", err);
+  }
 
   return staticCategories;
 }

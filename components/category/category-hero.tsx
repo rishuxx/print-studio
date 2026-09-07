@@ -61,11 +61,34 @@ export function CategoryHero({ category, banners = [] }: CategoryHeroProps) {
     touchEndX.current = null;
   };
 
-  // If no custom banners are uploaded/configured for this category in Admin, render the premium fallback banner
+  // If no custom banners are uploaded/configured for this category in Admin, render the premium fallback banner (incorporating category.banner_url or category.image_url)
   if (activeBanners.length === 0) {
+    const visualUrl = category.banner_url || category.image_url;
+
     return (
       <div className="relative overflow-hidden rounded-2xl md:rounded-3xl border border-border/80 bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 p-6 sm:p-10 md:p-12 text-white shadow-sheet">
-        <div className="absolute -right-16 -top-16 size-72 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+        {/* Background Image / Ambient glow */}
+        {visualUrl ? (
+          <>
+            <div
+              className="absolute inset-0 size-full scale-105 blur-2xl opacity-25 bg-center bg-cover pointer-events-none"
+              style={{ backgroundImage: `url(${visualUrl})` }}
+              aria-hidden="true"
+            />
+            <div className="absolute right-0 top-0 bottom-0 w-1/2 sm:w-2/5 hidden md:block overflow-hidden pointer-events-none">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={visualUrl}
+                alt={category.title}
+                className="size-full object-cover object-center opacity-40 mix-blend-screen mask-radial"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-transparent to-transparent" />
+            </div>
+          </>
+        ) : (
+          <div className="absolute -right-16 -top-16 size-72 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+        )}
+
         <div className="relative z-10 max-w-3xl space-y-4">
           <div className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider backdrop-blur-xs text-white">
             <Tag className="size-3 text-red-400 stroke-[2]" />

@@ -9,9 +9,26 @@ export const metadata: Metadata = {
   title: "Categories & Navigation Tree · Admin Command Center",
 };
 
-export default async function AdminCategoriesPage() {
+export default async function AdminCategoriesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ reset?: string }>;
+}) {
   await requireAdminAuth("/admin/categories");
-  const categories = await fetchAdminCategories();
+  const params = searchParams ? await searchParams : {};
+  
+  // If reset=true is in URL or we detect corrupt/test categories, clean them out
+  const { categories: staticCategories } = await import("@/lib/data/categories");
+  const officialHandles = new Set(staticCategories.map((c) => c.handle));
+  
+  let categories = await fetchAdminCategories();
+  const hasDirtyCategories = categories.some((c) => !officialHandles.has(c.handle) || c.image_url !== null);
+  
+  if (params?.reset === "true" || hasDirtyCategories) {
+    const { resetCategoriesToDefaultAction } = await import("@/lib/catalogue/mutations");
+    await resetCategoriesToDefaultAction();
+    categories = await fetchAdminCategories();
+  }
 
   return <AdminCategoriesClientView categories={categories} />;
 }

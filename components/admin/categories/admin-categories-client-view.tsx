@@ -17,6 +17,8 @@ import {
   Upload,
   Image as ImageIcon,
   X,
+  RefreshCw,
+  Search,
 } from "lucide-react";
 import { uploadBannerImageAction } from "@/lib/hero/actions";
 import type {
@@ -28,6 +30,8 @@ import type {
 import {
   saveCategoryAction,
   updateCategoryStatusAction,
+  deleteCategoryAction,
+  resetCategoriesToDefaultAction,
 } from "@/lib/catalogue/mutations";
 import {
   fetchAllAttributeDefinitions,
@@ -35,6 +39,7 @@ import {
   assignCategoryAttributeTemplatesAction,
 } from "@/lib/catalogue/attributes";
 import { normalizeHandle } from "@/lib/catalogue/validation";
+import { Icon, iconRegistry } from "@/lib/icon-map";
 import { toast } from "sonner";
 
 interface AdminCategoriesClientViewProps {
@@ -61,12 +66,26 @@ export function AdminCategoriesClientView({
   const [catHandle, setCatHandle] = React.useState("");
   const [catBlurb, setCatBlurb] = React.useState("");
   const [catIcon, setCatIcon] = React.useState("Folder");
+  const [catParentId, setCatParentId] = React.useState<string | null>(null);
   const [catImageUrl, setCatImageUrl] = React.useState("");
   const [isUploadingImage, setIsUploadingImage] = React.useState(false);
   const [catIsFeatured, setCatIsFeatured] = React.useState(false);
+  const [catIsNav, setCatIsNav] = React.useState(true);
   const [catSortOrder, setCatSortOrder] = React.useState(0);
   const [catSelectedAttrIds, setCatSelectedAttrIds] = React.useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  // Icon Picker State
+  const [isIconPickerOpen, setIsIconPickerOpen] = React.useState(false);
+  const [iconSearchTerm, setIconSearchTerm] = React.useState("");
+
+  // Deletion Confirmation State
+  const [categoryToDelete, setCategoryToDelete] = React.useState<DatabaseCategory | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+
+  // Reset to Defaults Confirmation State
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = React.useState(false);
+  const [isResetting, setIsResetting] = React.useState(false);
 
   // Attribute Form State
   const [attrCode, setAttrCode] = React.useState("");
@@ -93,9 +112,11 @@ export function AdminCategoriesClientView({
     setCatHandle("");
     setCatBlurb("");
     setCatIcon("Folder");
+    setCatParentId(null);
     setCatImageUrl("");
     setCatIsFeatured(false);
-    setCatSortOrder(categories.length * 10);
+    setCatIsNav(true);
+    setCatSortOrder((categories.length + 1) * 10);
     setCatSelectedAttrIds([]);
     setIsCategoryModalOpen(true);
   };
@@ -106,8 +127,10 @@ export function AdminCategoriesClientView({
     setCatHandle(cat.handle);
     setCatBlurb(cat.blurb || "");
     setCatIcon(cat.icon || "Folder");
+    setCatParentId(cat.parent_id || null);
     setCatImageUrl(cat.image_url || "");
     setCatIsFeatured(cat.is_featured);
+    setCatIsNav(cat.is_nav ?? true);
     setCatSortOrder(cat.sort_order);
     setCatSelectedAttrIds(cat.attribute_templates?.map((t) => t.attribute_id) || []);
     setIsCategoryModalOpen(true);
@@ -217,10 +240,11 @@ export function AdminCategoriesClientView({
       blurb: catBlurb.trim() || null,
       icon: catIcon,
       image_url: catImageUrl.trim() || null,
+      parent_id: catParentId || null,
       status: editingCategory?.status || "active",
       sort_order: Number(catSortOrder),
       is_featured: catIsFeatured,
-      is_nav: true,
+      is_nav: catIsNav,
       attribute_ids: catSelectedAttrIds,
     });
 
@@ -232,6 +256,36 @@ export function AdminCategoriesClientView({
       window.location.reload();
     } else {
       toast.error(res.error || "Failed to save category");
+    }
+  };
+
+  const handleDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    setIsDeleting(true);
+
+    const res = await deleteCategoryAction(categoryToDelete.id);
+    setIsDeleting(false);
+
+    if (res.success) {
+      toast.success(`Category "${categoryToDelete.title}" deleted successfully!`);
+      setCategories(categories.filter((c) => c.id !== categoryToDelete.id));
+      setCategoryToDelete(null);
+    } else {
+      toast.error(res.error || "Failed to delete category");
+    }
+  };
+
+  const handleResetToDefaults = async () => {
+    setIsResetting(true);
+    const res = await resetCategoriesToDefaultAction();
+    setIsResetting(false);
+
+    if (res.success) {
+      toast.success(`Restored ${res.restoredCount} default categories successfully!`);
+      setIsResetConfirmOpen(false);
+      window.location.reload();
+    } else {
+      toast.error(res.error || "Failed to reset categories");
     }
   };
 
@@ -339,23 +393,34 @@ export function AdminCategoriesClientView({
             </button>
           </div>
 
-          {activeTab === "categories" ? (
+          <div className="flex items-center gap-2">
             <button
-              onClick={openCreateCategory}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-violet px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-violet-lift transition-colors"
+              onClick={() => setIsResetConfirmOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-300 bg-white px-3.5 py-2 text-xs font-bold text-zinc-700 shadow-xs hover:bg-zinc-50 hover:text-zinc-900 transition-colors"
+              title="Reset categories back to clean official defaults"
             >
-              <Plus className="size-4" />
-              <span>New Category</span>
+              <RefreshCw className="size-3.5 text-zinc-500" />
+              <span className="hidden sm:inline">Reset to Defaults</span>
             </button>
-          ) : (
-            <button
-              onClick={openCreateAttribute}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-violet px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-violet-lift transition-colors"
-            >
-              <Plus className="size-4" />
-              <span>New Attribute</span>
-            </button>
-          )}
+
+            {activeTab === "categories" ? (
+              <button
+                onClick={openCreateCategory}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-violet px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-violet-lift transition-colors"
+              >
+                <Plus className="size-4" />
+                <span>New Category</span>
+              </button>
+            ) : (
+              <button
+                onClick={openCreateAttribute}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-violet px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-violet-lift transition-colors"
+              >
+                <Plus className="size-4" />
+                <span>New Attribute</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -366,83 +431,119 @@ export function AdminCategoriesClientView({
             <table className="w-full text-left text-xs">
               <thead className="border-b border-border bg-paper text-muted-foreground font-mono uppercase tracking-wider">
                 <tr>
-                  <th className="px-5 py-3">Category</th>
+                  <th className="px-5 py-3">Category & Icon</th>
+                  <th className="px-4 py-3">Hierarchy / Parent</th>
                   <th className="px-4 py-3">Handle / URL</th>
-                  <th className="px-4 py-3">Attribute Templates</th>
+                  <th className="px-4 py-3">Attributes</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Order</th>
+                  <th className="px-4 py-3" title="Sequence in which categories appear (lower number = earlier)">
+                    Display Order
+                  </th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {categories.map((cat) => (
-                  <tr key={cat.id} className="hover:bg-paper/40 transition-colors">
-                    <td className="px-5 py-4 font-semibold text-ink">
-                      <div className="flex items-center gap-3">
-                        <div className="relative size-10 shrink-0 overflow-hidden rounded-lg border border-border bg-paper flex items-center justify-center">
-                          {cat.image_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={cat.image_url}
-                              alt={cat.title}
-                              className="size-full object-cover"
-                            />
-                          ) : (
-                            <Folder className="size-4 text-violet" />
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-bold text-sm text-ink">{cat.title}</div>
-                          <div className="text-[11px] text-muted-foreground line-clamp-1">
-                            {cat.blurb || "No description"}
+                {categories.map((cat) => {
+                  const parent = cat.parent_id ? categories.find((c) => c.id === cat.parent_id) : null;
+                  return (
+                    <tr key={cat.id} className="hover:bg-paper/40 transition-colors">
+                      <td className="px-5 py-4 font-semibold text-ink">
+                        <div className="flex items-center gap-3">
+                          <div className="relative size-10 shrink-0 overflow-hidden rounded-lg border border-border bg-paper flex items-center justify-center">
+                            {cat.image_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={cat.image_url}
+                                alt={cat.title}
+                                className="size-full object-cover"
+                              />
+                            ) : (
+                              <Icon name={cat.icon || "Folder"} className="size-5 text-violet" />
+                            )}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-sm text-ink">{cat.title}</span>
+                              {cat.is_featured && (
+                                <span className="rounded-full bg-violet-wash px-1.5 py-0.5 text-[9px] font-bold text-violet border border-violet/20">
+                                  Featured
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground line-clamp-1">
+                              {cat.blurb || "No description"}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 font-mono text-[11px] text-muted-foreground">
-                      /category/{cat.handle}
-                    </td>
-                    <td className="px-4 py-4">
-                      <button
-                        onClick={() => openTemplateManager(cat)}
-                        className="inline-flex items-center gap-1 rounded-md border border-violet/30 bg-violet-wash px-2 py-1 text-[11px] font-bold text-violet hover:bg-violet-tint transition-colors"
-                      >
-                        <Layers className="size-3" />
-                        <span>{cat.attribute_templates?.length || 0} Attributes</span>
-                      </button>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                          cat.status === "active"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                            : "bg-amber-50 text-amber-700 border border-amber-200"
-                        }`}
-                      >
-                        {cat.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 font-mono text-muted-foreground">{cat.sort_order}</td>
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                      </td>
+                      <td className="px-4 py-4">
+                        {parent ? (
+                          <div className="flex items-center gap-1 text-[11px] text-zinc-600 font-medium bg-zinc-100/80 px-2 py-1 rounded-md w-fit border border-zinc-200">
+                            <span className="text-zinc-400">└─</span>
+                            <span className="font-semibold text-zinc-800">{parent.title}</span>
+                          </div>
+                        ) : (
+                          <span className="text-[10.5px] font-medium text-zinc-400 bg-zinc-50 px-2 py-0.5 rounded border border-zinc-200/60">
+                            Top-Level
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 font-mono text-[11px] text-muted-foreground">
+                        /category/{cat.handle}
+                      </td>
+                      <td className="px-4 py-4">
                         <button
-                          onClick={() => openEditCategory(cat)}
-                          className="rounded-lg p-1.5 text-muted-foreground hover:bg-paper hover:text-ink transition-colors"
-                          title="Edit Category"
+                          onClick={() => openTemplateManager(cat)}
+                          className="inline-flex items-center gap-1 rounded-md border border-violet/30 bg-violet-wash px-2 py-1 text-[11px] font-bold text-violet hover:bg-violet-tint transition-colors"
                         >
-                          <Edit className="size-3.5" />
+                          <Layers className="size-3" />
+                          <span>{cat.attribute_templates?.length || 0} Attributes</span>
                         </button>
-                        <button
-                          onClick={() => handleToggleArchive(cat)}
-                          className="rounded-lg p-1.5 text-muted-foreground hover:bg-amber-50 hover:text-amber-700 transition-colors"
-                          title={cat.status === "active" ? "Archive" : "Restore"}
+                      </td>
+                      <td className="px-4 py-4">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                            cat.status === "active"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : "bg-amber-50 text-amber-700 border border-amber-200"
+                          }`}
                         >
-                          <Archive className="size-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {cat.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 font-mono text-zinc-700 font-bold">
+                        <span title="Display sorting sequence (lower numbers appear first on nav)">
+                          {cat.sort_order}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => openEditCategory(cat)}
+                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-paper hover:text-ink transition-colors"
+                            title="Edit Category"
+                          >
+                            <Edit className="size-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleArchive(cat)}
+                            className="rounded-lg p-1.5 text-muted-foreground hover:bg-amber-50 hover:text-amber-700 transition-colors"
+                            title={cat.status === "active" ? "Archive" : "Restore"}
+                          >
+                            <Archive className="size-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setCategoryToDelete(cat)}
+                            className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors"
+                            title="Delete Category"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -582,6 +683,50 @@ export function AdminCategoriesClientView({
                 />
               </div>
 
+              {/* Icon Picker Field */}
+              <div>
+                <label className="font-bold text-ink block mb-1">Category Icon</label>
+                <div className="flex items-center gap-2.5">
+                  <div className="flex size-10 items-center justify-center rounded-xl border border-border bg-paper text-violet shadow-2xs">
+                    <Icon name={catIcon || "Folder"} className="size-5" />
+                  </div>
+                  <div className="flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsIconPickerOpen(true)}
+                      className="w-full flex items-center justify-between rounded-xl border border-border px-3.5 py-2 text-xs font-semibold text-ink hover:bg-paper transition-colors"
+                    >
+                      <span className="font-mono">{catIcon || "Folder"}</span>
+                      <span className="text-violet font-bold text-[11px]">Change Icon →</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Parent Category Selector (For Subcategories) */}
+              <div>
+                <label className="font-bold text-ink block mb-1">
+                  Parent Category <span className="font-normal text-muted-foreground">(Leave empty for Top-Level)</span>
+                </label>
+                <select
+                  value={catParentId || ""}
+                  onChange={(e) => setCatParentId(e.target.value || null)}
+                  className="w-full rounded-xl border border-border px-3.5 py-2 text-xs focus:border-violet focus:outline-none bg-white text-ink"
+                >
+                  <option value="">None (Top-Level Category)</option>
+                  {categories
+                    .filter((c) => !editingCategory || c.id !== editingCategory.id)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.title} (/category/{c.handle})
+                      </option>
+                    ))}
+                </select>
+                <p className="mt-1 text-[10.5px] text-muted-foreground">
+                  Subcategories will be grouped under this parent in navigation and table hierarchy.
+                </p>
+              </div>
+
               {/* Category Card Image (Homepage & Grid) */}
               <div className="rounded-xl border border-zinc-200 p-3.5 space-y-2.5 bg-zinc-50/60">
                 <div className="flex items-center justify-between">
@@ -637,15 +782,21 @@ export function AdminCategoriesClientView({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-ink block mb-1">Sort Order</label>
+                  <label className="font-bold text-ink block mb-1">
+                    Display Order / Sequence
+                  </label>
                   <input
                     type="number"
                     value={catSortOrder}
                     onChange={(e) => setCatSortOrder(Number(e.target.value))}
                     className="w-full rounded-xl border border-border px-3.5 py-2 text-xs focus:border-violet focus:outline-none"
+                    placeholder="10, 20, 30..."
                   />
+                  <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                    Lower numbers appear first (e.g. 10, 20, 30)
+                  </span>
                 </div>
-                <div className="flex items-center pt-5">
+                <div className="space-y-2 pt-2">
                   <label className="inline-flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -654,6 +805,15 @@ export function AdminCategoriesClientView({
                       className="size-4 rounded border-border text-violet focus:ring-violet"
                     />
                     <span className="font-semibold text-ink">Featured in Nav Strip</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={catIsNav}
+                      onChange={(e) => setCatIsNav(e.target.checked)}
+                      className="size-4 rounded border-border text-violet focus:ring-violet"
+                    />
+                    <span className="font-semibold text-ink">Visible in Nav Mega-Menu</span>
                   </label>
                 </div>
               </div>
@@ -675,6 +835,176 @@ export function AdminCategoriesClientView({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1B: VISUAL ICON PICKER MODAL */}
+      {isIconPickerOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/70 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-white p-5 shadow-pop space-y-3.5">
+            <div className="flex items-center justify-between border-b border-border pb-2.5">
+              <h3 className="font-display text-base font-bold text-ink">Select Category Icon</h3>
+              <button
+                type="button"
+                onClick={() => setIsIconPickerOpen(false)}
+                className="rounded-lg p-1 text-muted-foreground hover:bg-paper hover:text-ink"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            {/* Icon Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                value={iconSearchTerm}
+                onChange={(e) => setIconSearchTerm(e.target.value)}
+                placeholder="Search icons (e.g. Card, Shirt, Gift, Box, Tag)..."
+                className="w-full rounded-xl border border-border pl-9 pr-3.5 py-2 text-xs focus:border-violet focus:outline-none"
+              />
+            </div>
+
+            {/* Icon Grid */}
+            <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 max-h-64 overflow-y-auto p-1">
+              {Object.keys(iconRegistry)
+                .filter((iconName) =>
+                  iconName.toLowerCase().includes(iconSearchTerm.toLowerCase().trim())
+                )
+                .map((iconName) => {
+                  const isSelected = catIcon === iconName;
+                  return (
+                    <button
+                      key={iconName}
+                      type="button"
+                      onClick={() => {
+                        setCatIcon(iconName);
+                        setIsIconPickerOpen(false);
+                      }}
+                      className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all text-center group cursor-pointer ${
+                        isSelected
+                          ? "border-violet bg-violet text-white shadow-sm"
+                          : "border-border/80 bg-paper/40 hover:bg-violet-wash hover:border-violet/40 text-zinc-700"
+                      }`}
+                      title={iconName}
+                    >
+                      <Icon name={iconName} className="size-5 mb-1" />
+                      <span className="text-[9px] font-mono truncate w-full">{iconName}</span>
+                    </button>
+                  );
+                })}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setIsIconPickerOpen(false)}
+                className="rounded-xl border border-border px-3.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-paper"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1C: DELETE CONFIRMATION MODAL */}
+      {categoryToDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/70 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl border border-red-200 bg-white p-5 shadow-pop space-y-4">
+            <div className="flex items-center gap-3 text-red-600">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-red-100">
+                <Trash2 className="size-5" />
+              </div>
+              <div>
+                <h3 className="font-display text-base font-bold text-ink">Delete Category</h3>
+                <p className="text-xs text-muted-foreground">Permanent deletion action</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-zinc-600 leading-relaxed">
+              Are you sure you want to permanently delete the category{" "}
+              <strong className="text-ink">&ldquo;{categoryToDelete.title}&rdquo;</strong> (
+              <span className="font-mono text-violet">/category/{categoryToDelete.handle}</span>)?
+            </p>
+
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-900 space-y-1">
+              <p className="font-semibold">Safe Deletion Guarantee:</p>
+              <ul className="list-disc list-inside space-y-0.5 text-[10.5px]">
+                <li>All products linked to this category remain safe and unharmed.</li>
+                <li>Child subcategories will automatically become top-level categories.</li>
+                <li>This category will be immediately removed from the storefront & nav strip.</li>
+              </ul>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setCategoryToDelete(null)}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-paper"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeleteCategory}
+                className="rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
+              >
+                {isDeleting ? "Deleting..." : "Yes, Delete Category"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1D: RESET TO DEFAULTS CONFIRMATION MODAL */}
+      {isResetConfirmOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/70 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-white p-5 shadow-pop space-y-4">
+            <div className="flex items-center gap-3 text-zinc-900">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-violet-wash text-violet">
+                <RefreshCw className="size-5" />
+              </div>
+              <div>
+                <h3 className="font-display text-base font-bold text-ink">Reset Categories to Default</h3>
+                <p className="text-xs text-muted-foreground">Clean official catalog restoration</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-zinc-600 leading-relaxed">
+              This will remove test or corrupted categories (such as <span className="font-mono text-red-600">cars</span>, <span className="font-mono text-red-600">rishu</span>) and restore all official print categories with their verified icons, ordering, and product mappings.
+            </p>
+
+            <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-[11px] text-blue-900 space-y-1">
+              <p className="font-semibold">What will happen:</p>
+              <ul className="list-disc list-inside space-y-0.5 text-[10.5px]">
+                <li>Official categories (Visiting Cards, Apparel, Gifts, Signage, etc.) are restored.</li>
+                <li>All 350+ existing database products will be cleanly re-linked.</li>
+                <li>Display orders will be cleanly set to 10, 20, 30, 40...</li>
+              </ul>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={() => setIsResetConfirmOpen(false)}
+                className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-paper"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={handleResetToDefaults}
+                className="rounded-xl bg-violet px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-violet-lift disabled:opacity-50"
+              >
+                {isResetting ? "Resetting Categories..." : "Confirm & Reset Categories"}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -973,6 +973,7 @@ export function AdminProductEditor({
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               {categories.map((cat) => {
                 const isSelected = selectedCategoryIds.includes(cat.id);
+                const parent = cat.parent_id ? categories.find((c) => c.id === cat.parent_id) : null;
                 return (
                   <label
                     key={cat.id}
@@ -995,9 +996,16 @@ export function AdminProductEditor({
                       }}
                       className="size-4 rounded border-border text-violet focus:ring-violet"
                     />
-                    <div>
-                      <div className="font-bold text-xs text-ink">{cat.title}</div>
-                      <div className="text-[10px] text-muted-foreground font-mono">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-xs text-ink">{cat.title}</span>
+                        {parent && (
+                          <span className="text-[10px] font-medium text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded border border-zinc-200">
+                            Sub of {parent.title}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground font-mono truncate">
                         /category/{cat.handle}
                       </div>
                     </div>

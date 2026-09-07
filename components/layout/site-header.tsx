@@ -38,6 +38,7 @@ export function SiteHeader() {
   const settings = useStoreSettings();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [activeMegaCategory, setActiveMegaCategory] = React.useState<string | null>(null);
+  const [navCategories, setNavCategories] = React.useState(categories);
   const [flashCards, setFlashCards] = React.useState<Record<string, CategoryFlashCard>>(DEFAULT_FLASH_CARDS);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [searchFocused, setSearchFocused] = React.useState(false);
@@ -46,8 +47,23 @@ export function SiteHeader() {
   const [canScrollLeft, setCanScrollLeft] = React.useState(false);
   const [canScrollRight, setCanScrollRight] = React.useState(false);
 
-  // Load dynamic flash cards from API on mount
+  // Load dynamic categories & flash cards from API on mount
   React.useEffect(() => {
+    fetch("/api/categories")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.categories) && data.categories.length > 0) {
+          // Filter categories marked for navigation (default true)
+          const visible = data.categories.filter((c: any) => c.inNav !== false);
+          if (visible.length > 0) {
+            setNavCategories(visible);
+          }
+        }
+      })
+      .catch(() => {
+        // Fallback to static verified categories
+      });
+
     fetch("/api/flash-cards")
       .then((res) => res.json())
       .then((data) => {
@@ -328,7 +344,7 @@ export function SiteHeader() {
               onScroll={checkNavScroll}
               className="flex items-center gap-0.5 lg:gap-1 xl:gap-1.5 min-w-0 overflow-x-auto no-scrollbar py-0.5 scroll-smooth"
             >
-              {categories.map((cat) => {
+              {navCategories.map((cat) => {
                 const isActive = activeMegaCategory === cat.handle;
                 const hasDropdown = Boolean(cat.groups && cat.groups.length > 0);
 
@@ -418,7 +434,7 @@ export function SiteHeader() {
 
         {/* ── Active Mega-Menu Dropdown Panel ─────────────────────────── */}
         {activeMegaCategory && (() => {
-          const cat = categories.find((c) => c.handle === activeMegaCategory);
+          const cat = navCategories.find((c) => c.handle === activeMegaCategory);
           if (!cat || !cat.groups || cat.groups.length === 0) return null;
 
           return (

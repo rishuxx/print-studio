@@ -831,7 +831,9 @@ export async function saveCategoryAction(rawInput: SaveCategoryInput): Promise<{
     });
 
     revalidatePath("/admin/categories");
-    revalidatePath("/");
+    revalidatePath(`/category/${data.handle}`);
+    revalidatePath("/products");
+    revalidatePath("/", "layout");
 
     return { success: true, categoryId };
   } catch (err: unknown) {
@@ -858,9 +860,221 @@ export async function updateCategoryStatusAction(
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/admin/categories");
-    revalidatePath("/");
+    revalidatePath("/products");
+    revalidatePath("/", "layout");
     return { success: true };
   } catch (err: unknown) {
     return { success: false, error: err instanceof Error ? err.message : "Status update failed" };
   }
 }
+
+/**
+ * Delete Category Action (Hard delete with safe link cascade; preserves products)
+ */
+export async function deleteCategoryAction(
+  categoryId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { user } = await requirePermission("products.manage", "/admin/categories");
+    const supabase = await createClient();
+
+    // 1. Fetch category title/handle for audit logging
+    const { data: category, error: fetchErr } = await supabase
+      .from("categories")
+      .select("id, title, handle")
+      .eq("id", categoryId)
+      .single();
+
+    if (fetchErr || !category) {
+      return { success: false, error: "Category not found or already deleted." };
+    }
+
+    // 2. Unlink any subcategories that have this category as parent_id
+    await supabase
+      .from("categories")
+      .update({ parent_id: null })
+      .eq("parent_id", categoryId);
+
+    // 3. Delete category attribute templates mapping
+    await supabase
+      .from("category_attribute_templates")
+      .delete()
+      .eq("category_id", categoryId);
+
+    // 4. Delete product category links for this category (products remain intact)
+    await supabase
+      .from("product_category_links")
+      .delete()
+      .eq("category_id", categoryId);
+
+    // 5. Delete category row
+    const { error: deleteErr } = await supabase
+      .from("categories")
+      .delete()
+      .eq("id", categoryId);
+
+    if (deleteErr) {
+      return { success: false, error: deleteErr.message };
+    }
+
+    // 6. Record Audit Log
+    await supabase.from("catalog_audit_logs").insert({
+      entity_type: "category",
+      entity_id: categoryId,
+      action: "DELETE",
+      reason: `Category '${category.title}' (${category.handle}) deleted safely by administrator`,
+      admin_id: user.id,
+      admin_email: user.email,
+    });
+
+    revalidatePath("/admin/categories");
+    revalidatePath(`/category/${category.handle}`);
+    revalidatePath("/products");
+    revalidatePath("/", "layout");
+
+    return { success: true };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to delete category",
+    };
+  }
+}
+
+/**
+ * Reset Categories to Default Action
+ * Cleans out corrupt/unwanted categories, restores official catalog categories,
+ * and re-links all products in the database.
+ */
+export async function resetCategoriesToDefaultAction(): Promise<{
+  success: boolean;
+  restoredCount: number;
+  error?: string;
+}> {
+  try {
+    const { user } = await requirePermission("products.manage", "/admin/categories");
+    const supabase = await createClient();
+    const { categories: staticCategories } = await import("@/lib/data/categories");
+    const { products: staticProducts } = await import("@/lib/data/products");
+
+    // 1. Gather all official static category handles
+    const officialHandles = new Set(staticCategories.map((c) => c.handle));
+
+    // 2. Fetch existing database categories
+    const { data: existingCats } = await supabase
+      .from("categories")
+      .select("id, handle, title");
+
+    // 3. Identify and delete non-official / test categories (e.g. 'cars', 'rishu')
+    if (existingCats && existingCats.length > 0) {
+      const unwantedCats = existingCats.filter((c) => !officialHandles.has(c.handle));
+      for (const unwanted of unwantedCats) {
+        await supabase.from("category_attribute_templates").delete().eq("category_id", unwanted.id);
+        await supabase.from("product_category_links").delete().eq("category_id", unwanted.id);
+        await supabase.from("categories").delete().eq("id", unwanted.id);
+      }
+    }
+
+    // 4. Upsert/Restore standard official categories with clean sort_order, icons, and metadata
+    const categoryMap = new Map<string, string>(); // handle -> id
+    for (let i = 0; i < staticCategories.length; i++) {
+      const sc = staticCategories[i];
+      const { data: upserted } = await supabase
+        .from("categories")
+        .upsert(
+          {
+            handle: sc.handle,
+            title: sc.title,
+            blurb: sc.blurb || "",
+            icon: sc.icon || "Folder",
+            status: "active",
+            sort_order: (i + 1) * 10,
+            is_featured: !!sc.inQuickStrip,
+            is_nav: sc.inNav ?? true,
+            parent_id: null,
+            image_url: null, // Wipe corrupted/test image URLs so default clean icons display
+            banner_url: null,
+            seo_title: `${sc.title} | Custom Printing Services`,
+            seo_description: sc.blurb || `Shop ${sc.title} printing with doorstep delivery.`,
+          },
+          { onConflict: "handle" }
+        )
+        .select("id, handle")
+        .single();
+
+      if (upserted) {
+        categoryMap.set(upserted.handle, upserted.id);
+      }
+    }
+
+    // 5. Re-link products to their appropriate categories
+    const { data: dbProducts } = await supabase.from("products").select("id, handle, title");
+
+    if (dbProducts && dbProducts.length > 0) {
+      const staticProdMap = new Map(staticProducts.map((p) => [p.handle, p]));
+
+      for (const prod of dbProducts) {
+        const staticP = staticProdMap.get(prod.handle);
+        const targetHandles = new Set<string>();
+
+        if (staticP?.categoryHandles) {
+          staticP.categoryHandles.forEach((h) => targetHandles.add(h));
+        }
+
+        // Infer from product title if no static category matches
+        const lower = prod.title.toLowerCase();
+        if (lower.includes("card")) targetHandles.add("visiting-cards");
+        if (lower.includes("t-shirt") || lower.includes("polo") || lower.includes("hoodie") || lower.includes("jacket")) {
+          targetHandles.add("apparel");
+        }
+        if (lower.includes("mug") || lower.includes("frame") || lower.includes("photo") || lower.includes("gift")) {
+          targetHandles.add("personalised-gifts");
+        }
+        if (lower.includes("stamp") || lower.includes("letterhead") || lower.includes("pen") || lower.includes("flyer")) {
+          targetHandles.add("stationery-stamps");
+        }
+        if (lower.includes("sticker") || lower.includes("label") || lower.includes("box") || lower.includes("packaging")) {
+          targetHandles.add("labels-packaging");
+        }
+        if (lower.includes("sign") || lower.includes("standee") || lower.includes("banner")) {
+          targetHandles.add("signage");
+        }
+
+        for (const catHandle of targetHandles) {
+          const catId = categoryMap.get(catHandle);
+          if (catId) {
+            await supabase
+              .from("product_category_links")
+              .upsert(
+                { product_id: prod.id, category_id: catId },
+                { onConflict: "product_id,category_id" }
+              );
+          }
+        }
+      }
+    }
+
+    // 6. Audit Log
+    await supabase.from("catalog_audit_logs").insert({
+      entity_type: "category",
+      entity_id: "all",
+      action: "RESET",
+      reason: `Reset categories to default clean catalog state (${staticCategories.length} categories restored)`,
+      admin_id: user.id,
+      admin_email: user.email,
+    });
+
+    revalidatePath("/admin/categories");
+    revalidatePath("/products");
+    revalidatePath("/", "layout");
+
+    return { success: true, restoredCount: staticCategories.length };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      restoredCount: 0,
+      error: err instanceof Error ? err.message : "Failed to reset categories to default",
+    };
+  }
+}
+
